@@ -1,0 +1,45 @@
+# ============================================================
+#  Osh.it — קטע להוספה ל-docker-compose.yml של שרת האפליקציות
+#  (החליפו <SERVER_IP> בכתובת השרת שלכם)
+#
+#  הדבק את השירות הזה לתוך ה-services הקיים שלך.
+#  הפורט 8082 ממשיך את הרצף: 8080 it-tools, 8081 tripplanner.
+# ============================================================
+
+  oshit:
+    image: ghcr.io/saarcohenn/oshit:latest
+    container_name: oshit
+    ports:
+      # רשת פנימית בלבד — לאפליקציה אין שכבת הזדהות.
+      # אל תמפה אותה החוצה בלי reverse proxy עם אימות.
+      - "8082:8080"
+    environment:
+      - PORT=8080
+      - DATA_DIR=/app/data
+    volumes:
+      # אותו דפוס כמו tripplanner — bind mount ליד קובץ ה-compose
+      - ./oshit/data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+# ------------------------------------------------------------
+#  העדכון האוטומטי אינו שירות בקומפוז אלא cron על המארח:
+#
+#    */5 * * * * STACK_DIR=/path/to/stack /usr/local/bin/oshit-update
+#
+#  ראו deploy/oshit-update.sh ו-deploy/README.md.
+#
+#  למה לא Watchtower: הגרסה הרשמית (containrrr) אינה מתוחזקת ואינה עובדת
+#  מול Docker Engine עדכני — נבדק, היא נופלת עם
+#  "client version 1.25 is too old". מעבר לכך, כלי עדכון אוטומטי דורש
+#  הצמדת docker.sock לקונטיינר, וזו ההרשאה הגבוהה ביותר בכל השרשרת.
+#  אם בכל זאת מעדיפים כלי מוכן, יש fork מתוחזק — nickfedor/watchtower —
+#  ואז יש להוסיף לשירות oshit את התווית:
+#    labels:
+#      - "com.centurylinklabs.watchtower.enable=true"
+# ------------------------------------------------------------

@@ -1,0 +1,4 @@
+# כל שינוי דורש אישור של בעל המאגר.
+# בשילוב עם Branch protection על main (Require review from Code Owners),
+# זה מה שמונע ממישהו אחר להכניס קוד שיגיע בסוף לשרת הביתי.
+* @saarcohenn

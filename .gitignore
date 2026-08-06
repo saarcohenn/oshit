@@ -1,0 +1,12 @@
+node_modules
+dist
+*.tsbuildinfo
+
+# בסיס הנתונים המקומי של השרת
+server/data
+data
+
+# קבצי בנק וגיבויים — לעולם לא נכנסים לגיט
+*.xlsx
+*.xls
+oshit-backup-*.json

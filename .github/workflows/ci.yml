@@ -1,0 +1,46 @@
+name: CI
+
+# בדיקות בלבד. רץ גם על Pull Request מ-fork, ולכן אין כאן שום secret,
+# אין הרשאת כתיבה, ולא נדחפת תמונה לשום מקום.
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: התקנת תלויות הלקוח
+        run: npm --prefix client ci || npm --prefix client install
+
+      - name: בדיקת טיפוסים ובנייה — לקוח
+        run: npm --prefix client run build
+
+      - name: התקנת תלויות השרת
+        run: npm --prefix server ci || npm --prefix server install
+
+      - name: בדיקת טיפוסים ובנייה — שרת
+        run: npm --prefix server run build
+
+      # בנייה בלבד, בלי push — מוודאת שה-Dockerfile תקין גם ב-PR
+      - name: בניית תמונת דוקר
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

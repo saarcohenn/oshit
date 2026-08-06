@@ -1,0 +1,92 @@
+name: Build & Push image
+
+# רץ אך ורק על main של המאגר עצמו.
+#
+# מכוון: אין כאן pull_request ואין pull_request_target.
+# pull_request_target היה מריץ קוד מ-fork עם ההרשאות של המאגר —
+# כלומר כל אדם זר היה יכול לדחוף תמונה בשם הזה. זו החולשה הקלאסית
+# בשרשרת האספקה של GitHub Actions, ולכן היא נמנעת כאן לחלוטין.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  # נדרש כדי לחתום על מקור התמונה (provenance)
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/oshit
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # ריצה רק במאגר המקורי — fork שמריץ את הקובץ הזה אצלו לא ידחוף לכאן
+    if: github.repository_owner == 'saarcohenn'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: התחברות ל-GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: תגיות
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+            type=ref,event=tag
+
+      - name: בנייה ודחיפה
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # ההומלאב הוא x86_64. להוספת ARM (Raspberry Pi וכדומה):
+          #   platforms: linux/amd64,linux/arm64
+          # שימו לב ש-better-sqlite3 מתקמפל מהמקור, ולכן בנייה ל-ARM
+          # תחת אמולציה איטית משמעותית.
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: חתימת מקור התמונה
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: סיכום
+        run: |
+          echo "### נדחפה תמונה חדשה" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '`${{ env.IMAGE }}:latest`' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "digest: \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ההומלאב מושך את העדכון בעצמו — אין ל-GitHub גישה לרשת הביתית." >> $GITHUB_STEP_SUMMARY

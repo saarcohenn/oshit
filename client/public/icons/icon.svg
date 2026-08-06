@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Osh.it">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4d9dff"/>
+      <stop offset="1" stop-color="#a97dff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0a0d14"/>
+  <circle cx="256" cy="236" r="132" fill="none" stroke="url(#g)" stroke-width="40"/>
+  <circle cx="256" cy="418" r="30" fill="url(#g)"/>
+</svg>
