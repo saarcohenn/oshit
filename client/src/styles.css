@@ -1,5 +1,5 @@
 /* ============================================================
-   כספית — מערכת עיצוב
+   Osh.it — מערכת עיצוב
    מצב כהה הוא ברירת המחדל הוויזואלית; המצב הבהיר אינו היפוך
    אוטומטי אלא סט ערכים שנבחר בנפרד מול רקע בהיר.
    ============================================================ */
@@ -189,7 +189,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
   width: 38px; height: 38px; flex: none;
   display: grid; place-items: center;
   border-radius: 12px;
-  font-size: 19px;
+  color: #fff;
   background: linear-gradient(140deg, var(--accent), var(--accent-2));
   box-shadow: 0 0 0 1px var(--border-bright), 0 6px 20px var(--accent-glow);
 }
@@ -206,20 +206,47 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
 .logo-text small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
 
 /* הניווט מתחיל בקצה ההתחלתי — בעברית זהו הצד הימני */
-.tabs { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-start; }
+.tabs {
+  display: flex; align-items: center; gap: 2px;
+  flex-wrap: wrap; justify-content: flex-start;
+}
+
+/* מפריד בין המסכים היומיומיים לבין מסכי ההגדרה */
+.tabs-divider {
+  width: 1px; align-self: stretch; margin: 4px 9px;
+  background: var(--border); flex: none;
+}
+
 .tab {
   position: relative;
-  background: transparent; border: 1px solid transparent; color: var(--text-dim);
-  padding: 7px 13px; border-radius: var(--radius-sm); font-weight: 550; white-space: nowrap;
-  transition: color 0.15s, background 0.15s;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; border: none; color: var(--text-dim);
+  padding: 8px 12px; border-radius: 10px; min-height: 36px;
+  font-weight: 550; font-size: 13.5px; white-space: nowrap;
+  transition: color 0.16s ease, background 0.16s ease;
 }
+.tab svg { flex: none; opacity: 0.9; transition: opacity 0.16s ease; }
 .tab:hover { background: var(--surface-2); color: var(--text); }
-.tab.active {
-  color: var(--text);
-  background: var(--accent-soft);
-  border-color: var(--border-bright);
-  box-shadow: 0 0 18px -6px var(--accent-glow);
+.tab:hover svg { opacity: 1; }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.tab.active { color: var(--accent); background: var(--accent-soft); font-weight: 650; }
+.tab.active svg { opacity: 1; }
+
+/* כשהרוחב מצטמצם, לשוניות ההגדרה מוותרות על הכיתוב ונשארות כאייקון.
+   הכיתוב עדיין זמין ב-title ולקוראי מסך, והלשוניות היומיומיות נשארות מלאות. */
+@media (max-width: 1180px) {
+  .tab.setup .tab-label { display: none; }
+  .tab.setup { padding-inline: 10px; }
 }
+
+/* קו דק מתחת ללשונית הפעילה — מסמן מיקום בלי להוסיף עוד מסגרת */
+.tab.active::after {
+  content: '';
+  position: absolute; inset-inline: 12px; bottom: 2px; height: 2px;
+  border-radius: 2px; background: currentColor;
+}
+.tab.setup.active::after { inset-inline: 9px; }
 
 .icon-btn {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
@@ -671,7 +698,8 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
     scrollbar-width: none;
   }
   .tabs::-webkit-scrollbar { display: none; }
-  .tab { scroll-snap-align: start; padding: 8px 12px; font-size: 14px; }
+  .tab { scroll-snap-align: start; padding: 8px 11px; font-size: 13.5px; gap: 7px; }
+  .tabs-divider { margin: 4px 6px; }
 
   .card { padding: 14px 14px; border-radius: 15px; }
   .stat-value { font-size: 25px; }

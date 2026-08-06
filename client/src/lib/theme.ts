@@ -9,12 +9,6 @@ export const THEME_LABEL: Record<Theme, string> = {
   auto: 'לפי המערכת',
 }
 
-export const THEME_ICON: Record<Theme, string> = {
-  light: '☀️',
-  dark: '🌙',
-  auto: '🌗',
-}
-
 export function loadTheme(): Theme {
   const saved = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)
   return saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : 'auto'

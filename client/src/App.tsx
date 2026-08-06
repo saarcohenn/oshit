@@ -15,7 +15,7 @@ import { CategoryProvider } from './lib/categoryContext'
 import { api } from './lib/api'
 import { availableMonths } from './lib/analytics'
 import { monthLabel } from './lib/format'
-import { applyTheme, loadTheme, nextTheme, THEME_ICON, THEME_LABEL, type Theme } from './lib/theme'
+import { applyTheme, loadTheme, nextTheme, THEME_LABEL, type Theme } from './lib/theme'
 import ImportPanel from './components/ImportPanel'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
@@ -25,6 +25,21 @@ import RecurringPanel from './components/RecurringPanel'
 import SavingsPanel from './components/SavingsPanel'
 import PlanPanel from './components/PlanPanel'
 import HouseholdBar from './components/HouseholdBar'
+import {
+  IconAuto,
+  IconBrand,
+  IconBudget,
+  IconCategories,
+  IconGoals,
+  IconImport,
+  IconMerchants,
+  IconOverview,
+  IconMoon,
+  IconRecurring,
+  IconSavings,
+  IconSun,
+  IconTransactions,
+} from './components/Icons'
 import CategoriesPanel from './components/CategoriesPanel'
 
 type Tab =
@@ -38,16 +53,26 @@ type Tab =
   | 'categories'
   | 'import'
 
-const TABS: Array<{ id: Tab; label: string; icon: string }> = [
-  { id: 'dashboard', label: 'סקירה', icon: '📊' },
-  { id: 'plan', label: 'הכנסות ויעדים', icon: '💼' },
-  { id: 'budgets', label: 'תקציבים', icon: '🎯' },
-  { id: 'recurring', label: 'חיובים קבועים', icon: '🔁' },
-  { id: 'savings', label: 'איפה לחסוך', icon: '💰' },
-  { id: 'transactions', label: 'עסקאות', icon: '📋' },
-  { id: 'merchants', label: 'בתי עסק', icon: '🏪' },
-  { id: 'categories', label: 'קטגוריות', icon: '🏷️' },
-  { id: 'import', label: 'ייבוא', icon: '📥' },
+type TabDef = { id: Tab; label: string; Icon: (p: { size?: number }) => JSX.Element }
+
+/**
+ * הניווט מחולק לשתי קבוצות: מסכים שמסתכלים בהם יום-יום, ומסכים שמסדרים בהם
+ * את הנתונים ומגיעים אליהם לעיתים רחוקות. תשע לשוניות ברצף אחד נקראות כערימה,
+ * וההפרדה נותנת להן היררכיה בלי להסתיר כלום מאחורי תפריט.
+ */
+const VIEW_TABS: TabDef[] = [
+  { id: 'dashboard', label: 'סקירה', Icon: IconOverview },
+  { id: 'plan', label: 'הכנסות ויעדים', Icon: IconGoals },
+  { id: 'budgets', label: 'תקציבים', Icon: IconBudget },
+  { id: 'recurring', label: 'חיובים קבועים', Icon: IconRecurring },
+  { id: 'savings', label: 'איפה לחסוך', Icon: IconSavings },
+  { id: 'transactions', label: 'עסקאות', Icon: IconTransactions },
+]
+
+const SETUP_TABS: TabDef[] = [
+  { id: 'merchants', label: 'בתי עסק', Icon: IconMerchants },
+  { id: 'categories', label: 'קטגוריות', Icon: IconCategories },
+  { id: 'import', label: 'ייבוא', Icon: IconImport },
 ]
 
 /** תוצאת מיזוג של קובץ אחד לתוך הנתונים הקיימים */
@@ -341,7 +366,7 @@ export default function App() {
         <div className="topbar-row">
         <div className="logo">
           <span className="logo-mark" aria-hidden>
-            🪙
+            <IconBrand size={21} />
           </span>
           <div className="logo-text">
             <b>Osh<span className="dot">.</span>it</b>
@@ -382,20 +407,18 @@ export default function App() {
             title={`מצב תצוגה: ${THEME_LABEL[theme]} — לחצו להחלפה`}
             aria-label={`מצב תצוגה: ${THEME_LABEL[theme]}`}
           >
-            {THEME_ICON[theme]}
+            {theme === 'light' ? <IconSun /> : theme === 'dark' ? <IconMoon /> : <IconAuto />}
           </button>
         </div>
 
         {/* הניווט בשורה נפרדת שמתחילה מימין — כיוון הקריאה בעברית */}
-        <nav className="tabs">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.icon} {t.label}
-            </button>
+        <nav className="tabs" aria-label="ניווט ראשי">
+          {VIEW_TABS.map((t) => (
+            <NavTab key={t.id} tab={t} active={tab === t.id} onSelect={setTab} />
+          ))}
+          <span className="tabs-divider" aria-hidden />
+          {SETUP_TABS.map((t) => (
+            <NavTab key={t.id} tab={t} active={tab === t.id} onSelect={setTab} setup />
           ))}
         </nav>
       </header>
@@ -497,6 +520,32 @@ export default function App() {
       </main>
     </div>
     </CategoryProvider>
+  )
+}
+
+function NavTab({
+  tab,
+  active,
+  onSelect,
+  setup = false,
+}: {
+  tab: TabDef
+  active: boolean
+  onSelect: (id: Tab) => void
+  /** לשוניות ההגדרה מצטמצמות לאייקון בלבד כשאין רוחב — הן בשימוש נדיר יותר */
+  setup?: boolean
+}) {
+  const { Icon } = tab
+  return (
+    <button
+      className={`tab ${setup ? 'setup' : ''} ${active ? 'active' : ''}`}
+      onClick={() => onSelect(tab.id)}
+      aria-current={active ? 'page' : undefined}
+      title={tab.label}
+    >
+      <Icon />
+      <span className="tab-label">{tab.label}</span>
+    </button>
   )
 }
 
