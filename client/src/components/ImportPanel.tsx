@@ -22,38 +22,62 @@ interface ImportLog {
 
 export default function ImportPanel({ state, onImport, onExport, onReset, onDone }: Props) {
   const [over, setOver] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [logs, setLogs] = useState<ImportLog[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return
-    const results: ImportLog[] = []
-    // ספריית קריאת האקסל כבדה ונחוצה רק כאן — נטענת רק כשבאמת מייבאים קובץ
-    const { parseCreditCardXlsx } = await import('../lib/parseExcel')
 
-    for (const file of Array.from(files)) {
-      try {
-        const buffer = await file.arrayBuffer()
-        const { transactions, skipped } = parseCreditCardXlsx(buffer, file.name, state.categories)
-        if (!transactions.length) {
+    /*
+     * הרשימה מועתקת מיד, לפני כל await.
+     * FileList של אלמנט input הוא אובייקט חי: איפוס ה-input אחרי הבחירה
+     * (כדי שאפשר יהיה לבחור שוב את אותו קובץ) מרוקן אותו. כשהעתקה נעשתה
+     * אחרי await, הקריאה חזרה לרשימה ריקה והייבוא נכשל בשקט.
+     */
+    const selected = Array.from(files)
+    const results: ImportLog[] = []
+    setBusy(true)
+    setLogs([])
+
+    try {
+      // ספריית קריאת האקסל כבדה ונחוצה רק כאן — נטענת רק כשבאמת מייבאים קובץ
+      const { parseCreditCardXlsx } = await import('../lib/parseExcel')
+
+      for (const file of selected) {
+        try {
+          const buffer = await file.arrayBuffer()
+          const { transactions, skipped } = parseCreditCardXlsx(buffer, file.name, state.categories)
+          if (!transactions.length) {
+            results.push({
+              fileName: file.name,
+              read: 0,
+              skipped,
+              error: 'לא נמצאו עסקאות בקובץ. ודאו שזה קובץ פירוט כרטיסי אשראי מהבנק.',
+            })
+            continue
+          }
+          const summary = onImport(transactions, file.name)
+          results.push({ fileName: file.name, read: transactions.length, skipped, summary })
+        } catch (err) {
           results.push({
             fileName: file.name,
             read: 0,
-            skipped,
-            error: 'לא נמצאו עסקאות בקובץ. ודאו שזה קובץ פירוט כרטיסי אשראי מהבנק.',
+            skipped: 0,
+            error: `שגיאה בקריאת הקובץ: ${(err as Error).message}`,
           })
-          continue
         }
-        const summary = onImport(transactions, file.name)
-        results.push({ fileName: file.name, read: transactions.length, skipped, summary })
-      } catch (err) {
-        results.push({
-          fileName: file.name,
-          read: 0,
-          skipped: 0,
-          error: `שגיאה בקריאת הקובץ: ${(err as Error).message}`,
-        })
       }
+    } catch (err) {
+      // כשל בטעינת מנוע הקריאה עצמו — בלי זה המשתמש היה נשאר בלי שום הודעה
+      results.push({
+        fileName: selected.map((f) => f.name).join(', '),
+        read: 0,
+        skipped: 0,
+        error: `טעינת מנוע קריאת האקסל נכשלה: ${(err as Error).message}`,
+      })
+    } finally {
+      setBusy(false)
     }
 
     setLogs(results)
@@ -74,7 +98,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
         onDrop={(e) => {
           e.preventDefault()
           setOver(false)
-          void handleFiles(e.dataTransfer.files)
+          if (!busy) void handleFiles(e.dataTransfer.files)
         }}
       >
         <h3>📥 גררו לכאן את קובץ האקסל מהבנק</h3>
@@ -86,9 +110,15 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
           <strong>אפשר לייבא את אותו חודש שוב בעוד כמה ימים</strong> — המערכת תזהה ותוסיף רק את
           העסקאות שהתווספו מאז, בלי לשכפל דבר.
         </p>
-        <button className="btn" onClick={() => inputRef.current?.click()}>
-          בחירת קבצים
+        <button className="btn" onClick={() => inputRef.current?.click()} disabled={busy}>
+          {busy ? 'קורא את הקובץ…' : 'בחירת קבצים'}
         </button>
+        {busy && (
+          <div className="import-busy" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden />
+            קורא ומנתח את הקובץ…
+          </div>
+        )}
         <input
           ref={inputRef}
           type="file"
