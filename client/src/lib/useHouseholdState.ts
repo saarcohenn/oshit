@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppState } from '../types'
-import { api, type Household } from './api'
+import { api, ConflictError, type Household } from './api'
 import { EMPTY_STATE } from './storage'
 
 const ACTIVE_KEY = 'oshit.activeHousehold'
@@ -24,6 +24,8 @@ export function useHouseholdState() {
   const stateRef = useRef(state)
   stateRef.current = state
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // הגרסה שעליה נשען המצב הנוכחי, לבקרת מקביליות מול השרת
+  const version = useRef(0)
   // שמירה נדחית רק אחרי טעינה מוצלחת, כדי שהמצב הריק ההתחלתי לא ידרוס נתונים
   const loadedFor = useRef<string | null>(null)
 
@@ -31,7 +33,8 @@ export function useHouseholdState() {
     setStatus('loading')
     loadedFor.current = null
     try {
-      const next = await api.getState(id)
+      const { version: loadedVersion, ...next } = await api.getState(id)
+      version.current = loadedVersion ?? 0
       setState({ ...EMPTY_STATE, ...next })
       loadedFor.current = id
       setStatus('ready')
@@ -76,12 +79,23 @@ export function useHouseholdState() {
       if (loadedFor.current !== activeId) return
       setStatus('saving')
       api
-        .putState(activeId, stateRef.current)
-        .then(() => {
+        .putState(activeId, stateRef.current, version.current)
+        .then((res) => {
+          version.current = res.version
           setStatus('ready')
           setError(null)
         })
         .catch((err) => {
+          if (err instanceof ConflictError) {
+            /*
+             * מכשיר אחר כתב בינתיים. במקום לדרוס אותו, נטען מחדש מהשרת.
+             * זה בדיוק התרחיש של מחשב וטלפון פתוחים במקביל: קודם לכן
+             * הלשונית הישנה הייתה מנצחת ומוחקת את מה שנעשה בשנייה.
+             */
+            setError('הנתונים עודכנו ממכשיר אחר — נטען מחדש')
+            void loadHousehold(activeId)
+            return
+          }
           setStatus('error')
           setError((err as Error).message)
         })
@@ -90,6 +104,25 @@ export function useHouseholdState() {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
   }, [state, activeId])
+
+  /**
+   * מכשיר שחוזר לפוקוס טוען מחדש. בלי זה, טלפון שנשאר פתוח מציג מצב ישן
+   * ואף מסכן דריסה של מה שנעשה בינתיים במחשב.
+   */
+  useEffect(() => {
+    if (!activeId) return
+    const onFocus = () => {
+      if (document.visibilityState !== 'visible') return
+      if (saveTimer.current) return // יש שינוי מקומי שטרם נשמר — לא דורסים אותו
+      void loadHousehold(activeId)
+    }
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [activeId, loadHousehold])
 
   const switchHousehold = useCallback(
     async (id: string) => {

@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS households (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   emoji       TEXT NOT NULL DEFAULT '🏡',
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  -- מונה גרסה לבקרת מקביליות: עולה בכל כתיבה, ומאפשר לדחות כתיבה
+  -- שנשענת על מצב ישן במקום לתת לה לדרוס נתונים של מכשיר אחר
+  version     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -144,6 +147,13 @@ CREATE TABLE IF NOT EXISTS settings (
 `
 
 db.exec(SCHEMA)
+
+// מסד נתונים שנוצר לפני הוספת בקרת המקביליות לא מכיל את העמודה
+const householdColumns = (db.prepare('PRAGMA table_info(households)').all() as Array<{ name: string }>)
+  .map((c) => c.name)
+if (!householdColumns.includes('version')) {
+  db.exec('ALTER TABLE households ADD COLUMN version INTEGER NOT NULL DEFAULT 0')
+}
 
 export function uid(prefix = ''): string {
   return prefix + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)

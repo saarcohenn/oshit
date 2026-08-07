@@ -8,7 +8,7 @@ import {
   householdExists,
   listHouseholds,
 } from './households.js'
-import { readState, writeState } from './state.js'
+import { readState, readVersion, VersionConflict, writeState } from './state.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PUBLIC_DIR = process.env.PUBLIC_DIR ?? join(process.cwd(), 'public')
@@ -71,16 +71,24 @@ function requireHousehold(req: express.Request, res: express.Response): string |
 app.get('/api/households/:id/state', (req, res) => {
   const id = requireHousehold(req, res)
   if (!id) return
-  res.json(readState(id))
+  res.json({ ...readState(id), version: readVersion(id) })
 })
 
 app.put('/api/households/:id/state', (req, res) => {
   const id = requireHousehold(req, res)
   if (!id) return
+  const { version, ...rest } = req.body ?? {}
   try {
-    writeState(id, req.body ?? {})
-    res.json({ ok: true })
+    const next = writeState(id, rest, typeof version === 'number' ? version : undefined)
+    res.json({ ok: true, version: next })
   } catch (err) {
+    if (err instanceof VersionConflict) {
+      // מכשיר אחר כתב בינתיים. הלקוח יטען מחדש במקום לדרוס
+      return res.status(409).json({
+        error: 'הנתונים שונו ממכשיר אחר',
+        currentVersion: err.current,
+      })
+    }
     console.error('שמירת המצב נכשלה', err)
     res.status(500).json({ error: 'שמירת הנתונים נכשלה' })
   }
@@ -110,8 +118,8 @@ app.post('/api/households/:id/import', (req, res) => {
     return res.status(400).json({ error: 'קובץ הגיבוי אינו תקין' })
   }
   try {
-    writeState(id, state)
-    res.json({ ok: true })
+    const next = writeState(id, state)
+    res.json({ ok: true, version: next })
   } catch (err) {
     console.error('ייבוא הגיבוי נכשל', err)
     res.status(500).json({ error: 'ייבוא הגיבוי נכשל' })

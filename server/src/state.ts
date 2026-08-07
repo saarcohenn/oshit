@@ -22,6 +22,13 @@ type Row = Record<string, any>
 const nullIfEmpty = (v: unknown) => (v === '' || v === undefined ? null : v)
 const bool = (v: unknown) => (v ? 1 : 0)
 
+export function readVersion(householdId: string): number {
+  const row = db.prepare('SELECT version FROM households WHERE id = ?').get(householdId) as
+    | { version: number }
+    | undefined
+  return row?.version ?? 0
+}
+
 export function readState(householdId: string): HouseholdState {
   const q = (sql: string) => db.prepare(sql).all(householdId) as Row[]
 
@@ -139,10 +146,28 @@ export function readState(householdId: string): HouseholdState {
 
 /**
  * כותב את מצב משק הבית במלואו.
- * ההחלפה מלאה ובתוך עסקה אחת: או שהכול נשמר או ששום דבר לא משתנה,
- * כך ששמירה שנקטעה באמצע לא תשאיר נתונים חלקיים.
+ * ההחלפה מלאה ובתוך עסקה אחת: או שהכול נשמר או ששום דבר לא משתנה.
+ *
+ * expectedVersion הוא בקרת המקביליות: הלקוח שולח את הגרסה שעליה הוא נשען,
+ * והכתיבה נדחית אם בינתיים מכשיר אחר שינה משהו. בלי זה, לשונית פתוחה
+ * במכשיר אחד הייתה דורסת בשקט את מה שנעשה במכשיר השני — בדיוק
+ * מה שהופך שיתוף בין מחשב לטלפון לבלתי אפשרי.
  */
-export const writeState = db.transaction((householdId: string, state: Partial<HouseholdState>) => {
+export class VersionConflict extends Error {
+  constructor(public current: number) {
+    super('version conflict')
+  }
+}
+
+export const writeState = db.transaction((
+  householdId: string,
+  state: Partial<HouseholdState>,
+  expectedVersion?: number,
+) => {
+  const current = readVersion(householdId)
+  if (expectedVersion !== undefined && expectedVersion !== current) {
+    throw new VersionConflict(current)
+  }
   const del = (table: string) =>
     db.prepare(`DELETE FROM ${table} WHERE household_id = ?`).run(householdId)
 
@@ -273,4 +298,7 @@ export const writeState = db.transaction((householdId: string, state: Partial<Ho
     for (const c of state.plannedChanges as Row[])
       ins.run(c.id, householdId, c.name, c.currentMonthly ?? 0, c.futureMonthly ?? 0, c.fromMonth, nullIfEmpty(c.note))
   }
+
+  db.prepare('UPDATE households SET version = version + 1 WHERE id = ?').run(householdId)
+  return current + 1
 })
