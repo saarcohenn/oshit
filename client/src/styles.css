@@ -179,10 +179,11 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid var(--border);
-  padding: 10px 20px;
-  display: flex; flex-direction: column; gap: 9px;
+  padding: 9px 16px;
+  display: flex; align-items: center; gap: 11px;
+  min-height: 58px;
 }
-.topbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.month-select { max-width: 160px; }
 
 .logo { display: flex; align-items: center; gap: 11px; font-size: 19px; font-weight: 700; }
 .logo-mark {
@@ -205,48 +206,104 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
 .logo-text b .dot { -webkit-text-fill-color: var(--accent); color: var(--accent); }
 .logo-text small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
 
-/* הניווט מתחיל בקצה ההתחלתי — בעברית זהו הצד הימני */
-.tabs {
-  display: flex; align-items: center; gap: 2px;
-  flex-wrap: wrap; justify-content: flex-start;
+/* ============================================================
+   מגירת הניווט
+   ============================================================ */
+.drawer-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(6, 9, 16, 0.55);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.drawer-scrim.open { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: fixed; inset-block: 0; inset-inline-start: 0; z-index: 61;
+  width: min(310px, 86vw);
+  display: flex; flex-direction: column;
+  background: var(--surface-solid);
+  border-inline-end: 1px solid var(--border);
+  box-shadow: var(--shadow-lift);
+  /* המגירה נכנסת מקצה ההתחלה — בעברית זהו הצד הימני.
+     visibility ולא רק transform: רוחב פס הגלילה גורם ל-100% לא לכסות
+     את כל המרחק, ונשאר פס דק גלוי. הוא גם מונע מקלידים להיכנס
+     ללשוניות של מגירה סגורה. */
+  visibility: hidden;
+  transform: translateX(var(--drawer-hidden, 100%));
+  transition:
+    transform 0.24s cubic-bezier(0.3, 1, 0.4, 1),
+    visibility 0s linear 0.24s;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+[dir='ltr'] .drawer { --drawer-hidden: -100%; }
+.drawer.open {
+  visibility: visible;
+  transform: translateX(0);
+  transition:
+    transform 0.24s cubic-bezier(0.3, 1, 0.4, 1),
+    visibility 0s;
+}
+.drawer:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .drawer-scrim { transition: none; }
 }
 
-/* מפריד בין המסכים היומיומיים לבין מסכי ההגדרה */
-.tabs-divider {
-  width: 1px; align-self: stretch; margin: 4px 9px;
-  background: var(--border); flex: none;
+.drawer-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 15px 13px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface-solid); z-index: 1;
 }
 
-.tab {
-  position: relative;
-  display: inline-flex; align-items: center; gap: 8px;
+.drawer-nav { padding: 10px 9px 4px; }
+.drawer-group + .drawer-group { margin-top: 14px; }
+.drawer-group-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.7px;
+  color: var(--text-dim); text-transform: uppercase;
+  padding: 0 8px 7px;
+}
+
+.drawer-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 11px; border-radius: 10px;
   background: transparent; border: none; color: var(--text-dim);
-  padding: 8px 12px; border-radius: 10px; min-height: 36px;
-  font-weight: 550; font-size: 13.5px; white-space: nowrap;
-  transition: color 0.16s ease, background 0.16s ease;
+  font-size: 14px; font-weight: 550; text-align: start;
+  transition: background 0.14s ease, color 0.14s ease;
 }
-.tab svg { flex: none; opacity: 0.9; transition: opacity 0.16s ease; }
-.tab:hover { background: var(--surface-2); color: var(--text); }
-.tab:hover svg { opacity: 1; }
-.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.drawer-item svg { flex: none; opacity: 0.9; }
+.drawer-item .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-item .tiny { font-size: 11.5px; }
+.drawer-item:hover { background: var(--surface-2); color: var(--text); }
+.drawer-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.drawer-item.active {
+  background: var(--accent-soft); color: var(--accent); font-weight: 650;
+}
+.drawer-item.active svg { opacity: 1; }
+.drawer-item.ghost { color: var(--accent); }
 
-.tab.active { color: var(--accent); background: var(--accent-soft); font-weight: 650; }
-.tab.active svg { opacity: 1; }
-
-/* כשהרוחב מצטמצם, לשוניות ההגדרה מוותרות על הכיתוב ונשארות כאייקון.
-   הכיתוב עדיין זמין ב-title ולקוראי מסך, והלשוניות היומיומיות נשארות מלאות. */
-@media (max-width: 1180px) {
-  .tab.setup .tab-label { display: none; }
-  .tab.setup { padding-inline: 10px; }
+.drawer-section { padding: 14px 9px 4px; border-top: 1px solid var(--border); margin-top: 12px; }
+.drawer-household + .drawer-household { margin-top: 2px; }
+.drawer-household-actions {
+  display: flex; gap: 12px; padding: 1px 12px 6px; font-size: 12px;
 }
 
-/* קו דק מתחת ללשונית הפעילה — מסמן מיקום בלי להוסיף עוד מסגרת */
-.tab.active::after {
-  content: '';
-  position: absolute; inset-inline: 12px; bottom: 2px; height: 2px;
-  border-radius: 2px; background: currentColor;
+.drawer-foot { margin-top: auto; padding: 14px 15px 16px; border-top: 1px solid var(--border); }
+.theme-switch {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 3px;
 }
-.tab.setup.active::after { inset-inline: 9px; }
+.theme-switch button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 7px 4px; border-radius: 8px; border: none;
+  background: transparent; color: var(--text-dim); font-size: 10.5px; font-weight: 600;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.theme-switch button:hover { color: var(--text); }
+.theme-switch button.on { background: var(--surface-solid); color: var(--accent); box-shadow: var(--shadow); }
 
 .icon-btn {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
@@ -581,11 +638,19 @@ tbody tr:last-child td { border-bottom: none; }
 .danger-link { color: var(--danger); }
 
 .sync-badge {
-  font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
   border: 1px solid var(--border); color: var(--text-dim); white-space: nowrap;
 }
+.sync-badge.quiet { padding: 5px; border-color: transparent; }
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: currentColor; opacity: 0.85;
+}
+.sync-badge.saving .sync-dot { animation: sync-pulse 1s ease-in-out infinite; }
+@keyframes sync-pulse { 50% { opacity: 0.25; } }
 .sync-badge.saving { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
-.sync-badge.ready { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 34%, transparent); }
+.sync-badge.ready { color: var(--ok); }
 .sync-badge.offline, .sync-badge.error {
   color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
@@ -685,21 +750,11 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 @media (max-width: 760px) {
   body { font-size: 15.5px; }
 
-  .topbar { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
-  .topbar-row { gap: 9px; }
-  .logo { font-size: 17px; gap: 9px; }
-  .logo-mark { width: 34px; height: 34px; font-size: 17px; border-radius: 10px; }
-  .logo-text small { display: none; }
-
-  /* הלשוניות נגללות אופקית במקום להיערם בארבע שורות */
-  .tabs {
-    flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity;
-    margin-inline: -12px; padding-inline: 12px; padding-bottom: 3px;
-    scrollbar-width: none;
-  }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab { scroll-snap-align: start; padding: 8px 11px; font-size: 13.5px; gap: 7px; }
-  .tabs-divider { margin: 4px 6px; }
+  .topbar { padding: 8px 12px; gap: 9px; min-height: 54px; }
+  .logo { font-size: 16.5px; gap: 9px; }
+  .logo-mark { width: 32px; height: 32px; border-radius: 10px; }
+  .logo-text small { font-size: 11px; }
+  .month-select { max-width: 122px; padding: 6px 8px; }
 
   .card { padding: 14px 14px; border-radius: 15px; }
   .stat-value { font-size: 25px; }

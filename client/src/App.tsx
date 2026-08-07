@@ -15,7 +15,7 @@ import { CategoryProvider } from './lib/categoryContext'
 import { api } from './lib/api'
 import { availableMonths } from './lib/analytics'
 import { monthLabel } from './lib/format'
-import { applyTheme, loadTheme, nextTheme, THEME_LABEL, type Theme } from './lib/theme'
+import { applyTheme, loadTheme, type Theme } from './lib/theme'
 import ImportPanel from './components/ImportPanel'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
@@ -24,9 +24,8 @@ import BudgetsPanel from './components/BudgetsPanel'
 import RecurringPanel from './components/RecurringPanel'
 import SavingsPanel from './components/SavingsPanel'
 import PlanPanel from './components/PlanPanel'
-import HouseholdBar from './components/HouseholdBar'
+import AppDrawer from './components/AppDrawer'
 import {
-  IconAuto,
   IconBrand,
   IconBudget,
   IconCategories,
@@ -34,10 +33,9 @@ import {
   IconImport,
   IconMerchants,
   IconOverview,
-  IconMoon,
+  IconMenu,
   IconRecurring,
   IconSavings,
-  IconSun,
   IconTransactions,
 } from './components/Icons'
 import CategoriesPanel from './components/CategoriesPanel'
@@ -107,6 +105,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => loadTheme())
   /** יעד שנבחר במסך התכנון — מסנן את מסך העסקאות */
   const [goalFilter, setGoalFilter] = useState<string | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => applyTheme(theme), [theme])
 
@@ -329,6 +328,9 @@ export default function App() {
   }
 
   const hasData = transactions.length > 0
+  // הכותרת מציגה את שם המסך הפעיל, כי הלשוניות כבר לא נראות כל הזמן
+  const activeTabLabel =
+    [...VIEW_TABS, ...SETUP_TABS].find((t) => t.id === tab)?.label ?? ''
 
   if (status === 'loading' && !households.length) {
     return (
@@ -361,66 +363,64 @@ export default function App() {
 
   return (
     <CategoryProvider categories={state.categories}>
+    <AppDrawer
+      open={drawerOpen}
+      onClose={() => setDrawerOpen(false)}
+      groups={[
+        { title: 'מסכים', tabs: VIEW_TABS },
+        { title: 'הגדרות ונתונים', tabs: SETUP_TABS },
+      ]}
+      activeTab={tab}
+      onSelectTab={setTab}
+      households={households}
+      activeHouseholdId={activeId}
+      onSwitchHousehold={(id) => void switchHousehold(id)}
+      onCreateHousehold={(n, e) => void createHousehold(n, e)}
+      onRenameHousehold={(id, n, e) => void renameHousehold(id, n, e)}
+      onDeleteHousehold={(id) => void deleteHousehold(id)}
+      theme={theme}
+      onSetTheme={setTheme}
+    />
     <div className="app">
       <header className="topbar">
-        <div className="topbar-row">
+        <button
+          className="icon-btn"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="פתיחת התפריט"
+          aria-expanded={drawerOpen}
+          title="תפריט"
+        >
+          <IconMenu />
+        </button>
+
         <div className="logo">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={21} />
+            <IconBrand size={20} />
           </span>
           <div className="logo-text">
             <b>Osh<span className="dot">.</span>it</b>
-            <small>לאן הלך העו״ש — ואיפה אפשר לחסוך</small>
+            <small>{activeTabLabel}</small>
           </div>
         </div>
 
-          <HouseholdBar
-            households={households}
-            activeId={activeId}
-            onSwitch={(id) => void switchHousehold(id)}
-            onCreate={(n, e) => void createHousehold(n, e)}
-            onRename={(id, n, e) => void renameHousehold(id, n, e)}
-            onDelete={(id) => void deleteHousehold(id)}
-          />
+        <div className="spacer" />
 
-          <div className="spacer" />
-
-          <SyncBadge status={status} error={error} />
-
-          {hasData && months.length > 0 && (
-            <select
-              value={activeMonth}
-              onChange={(e) => setMonth(e.target.value)}
-              aria-label="בחירת חודש"
-            >
-              {months.map((m) => (
-                <option key={m} value={m}>
-                  {monthLabel(m)}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <button
-            className="icon-btn"
-            onClick={() => setTheme(nextTheme(theme))}
-            title={`מצב תצוגה: ${THEME_LABEL[theme]} — לחצו להחלפה`}
-            aria-label={`מצב תצוגה: ${THEME_LABEL[theme]}`}
+        {hasData && months.length > 0 && (
+          <select
+            value={activeMonth}
+            onChange={(e) => setMonth(e.target.value)}
+            aria-label="בחירת חודש"
+            className="month-select"
           >
-            {theme === 'light' ? <IconSun /> : theme === 'dark' ? <IconMoon /> : <IconAuto />}
-          </button>
-        </div>
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
+          </select>
+        )}
 
-        {/* הניווט בשורה נפרדת שמתחילה מימין — כיוון הקריאה בעברית */}
-        <nav className="tabs" aria-label="ניווט ראשי">
-          {VIEW_TABS.map((t) => (
-            <NavTab key={t.id} tab={t} active={tab === t.id} onSelect={setTab} />
-          ))}
-          <span className="tabs-divider" aria-hidden />
-          {SETUP_TABS.map((t) => (
-            <NavTab key={t.id} tab={t} active={tab === t.id} onSelect={setTab} setup />
-          ))}
-        </nav>
+        <SyncBadge status={status} error={error} />
       </header>
 
       <main className="main">
@@ -523,32 +523,6 @@ export default function App() {
   )
 }
 
-function NavTab({
-  tab,
-  active,
-  onSelect,
-  setup = false,
-}: {
-  tab: TabDef
-  active: boolean
-  onSelect: (id: Tab) => void
-  /** לשוניות ההגדרה מצטמצמות לאייקון בלבד כשאין רוחב — הן בשימוש נדיר יותר */
-  setup?: boolean
-}) {
-  const { Icon } = tab
-  return (
-    <button
-      className={`tab ${setup ? 'setup' : ''} ${active ? 'active' : ''}`}
-      onClick={() => onSelect(tab.id)}
-      aria-current={active ? 'page' : undefined}
-      title={tab.label}
-    >
-      <Icon />
-      <span className="tab-label">{tab.label}</span>
-    </button>
-  )
-}
-
 /** מחוון סנכרון קטן — האפליקציה שומרת לבד, וכדאי שיהיה ברור מתי */
 function SyncBadge({ status, error }: { status: string; error: string | null }) {
   const label: Record<string, string> = {
@@ -558,9 +532,17 @@ function SyncBadge({ status, error }: { status: string; error: string | null }) 
     offline: 'אין חיבור',
     error: 'שמירה נכשלה',
   }
+  // בכותרת של שורה אחת אין מקום לתווית מלאה: מצב תקין הוא נקודה בלבד,
+  // ורק תקלה או שמירה פעילה מקבלות מילים
+  const quiet = status === 'ready'
   return (
-    <span className={`sync-badge ${status}`} title={error ?? undefined}>
-      {label[status] ?? status}
+    <span
+      className={`sync-badge ${status} ${quiet ? 'quiet' : ''}`}
+      title={error ?? label[status] ?? status}
+      aria-label={`מצב סנכרון: ${label[status] ?? status}`}
+    >
+      <span className="sync-dot" aria-hidden />
+      {!quiet && <span>{label[status] ?? status}</span>}
     </span>
   )
 }

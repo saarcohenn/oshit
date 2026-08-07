@@ -152,3 +152,36 @@ export const IconAuto = ({ size = 17, className }: IconProps) => (
     <path d="M12 17v3.5" />
   </svg>
 )
+
+/** פתיחת התפריט */
+export const IconMenu = ({ size = 19, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M3.5 6.5h17" />
+    <path d="M3.5 12h17" />
+    <path d="M3.5 17.5h17" />
+  </svg>
+)
+
+/** סגירה */
+export const IconClose = ({ size = 19, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="m6 6 12 12" />
+    <path d="m18 6-12 12" />
+  </svg>
+)
+
+/** הוספה */
+export const IconPlus = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M12 5v14" />
+    <path d="M5 12h14" />
+  </svg>
+)
+
+/** משק בית */
+export const IconHome = ({ size = 19, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M3.5 10.5 12 3.5l8.5 7" />
+    <path d="M5.5 9.5V19a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5V9.5" />
+  </svg>
+)
