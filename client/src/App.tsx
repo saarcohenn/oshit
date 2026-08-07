@@ -90,6 +90,7 @@ export default function App() {
     setState,
     status,
     error,
+    liveAt,
     switchHousehold,
     createHousehold,
     renameHousehold,
@@ -420,7 +421,7 @@ export default function App() {
           </select>
         )}
 
-        <SyncBadge status={status} error={error} />
+        <SyncBadge status={status} error={error} liveAt={liveAt} />
       </header>
 
       <main className="main">
@@ -524,7 +525,24 @@ export default function App() {
 }
 
 /** מחוון סנכרון קטן — האפליקציה שומרת לבד, וכדאי שיהיה ברור מתי */
-function SyncBadge({ status, error }: { status: string; error: string | null }) {
+function SyncBadge({
+  status,
+  error,
+  liveAt,
+}: {
+  status: string
+  error: string | null
+  liveAt: number
+}) {
+  // חיווי קצר אחרי עדכון שהגיע ממכשיר אחר, כדי שהשינוי לא "יקפוץ" בלי הסבר
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    if (!liveAt) return
+    setFlash(true)
+    const t = setTimeout(() => setFlash(false), 2600)
+    return () => clearTimeout(t)
+  }, [liveAt])
+
   const label: Record<string, string> = {
     loading: 'טוען…',
     ready: 'נשמר',
@@ -534,15 +552,17 @@ function SyncBadge({ status, error }: { status: string; error: string | null }) 
   }
   // בכותרת של שורה אחת אין מקום לתווית מלאה: מצב תקין הוא נקודה בלבד,
   // ורק תקלה או שמירה פעילה מקבלות מילים
-  const quiet = status === 'ready'
+  const quiet = status === 'ready' && !flash
+  const text = flash ? 'עודכן ממכשיר אחר' : (label[status] ?? status)
   return (
     <span
-      className={`sync-badge ${status} ${quiet ? 'quiet' : ''}`}
-      title={error ?? label[status] ?? status}
-      aria-label={`מצב סנכרון: ${label[status] ?? status}`}
+      className={`sync-badge ${flash ? 'live' : status} ${quiet ? 'quiet' : ''}`}
+      title={error ?? text}
+      aria-live="polite"
+      aria-label={`מצב סנכרון: ${text}`}
     >
       <span className="sync-dot" aria-hidden />
-      {!quiet && <span>{label[status] ?? status}</span>}
+      {!quiet && <span>{text}</span>}
     </span>
   )
 }

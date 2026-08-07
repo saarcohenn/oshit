@@ -845,3 +845,10 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+
+/* עדכון שהגיע ממכשיר אחר */
+.sync-badge.live {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.sync-badge.live .sync-dot { animation: sync-pulse 0.9s ease-in-out infinite; }

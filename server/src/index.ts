@@ -9,6 +9,7 @@ import {
   listHouseholds,
 } from './households.js'
 import { readState, readVersion, VersionConflict, writeState } from './state.js'
+import { broadcastVersion, connectedCount, subscribe } from './events.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const PUBLIC_DIR = process.env.PUBLIC_DIR ?? join(process.cwd(), 'public')
@@ -80,7 +81,8 @@ app.put('/api/households/:id/state', (req, res) => {
   const { version, ...rest } = req.body ?? {}
   try {
     const next = writeState(id, rest, typeof version === 'number' ? version : undefined)
-    res.json({ ok: true, version: next })
+    broadcastVersion(id, next, String(req.headers['x-client-id'] ?? ''))
+    res.json({ ok: true, version: next, listeners: connectedCount(id) })
   } catch (err) {
     if (err instanceof VersionConflict) {
       // מכשיר אחר כתב בינתיים. הלקוח יטען מחדש במקום לדרוס
@@ -92,6 +94,35 @@ app.put('/api/households/:id/state', (req, res) => {
     console.error('שמירת המצב נכשלה', err)
     res.status(500).json({ error: 'שמירת הנתונים נכשלה' })
   }
+})
+
+/**
+ * זרם עדכונים חי. המכשיר נשאר מחובר ומקבל הודעה בכל פעם שמישהו אחר כתב,
+ * ואז מושך את המצב המעודכן. כך עריכה במחשב מופיעה בטלפון בלי לרענן.
+ */
+app.get('/api/households/:id/events', (req, res) => {
+  const id = requireHousehold(req, res)
+  if (!id) return
+
+  const clientId = String(req.query.clientId ?? '')
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // מונע מ-nginx וממקביליו לצבור את הזרם במאגר במקום להעביר אותו מיד
+    'X-Accel-Buffering': 'no',
+  })
+  res.flushHeaders()
+
+  // הודעה ראשונה מיד, כדי שהלקוח ידע אם הוא כבר מפגר אחרי גרסה
+  res.write(`event: state
+data: ${JSON.stringify({ version: readVersion(id) })}
+
+`)
+
+  const unsubscribe = subscribe(id, clientId, res)
+  req.on('close', unsubscribe)
 })
 
 /** ייצוא מלא — הבסיס ל"הנתונים שלך שייכים לך" */
@@ -119,6 +150,7 @@ app.post('/api/households/:id/import', (req, res) => {
   }
   try {
     const next = writeState(id, state)
+    broadcastVersion(id, next)
     res.json({ ok: true, version: next })
   } catch (err) {
     console.error('ייבוא הגיבוי נכשל', err)

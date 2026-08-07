@@ -14,6 +14,12 @@ export interface Household {
  */
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
+/**
+ * מזהה ייחודי ללשונית הזו. נשלח עם כל כתיבה כדי שהשרת לא ישדר לנו
+ * בחזרה את השינוי שאנחנו עצמנו ביצענו.
+ */
+export const CLIENT_ID = Math.random().toString(36).slice(2) + Date.now().toString(36)
+
 /** נזרקת כשמכשיר אחר שינה את הנתונים בין הטעינה לשמירה */
 export class ConflictError extends Error {
   constructor(public currentVersion: number) {
@@ -23,7 +29,7 @@ export class ConflictError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Client-Id': CLIENT_ID },
     // הנתונים חייבים להגיע מהשרת ולא ממטמון הדפדפן, אחרת מכשירים לא מתכנסים
     cache: 'no-store',
     ...init,
@@ -71,4 +77,8 @@ export const api = {
     }),
 
   exportUrl: (id: string) => `${BASE}/api/households/${id}/export`,
+
+  /** זרם עדכונים חי. הדפדפן מחבר מחדש לבד אם החיבור נופל */
+  eventsUrl: (id: string) =>
+    `${BASE}/api/households/${id}/events?clientId=${encodeURIComponent(CLIENT_ID)}`,
 }

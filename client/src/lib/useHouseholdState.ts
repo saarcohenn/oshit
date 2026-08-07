@@ -20,6 +20,8 @@ export function useHouseholdState() {
   const [state, setState] = useState<AppState>(EMPTY_STATE)
   const [status, setStatus] = useState<SyncStatus>('loading')
   const [error, setError] = useState<string | null>(null)
+  /** חותמת הזמן של העדכון החי האחרון, להצגת חיווי קצר */
+  const [liveAt, setLiveAt] = useState(0)
 
   const stateRef = useRef(state)
   stateRef.current = state
@@ -29,8 +31,9 @@ export function useHouseholdState() {
   // שמירה נדחית רק אחרי טעינה מוצלחת, כדי שהמצב הריק ההתחלתי לא ידרוס נתונים
   const loadedFor = useRef<string | null>(null)
 
-  const loadHousehold = useCallback(async (id: string) => {
-    setStatus('loading')
+  const loadHousehold = useCallback(async (id: string, silent = false) => {
+    // רענון חי לא מחזיר את המסך למצב טעינה — המשתמש באמצע עבודה
+    if (!silent) setStatus('loading')
     loadedFor.current = null
     try {
       const { version: loadedVersion, ...next } = await api.getState(id)
@@ -106,6 +109,35 @@ export function useHouseholdState() {
   }, [state, activeId])
 
   /**
+   * מנוי לזרם העדכונים. כשמכשיר אחר כותב, מגיעה הודעה עם מספר הגרסה
+   * ואנחנו מושכים את המצב החדש — בלי רענון ובלי להמתין לפוקוס.
+   */
+  useEffect(() => {
+    if (!activeId) return
+    let source: EventSource | null = null
+    try {
+      source = new EventSource(api.eventsUrl(activeId))
+    } catch {
+      return // דפדפן בלי EventSource — נשארים עם רענון בפוקוס
+    }
+
+    source.addEventListener('state', (e) => {
+      const incoming = Number(JSON.parse((e as MessageEvent).data)?.version ?? 0)
+      if (incoming <= version.current) return
+      // שינוי מקומי שטרם נשמר גובר; הוא ישלח בעצמו ויקבל את הגרסה החדשה
+      if (saveTimer.current) return
+      setLiveAt(Date.now())
+      void loadHousehold(activeId, true)
+    })
+
+    source.onerror = () => {
+      // EventSource מחבר מחדש בעצמו; אין צורך להפיל את הממשק
+    }
+
+    return () => source?.close()
+  }, [activeId, loadHousehold])
+
+  /**
    * מכשיר שחוזר לפוקוס טוען מחדש. בלי זה, טלפון שנשאר פתוח מציג מצב ישן
    * ואף מסכן דריסה של מה שנעשה בינתיים במחשב.
    */
@@ -114,7 +146,7 @@ export function useHouseholdState() {
     const onFocus = () => {
       if (document.visibilityState !== 'visible') return
       if (saveTimer.current) return // יש שינוי מקומי שטרם נשמר — לא דורסים אותו
-      void loadHousehold(activeId)
+      void loadHousehold(activeId, true)
     }
     document.addEventListener('visibilitychange', onFocus)
     window.addEventListener('focus', onFocus)
@@ -193,6 +225,7 @@ export function useHouseholdState() {
     setState,
     status,
     error,
+    liveAt,
     switchHousehold,
     createHousehold,
     renameHousehold,
