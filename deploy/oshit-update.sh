@@ -21,17 +21,19 @@ log() { printf '%s  %s\n' "$(date '+%F %T')" "$*"; }
 
 cd "$STACK_DIR"
 
-before="$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || echo none)"
-
 # משיכה שנכשלת (אין רשת, ה-registry למטה) לא אמורה להפיל את מה שרץ
 if ! docker compose pull --quiet "$SERVICE" 2>/dev/null; then
   log "משיכה נכשלה — משאירים את הגרסה הרצה על כנה"
   exit 0
 fi
 
-after="$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || echo none)"
+# ההשוואה היא בין התמונה שיושבת על הדיסק לבין זו שהקונטיינר באמת רץ עליה,
+# ולא בין לפני ואחרי המשיכה. כך גם תמונה שהתעדכנה בדרך אחרת — משיכה ידנית,
+# תהליך אחר — עדיין תגרור הרמה מחדש, ולא תישאר תלויה באוויר.
+pulled="$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || echo none)"
+running="$(docker inspect --format '{{.Image}}' "$SERVICE" 2>/dev/null || echo none)"
 
-if [ "$before" = "$after" ]; then
+if [ "$pulled" = "$running" ]; then
   log "אין גרסה חדשה"
   exit 0
 fi
