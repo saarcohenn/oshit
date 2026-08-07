@@ -1,7 +1,8 @@
 import type { CategoryId, Frequency, Necessity, Transaction } from '../types'
 import type { CategoryIndex } from './categories'
 import { monthlyEquivalent, yearlyEquivalent } from './frequency'
-import { monthKey, txCount } from './format'
+import { txCount } from './format'
+import { cycleMonth } from './cycle'
 
 export interface CategoryTotal {
   category: CategoryId
@@ -26,9 +27,12 @@ export interface MonthSummary {
   count: number
 }
 
-/** העסקאות משויכות לחודש לפי תאריך החיוב — זה הכסף שיוצא מהחשבון בפועל */
+/**
+ * העסקאות משויכות למחזור לפי תאריך החיוב — זה הכסף שיוצא מהחשבון בפועל.
+ * גבול המחזור נקבע לפי יום ההתחלה שהוגדר, ולא בהכרח ב-1 לחודש.
+ */
 export function transactionMonth(t: Transaction): string {
-  return monthKey(t.chargeDate || t.date)
+  return cycleMonth(t.chargeDate || t.date)
 }
 
 export function availableMonths(transactions: Transaction[]): string[] {
@@ -151,6 +155,8 @@ export function findRecurring(
       monthTotals.set(m, (monthTotals.get(m) ?? 0) + t.amount)
     }
     const frequency = frequencies[merchantKey] ?? 'monthly'
+    // חיוב שסומן כחד-פעמי אינו חוזר בהגדרה, וצריך לצאת מהרשימה מיד
+    if (frequency === 'oneoff') continue
     // חיוב שאינו חודשי מופיע בפחות חודשים מעצם טבעו, ולכן די בהופעה אחת
     // כדי להכיר בו כחיוב חוזר אחרי שהמשתמש סימן את התדירות שלו
     const required = frequency === 'monthly' ? minMonths : 1

@@ -5,6 +5,7 @@ const KEY = 'oshit.state.v1'
 const LEGACY_KEY = 'kaspit.state.v1'
 
 export const EMPTY_STATE: AppState = {
+  settings: { cycleStartDay: 1 },
   categories: [],
   transactions: [],
   budgets: [],
@@ -23,6 +24,7 @@ export function loadState(): AppState {
     const parsed = JSON.parse(raw) as Partial<AppState>
     // כל שדה נקרא בנפרד כדי שגרסה ישנה של הנתונים תמשיך להיטען אחרי הוספת שדות
     return {
+      settings: parsed.settings ?? { cycleStartDay: 1 },
       categories: parsed.categories ?? [],
       transactions: parsed.transactions ?? [],
       budgets: parsed.budgets ?? [],

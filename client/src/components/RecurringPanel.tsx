@@ -1,17 +1,22 @@
 import { useMemo, useState } from 'react'
-import type { Frequency, Transaction } from '../types'
+import type { Frequency, MerchantRule, Transaction } from '../types'
 import { NECESSITY_LABEL } from '../lib/categories'
 import { useCategories } from '../lib/categoryContext'
 import { findRecurring, openCommitments, availableMonths, partialMonths, transactionMonth } from '../lib/analytics'
-import { FREQUENCY_SHORT, nextChargeMonth } from '../lib/frequency'
+import { FREQUENCIES, FREQUENCY_SHORT, nextChargeMonth } from '../lib/frequency'
 import { ils, monthLabel, monthLabelShort, plural } from '../lib/format'
 
 export default function RecurringPanel({
   transactions,
   frequencies,
+  onSetMerchantRule,
 }: {
   transactions: Transaction[]
   frequencies: Record<string, Frequency>
+  onSetMerchantRule: (
+    merchantKey: string,
+    patch: Partial<Omit<MerchantRule, 'merchantKey'>>,
+  ) => void
 }) {
   const cats = useCategories()
   const [onlyStable, setOnlyStable] = useState(true)
@@ -168,6 +173,7 @@ export default function RecurringPanel({
                   <th className="num">עלות לחודש</th>
                   <th className="num">עלות שנתית</th>
                   <th>החיוב הבא</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -184,9 +190,20 @@ export default function RecurringPanel({
                       <span className={`pill ${r.necessity}`}>{NECESSITY_LABEL[r.necessity]}</span>
                     </td>
                     <td data-label="תדירות">
-                      <span className={`chip ${r.frequency !== 'monthly' ? 'active' : ''}`}>
-                        {FREQUENCY_SHORT[r.frequency]}
-                      </span>
+                      <select
+                        value={r.frequency}
+                        onChange={(e) =>
+                          onSetMerchantRule(r.merchantKey, {
+                            frequency: e.target.value as Frequency,
+                          })
+                        }
+                      >
+                        {FREQUENCIES.map((f) => (
+                          <option key={f} value={f}>
+                            {FREQUENCY_SHORT[f]}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="num" data-label="סכום החיוב">
                       {ils(r.average)}
@@ -198,6 +215,24 @@ export default function RecurringPanel({
                       {nextChargeMonth(r.lastMonth, r.frequency)
                         ? monthLabel(nextChargeMonth(r.lastMonth, r.frequency)!)
                         : '—'}
+                    </td>
+                    <td data-label="">
+                      <button
+                        className="link-btn danger-link"
+                        title="סימון כחד-פעמי — החיוב יוסר מרשימת החיובים הקבועים"
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `להסיר את "${r.merchant}" מרשימת החיובים הקבועים?
+` +
+                                `הוא יסומן כחד-פעמי. העסקאות עצמן נשארות במקומן.`,
+                            )
+                          )
+                            onSetMerchantRule(r.merchantKey, { frequency: 'oneoff' })
+                        }}
+                      >
+                        הסרה
+                      </button>
                     </td>
                   </tr>
                 ))}

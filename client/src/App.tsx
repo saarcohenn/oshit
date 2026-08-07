@@ -12,6 +12,7 @@ import { normalizeMerchant } from './lib/merchant'
 import { exportState } from './lib/storage'
 import { useHouseholdState } from './lib/useHouseholdState'
 import { CategoryProvider } from './lib/categoryContext'
+import { setCycleStartDay } from './lib/cycle'
 import { api } from './lib/api'
 import { availableMonths } from './lib/analytics'
 import { monthLabel } from './lib/format'
@@ -328,6 +329,9 @@ export default function App() {
     await refreshHouseholds()
   }
 
+  /* מוחל לפני שהילדים מרונדרים, כדי שכל חישובי הניתוח יראו את אותו גבול מחזור */
+  setCycleStartDay(state.settings?.cycleStartDay ?? 1)
+
   const hasData = transactions.length > 0
   // הכותרת מציגה את שם המסך הפעיל, כי הלשוניות כבר לא נראות כל הזמן
   const activeTabLabel =
@@ -460,7 +464,11 @@ export default function App() {
               />
             )}
             {tab === 'recurring' && (
-              <RecurringPanel transactions={transactions} frequencies={frequencies} />
+              <RecurringPanel
+                transactions={transactions}
+                frequencies={frequencies}
+                onSetMerchantRule={setMerchantRule}
+              />
             )}
             {tab === 'savings' && <SavingsPanel transactions={transactions} month={activeMonth} />}
             {tab === 'plan' && (
@@ -471,6 +479,7 @@ export default function App() {
                 onSetIncomes={(incomes) => setState((p) => ({ ...p, incomes }))}
                 onSetGoals={(goals) => setState((p) => ({ ...p, goals }))}
                 onSetChanges={(plannedChanges) => setState((p) => ({ ...p, plannedChanges }))}
+                onSetSettings={(settings) => setState((p) => ({ ...p, settings }))}
                 onShowGoalExpenses={(goalId) => {
                   setGoalFilter(goalId)
                   setTab('transactions')

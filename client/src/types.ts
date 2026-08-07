@@ -141,7 +141,13 @@ export interface PlannedChange {
   note?: string
 }
 
+export interface HouseholdSettings {
+  /** היום בחודש שבו נפתח מחזור חיוב חדש. 1 = חודש קלנדרי */
+  cycleStartDay: number
+}
+
 export interface AppState {
+  settings: HouseholdSettings
   /** ערכת הקטגוריות של משק הבית — ניתנת לעריכה מלאה */
   categories: Category[]
   transactions: Transaction[]

@@ -881,3 +881,20 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .sync-badge.live .sync-dot { animation: sync-pulse 0.9s ease-in-out infinite; }
+
+/* ---------- Round add button ---------- */
+.add-btn {
+  width: 38px; height: 38px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%; border: none; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 6px 18px -8px var(--accent-glow);
+  transition: filter 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.add-btn:hover { filter: brightness(1.1); box-shadow: 0 10px 24px -8px var(--accent-glow); }
+.add-btn:active { transform: translateY(1px); }
+.add-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Billing cycle ---------- */
+.cycle-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+.cycle-hint { flex: 1; min-width: 200px; font-size: 13.5px; padding-top: 20px; }

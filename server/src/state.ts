@@ -5,7 +5,13 @@ import { db } from './db.js'
  * כאן הוא נקרא מהטבלאות ונכתב אליהן בעסקה אחת, כדי שהמעבר לשרת לא ידרוש
  * שכתוב של הלוגיקה בצד הלקוח.
  */
+export interface HouseholdSettings {
+  /** היום בחודש שבו נפתח מחזור חדש. 1 = חודש קלנדרי רגיל */
+  cycleStartDay: number
+}
+
 export interface HouseholdState {
+  settings: HouseholdSettings
   categories: unknown[]
   transactions: unknown[]
   budgets: unknown[]
@@ -84,7 +90,13 @@ export function readState(householdId: string): HouseholdState {
     }
   }
 
+  const settingRows = q(`SELECT key, value FROM settings WHERE household_id = ?`)
+  const settingMap = Object.fromEntries(settingRows.map((r) => [r.key, r.value]))
+
   return {
+    settings: {
+      cycleStartDay: Number(settingMap.cycleStartDay ?? 1) || 1,
+    },
     categories,
     transactions,
     annotations,
@@ -170,6 +182,16 @@ export const writeState = db.transaction((
   }
   const del = (table: string) =>
     db.prepare(`DELETE FROM ${table} WHERE household_id = ?`).run(householdId)
+
+  if (state.settings) {
+    del('settings')
+    const ins = db.prepare(
+      'INSERT INTO settings (household_id, key, value) VALUES (?, ?, ?)',
+    )
+    for (const [key, value] of Object.entries(state.settings as unknown as Record<string, unknown>)) {
+      ins.run(householdId, key, String(value))
+    }
+  }
 
   if (state.categories) {
     del('categories')

@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react'
-import type { AppState, CategoryId, Goal, Income, PlannedChange, Transaction } from '../types'
+import type {
+  AppState,
+  CategoryId,
+  Goal,
+  HouseholdSettings,
+  Income,
+  PlannedChange,
+  Transaction,
+} from '../types'
 import { useCategories } from '../lib/categoryContext'
 import { ils, monthLabel } from '../lib/format'
+import { cycleRangeLabel } from '../lib/cycle'
+import { IconPlus } from './Icons'
 import {
   addMonths,
   changeSaving,
@@ -21,6 +31,7 @@ interface Props {
   onSetChanges: (changes: PlannedChange[]) => void
   /** מעבר למסך העסקאות מסונן לפי היעד */
   onShowGoalExpenses: (goalId: string) => void
+  onSetSettings: (settings: HouseholdSettings) => void
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -33,6 +44,7 @@ export default function PlanPanel({
   onSetGoals,
   onSetChanges,
   onShowGoalExpenses,
+  onSetSettings,
 }: Props) {
   const cats = useCategories()
   const [showPaidGoals, setShowPaidGoals] = useState(true)
@@ -69,7 +81,20 @@ export default function PlanPanel({
   /* ---------- mutations ---------- */
 
   function patchIncome(id: string, patch: Partial<Income>) {
-    onSetIncomes(state.incomes.map((i) => (i.id === id ? { ...i, ...patch } : i)))
+    onSetIncomes(
+      state.incomes.map((i) => {
+        if (i.id !== id) return i
+        const next = { ...i, ...patch }
+        /*
+         * הבורר הציג חודש גם כשלא נשמר כזה, ולכן הכנסה חד-פעמית "נעלמה"
+         * מהסיכום: ההשוואה מול undefined לעולם לא התאימה.
+         * מרגע שהסוג הוא חד-פעמי חייב להיות חודש בפועל.
+         */
+        if (next.kind === 'oneoff' && !next.month) next.month = month
+        if (next.kind === 'recurring') delete next.month
+        return next
+      }),
+    )
   }
   function addIncome() {
     onSetIncomes([
@@ -178,6 +203,44 @@ export default function PlanPanel({
         </div>
       )}
 
+      {/* ---------- מחזור החיוב ---------- */}
+      <div className="card">
+        <div className="card-title">🗓️ מחזור החיוב</div>
+        <div className="card-sub">
+          אם המשכורות נכנסות בתחילת החודש והאשראי נגבה ב-10, חודש קלנדרי חותך את
+          התקופה באמצע. כאן קובעים באיזה יום נפתח מחזור חדש, וכל החישובים —
+          סיכומים, תקציבים, מגמה והשוואות — עוברים לפיו.
+        </div>
+        <div className="cycle-row">
+          <label className="form-field" style={{ maxWidth: 220 }}>
+            <span>המחזור מתחיל ביום</span>
+            <select
+              value={state.settings?.cycleStartDay ?? 1}
+              onChange={(e) => onSetSettings({ cycleStartDay: Number(e.target.value) })}
+            >
+              <option value={1}>1 — חודש קלנדרי רגיל</option>
+              {Array.from({ length: 27 }, (_, i) => i + 2).map((d) => (
+                <option key={d} value={d}>
+                  {d} בחודש
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="cycle-hint">
+            {(state.settings?.cycleStartDay ?? 1) > 1 ? (
+              <>
+                המחזור הנוכחי: <strong>{cycleRangeLabel(month)}</strong>
+                <div className="mini-label">
+                  חיוב שמתבצע לפני היום הזה נספר עדיין למחזור הקודם.
+                </div>
+              </>
+            ) : (
+              <span className="dim">כרגע החישוב לפי חודשים קלנדריים.</span>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ---------- הכנסות ---------- */}
       <div className="card">
         <div className="toolbar">
@@ -188,8 +251,8 @@ export default function PlanPanel({
               כמה באמת נשאר בסוף החודש.
             </div>
           </div>
-          <button className="btn ghost spacer" onClick={addIncome}>
-            + הוספת הכנסה
+          <button className="add-btn spacer" onClick={addIncome} title="הוספת הכנסה" aria-label="הוספת הכנסה">
+            <IconPlus size={19} />
           </button>
         </div>
 
@@ -240,6 +303,11 @@ export default function PlanPanel({
                       </select>
                     </td>
                     <td data-label="חודש">
+                      {income.kind === 'oneoff' && !income.month && (
+                        <span className="pill optional" title="הכנסה חד-פעמית בלי חודש אינה נספרת">
+                          בחרו חודש
+                        </span>
+                      )}
                       {income.kind === 'oneoff' ? (
                         <select
                           value={income.month ?? month}
@@ -298,8 +366,8 @@ export default function PlanPanel({
             />
             הצגת יעדים שהושלמו ({progress.filter((p) => p.goal.done || (p.goal.targetAmount > 0 && p.remaining === 0)).length})
           </label>
-          <button className="btn ghost" onClick={addGoal}>
-            + הוספת יעד
+          <button className="add-btn" onClick={addGoal} title="הוספת יעד" aria-label="הוספת יעד">
+            <IconPlus size={19} />
           </button>
         </div>
 
@@ -491,8 +559,8 @@ export default function PlanPanel({
               הוצאה קבועה שאתם כבר יודעים שתשתנה בתאריך מסוים — הפסקת מנוי, הוזלה, סיום התחייבות.
             </div>
           </div>
-          <button className="btn ghost spacer" onClick={addChange}>
-            + הוספת שינוי
+          <button className="add-btn spacer" onClick={addChange} title="הוספת שינוי" aria-label="הוספת שינוי">
+            <IconPlus size={19} />
           </button>
         </div>
 
