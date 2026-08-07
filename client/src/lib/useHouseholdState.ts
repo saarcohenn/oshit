@@ -70,6 +70,10 @@ export function useHouseholdState() {
     if (!activeId || loadedFor.current !== activeId) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
+      // הבדיקה חוזרת גם כאן: בין תזמון השמירה לבין הרגע שהיא רצה אפשר היה
+      // להחליף משק בית או להתחיל טעינה מחדש, ואז השמירה הייתה כותבת
+      // מצב של משק בית אחד לתוך אחר, או דורסת נתונים בשרת במצב חלקי
+      if (loadedFor.current !== activeId) return
       setStatus('saving')
       api
         .putState(activeId, stateRef.current)
