@@ -8,7 +8,7 @@
  * שום בקשה אינה נשלחת לשרת חיצוני ושום נתון פיננסי אינו נשמר כאן —
  * הנתונים חיים ב-localStorage בלבד.
  */
-const VERSION = 'oshit-v1'
+const VERSION = 'oshit-v2'
 const PRECACHE = [
   '/',
   '/index.html',
@@ -22,7 +22,23 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(VERSION)
-      .then((cache) => cache.addAll(PRECACHE))
+      .then(async (cache) => {
+        /*
+         * כל נכס נשמר בנפרד ובאופן סלחני. addAll נכשל כולו אם משאב אחד
+         * נכשל, ומאחורי שער הזדהות די בהפניה אחת לדף התחברות כדי שה-service
+         * worker לא יותקן בכלל — והאפליקציה תישאר בלי מצב אופליין.
+         */
+        await Promise.all(
+          PRECACHE.map(async (url) => {
+            try {
+              const response = await fetch(url, { credentials: 'same-origin' })
+              if (isCacheable(response)) await cache.put(url, response)
+            } catch {
+              // נכס בודד שלא נשמר אינו סיבה להפיל את ההתקנה
+            }
+          }),
+        )
+      })
       .then(() => self.skipWaiting()),
   )
 })
@@ -36,6 +52,14 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+/**
+ * רק תשובה תקינה, מאותו מקור, ושלא עברה הפניה.
+ * הפניה מסגירה שער הזדהות שהחזיר דף התחברות במקום את המשאב המבוקש.
+ */
+function isCacheable(response) {
+  return response.ok && response.type === 'basic' && !response.redirected
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
@@ -47,8 +71,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone()
-          caches.open(VERSION).then((cache) => cache.put('/index.html', copy))
+          // מאחורי שער הזדהות, תשובה לניווט יכולה להיות דף התחברות או הפניה
+          // לדומיין אחר. שמירה שלה במטמון הייתה מגישה את דף ההתחברות
+          // לצמיתות, גם אחרי התחברות מוצלחת.
+          if (isCacheable(response)) {
+            const copy = response.clone()
+            caches.open(VERSION).then((cache) => cache.put('/index.html', copy))
+          }
           return response
         })
         .catch(() => caches.match('/index.html').then((r) => r ?? caches.match('/'))),
@@ -60,8 +89,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached
       return fetch(request).then((response) => {
-        // רק תשובות תקינות מאותו מקור נכנסות למטמון
-        if (response.ok && response.type === 'basic') {
+        if (isCacheable(response)) {
           const copy = response.clone()
           caches.open(VERSION).then((cache) => cache.put(request, copy))
         }

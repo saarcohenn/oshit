@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Osh.it — לאן הלך העו״ש שלנו</title>
     <meta name="description" content="ניהול הוצאות משק בית מקובץ האשראי של הבנק. הכול נשאר בדפדפן." />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- use-credentials חובה כשהאפליקציה יושבת מאחורי שער הזדהות
+         (Cloudflare Access, Authelia וכדומה): בלעדיו הדפדפן מבקש את המניפסט
+         בלי עוגיות, השער מפנה לדף התחברות בדומיין אחר, והבקשה נחסמת ב-CORS. -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
