@@ -197,7 +197,7 @@ export default function PlanPanel({
           <p className="dim">עוד לא הוזנו הכנסות.</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="responsive">
               <thead>
                 <tr>
                   <th style={{ minWidth: 170 }}>מקור</th>
@@ -211,7 +211,7 @@ export default function PlanPanel({
               <tbody>
                 {state.incomes.map((income) => (
                   <tr key={income.id}>
-                    <td>
+                    <td data-label="מקור">
                       <input
                         type="text"
                         value={income.name}
@@ -219,7 +219,7 @@ export default function PlanPanel({
                         style={{ minWidth: 150 }}
                       />
                     </td>
-                    <td>
+                    <td data-label="של מי">
                       <input
                         type="text"
                         value={income.owner ?? ''}
@@ -228,7 +228,7 @@ export default function PlanPanel({
                         style={{ width: 120 }}
                       />
                     </td>
-                    <td>
+                    <td data-label="סוג">
                       <select
                         value={income.kind}
                         onChange={(e) =>
@@ -239,7 +239,7 @@ export default function PlanPanel({
                         <option value="oneoff">חד-פעמית</option>
                       </select>
                     </td>
-                    <td>
+                    <td data-label="חודש">
                       {income.kind === 'oneoff' ? (
                         <select
                           value={income.month ?? month}
@@ -255,7 +255,7 @@ export default function PlanPanel({
                         <span className="dim">כל חודש</span>
                       )}
                     </td>
-                    <td className="num">
+                    <td className="num" data-label="סכום">
                       <input
                         type="number"
                         min={0}
@@ -267,7 +267,7 @@ export default function PlanPanel({
                         style={{ width: 110 }}
                       />
                     </td>
-                    <td>
+                    <td data-label="">
                       <button className="link-btn" onClick={() => removeIncome(income.id)}>
                         מחיקה
                       </button>
@@ -338,10 +338,10 @@ export default function PlanPanel({
                 <div className={`card goal-card ${g.done ? 'goal-done' : ''}`} key={g.id}>
                   <div className="toolbar" style={{ marginBottom: 10 }}>
                     <input
+                      className="emoji-input"
                       type="text"
                       value={g.emoji}
                       onChange={(e) => patchGoal(g.id, { emoji: e.target.value })}
-                      style={{ width: 52, textAlign: 'center' }}
                       aria-label="אימוג׳י"
                     />
                     <input
@@ -505,7 +505,7 @@ export default function PlanPanel({
               <strong>{ils(changesSaving)}</strong> בחודש · {ils(changesSaving * 12)} בשנה.
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="responsive">
                 <thead>
                   <tr>
                     <th style={{ minWidth: 170 }}>מה משתנה</th>
@@ -519,7 +519,7 @@ export default function PlanPanel({
                 <tbody>
                   {state.plannedChanges.map((c) => (
                     <tr key={c.id}>
-                      <td>
+                      <td data-label="מה משתנה">
                         <input
                           type="text"
                           value={c.name}
@@ -528,7 +528,7 @@ export default function PlanPanel({
                         />
                         {c.note && <div className="mini-label">{c.note}</div>}
                       </td>
-                      <td className="num">
+                      <td className="num" data-label="היום">
                         <input
                           type="number"
                           min={0}
@@ -540,7 +540,7 @@ export default function PlanPanel({
                           style={{ width: 100 }}
                         />
                       </td>
-                      <td className="num">
+                      <td className="num" data-label="אחרי השינוי">
                         <input
                           type="number"
                           min={0}
@@ -552,7 +552,7 @@ export default function PlanPanel({
                           style={{ width: 100 }}
                         />
                       </td>
-                      <td>
+                      <td data-label="מתי">
                         <select
                           value={c.fromMonth}
                           onChange={(e) => patchChange(c.id, { fromMonth: e.target.value })}
@@ -566,11 +566,12 @@ export default function PlanPanel({
                       </td>
                       <td
                         className="num strong"
+                        data-label="חיסכון חודשי"
                         style={{ color: changeSaving(c) > 0 ? 'var(--ok)' : undefined }}
                       >
                         {ils(changeSaving(c))}
                       </td>
-                      <td>
+                      <td data-label="">
                         <button className="link-btn" onClick={() => removeChange(c.id)}>
                           מחיקה
                         </button>
@@ -592,7 +593,7 @@ export default function PlanPanel({
             המתוכננים.
           </div>
           <div className="table-wrap">
-            <table>
+            <table className="responsive">
               <thead>
                 <tr>
                   <th>חודש</th>
@@ -610,7 +611,7 @@ export default function PlanPanel({
                   const dueGoals = progress.filter((p) => p.goal.targetMonth === m)
                   return (
                     <tr key={m}>
-                      <td className="strong">
+                      <td className="strong" data-label="חודש">
                         {monthLabel(m)}
                         {dueGoals.length > 0 && (
                           <div className="mini-label">
@@ -618,9 +619,9 @@ export default function PlanPanel({
                           </div>
                         )}
                       </td>
-                      <td className="num">{ils(inc)}</td>
-                      <td className="num">{ils(goalsMonthly)}</td>
-                      <td className="num" style={{ color: saved > 0 ? 'var(--ok)' : undefined }}>
+                      <td className="num" data-label="הכנסה צפויה">{ils(inc)}</td>
+                      <td className="num" data-label="הפרשה ליעדים">{ils(goalsMonthly)}</td>
+                      <td className="num" data-label="שינויים בהוצאות" style={{ color: saved > 0 ? 'var(--ok)' : undefined }}>
                         {saved > 0 ? `−${ils(saved)}` : '—'}
                       </td>
                     </tr>

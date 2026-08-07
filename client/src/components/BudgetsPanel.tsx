@@ -98,7 +98,7 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
         </div>
 
         <div className="table-wrap">
-          <table>
+          <table className="responsive">
             <thead>
               <tr>
                 <th>קטגוריה</th>
@@ -121,15 +121,15 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
 
                 return (
                   <tr key={cat.id}>
-                    <td>
+                    <td data-label="קטגוריה">
                       <span aria-hidden>{cat.emoji}</span> {cat.name}
                     </td>
-                    <td>
+                    <td data-label="נחיצות">
                       <span className={`pill ${cat.necessity}`}>{NECESSITY_LABEL[cat.necessity]}</span>
                     </td>
-                    <td className="num dim">{avg.has(cat.id) ? ils(avg.get(cat.id)!) : '—'}</td>
-                    <td className="num strong">{used ? ils(used) : '—'}</td>
-                    <td>
+                    <td className="num dim" data-label="ממוצע חודשי">{avg.has(cat.id) ? ils(avg.get(cat.id)!) : '—'}</td>
+                    <td className="num strong" data-label="הוצאה בפועל">{used ? ils(used) : '—'}</td>
+                    <td data-label="ניצול">
                       {limit ? (
                         <>
                           <div className="bar">
@@ -143,7 +143,7 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                         <span className="dim">לא הוגדר</span>
                       )}
                     </td>
-                    <td className="num">
+                    <td className="num" data-label="תקציב">
                       <input
                         type="number"
                         min={0}
@@ -154,7 +154,7 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                         onChange={(e) => onSetBudget(cat.id, Number(e.target.value) || 0)}
                       />
                     </td>
-                    <td className="num strong" style={{ color: limit && remaining < 0 ? 'var(--danger)' : undefined }}>
+                    <td className="num strong" data-label="נשאר" style={{ color: limit && remaining < 0 ? 'var(--danger)' : undefined }}>
                       {limit ? ils(remaining) : '—'}
                     </td>
                   </tr>

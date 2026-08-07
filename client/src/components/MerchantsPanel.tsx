@@ -146,7 +146,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
         </div>
 
         <div className="table-wrap">
-          <table>
+          <table className="responsive">
             <thead>
               <tr>
                 <th style={{ minWidth: 260 }}>שם תצוגה</th>
@@ -161,7 +161,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
             <tbody>
               {shown.map((row) => (
                 <tr key={row.merchantKey}>
-                  <td>
+                  <td data-label="שם תצוגה">
                     {editing === row.merchantKey ? (
                       <div className="alias-cell">
                         <input
@@ -198,10 +198,10 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                       </div>
                     )}
                   </td>
-                  <td className="num strong">{ils(row.total)}</td>
-                  <td className="num dim">{txCount(row.count)}</td>
-                  <td className="num dim">{row.months}</td>
-                  <td>
+                  <td className="num strong" data-label="סך הכל">{ils(row.total)}</td>
+                  <td className="num dim" data-label="עסקאות">{txCount(row.count)}</td>
+                  <td className="num dim" data-label="חודשים">{row.months}</td>
+                  <td data-label="קטגוריה">
                     <select
                       value={row.category}
                       onChange={(e) =>
@@ -215,7 +215,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                       ))}
                     </select>
                   </td>
-                  <td>
+                  <td data-label="נחיצות">
                     <select
                       value={row.necessity}
                       onChange={(e) =>
@@ -229,7 +229,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                       ))}
                     </select>
                   </td>
-                  <td>
+                  <td data-label="תדירות">
                     <select
                       value={row.frequency}
                       onChange={(e) =>

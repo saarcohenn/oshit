@@ -150,10 +150,10 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                       <td data-label="קטגוריה">
                         <div className="cat-name-cell">
                           <input
+                            className="emoji-input"
                             type="text"
                             value={cat.emoji}
                             onChange={(e) => patch(cat.id, { emoji: e.target.value })}
-                            style={{ width: 52, textAlign: 'center' }}
                             aria-label="אימוג׳י"
                           />
                           <input

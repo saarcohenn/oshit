@@ -76,7 +76,7 @@ export default function RecurringPanel({
             חיובים בקטגוריות שהן כמעט תמיד הוראת קבע. עברו עליהם ובדקו מה עדיין בשימוש.
           </div>
           <div className="table-wrap">
-            <table>
+            <table className="responsive">
               <thead>
                 <tr>
                   <th>בית עסק</th>
@@ -89,17 +89,17 @@ export default function RecurringPanel({
               <tbody>
                 {likelySubscriptions.map((t) => (
                   <tr key={t.merchantKey}>
-                    <td className="strong">
+                    <td className="strong" data-label="בית עסק">
                       <span className="truncate">{t.merchant}</span>
                     </td>
-                    <td>
+                    <td data-label="קטגוריה">
                       {cats.byId(t.category).emoji} {cats.byId(t.category).name}
                     </td>
-                    <td>
+                    <td data-label="נחיצות">
                       <span className={`pill ${t.necessity}`}>{NECESSITY_LABEL[t.necessity]}</span>
                     </td>
-                    <td className="num">{ils(t.amount)}</td>
-                    <td className="num strong">{ils(t.amount * 12)}</td>
+                    <td className="num" data-label="חיוב החודש">{ils(t.amount)}</td>
+                    <td className="num strong" data-label="בשנה">{ils(t.amount * 12)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -157,7 +157,7 @@ export default function RecurringPanel({
           <p className="dim">לא נמצאו חיובים חוזרים בנתונים שיובאו.</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="responsive">
               <thead>
                 <tr>
                   <th>בית עסק</th>
@@ -173,28 +173,28 @@ export default function RecurringPanel({
               <tbody>
                 {shown.map((r) => (
                   <tr key={r.merchantKey}>
-                    <td className="strong">
+                    <td className="strong" data-label="בית עסק">
                       <span className="truncate">{r.merchant}</span>
                       {r.stable && <span className="chip active" style={{ marginInlineStart: 6 }}>יציב</span>}
                     </td>
-                    <td>
+                    <td data-label="קטגוריה">
                       {cats.byId(r.category).emoji} {cats.byId(r.category).name}
                     </td>
-                    <td>
+                    <td data-label="נחיצות">
                       <span className={`pill ${r.necessity}`}>{NECESSITY_LABEL[r.necessity]}</span>
                     </td>
-                    <td>
+                    <td data-label="תדירות">
                       <span className={`chip ${r.frequency !== 'monthly' ? 'active' : ''}`}>
                         {FREQUENCY_SHORT[r.frequency]}
                       </span>
                     </td>
-                    <td className="num">
+                    <td className="num" data-label="סכום החיוב">
                       {ils(r.average)}
                       <div className="mini-label">{r.months.map(monthLabelShort).join(' · ')}</div>
                     </td>
-                    <td className="num strong">{ils(r.monthlyCost)}</td>
-                    <td className="num">{ils(r.yearly)}</td>
-                    <td className="dim" style={{ fontSize: 12.5 }}>
+                    <td className="num strong" data-label="עלות לחודש">{ils(r.monthlyCost)}</td>
+                    <td className="num" data-label="עלות שנתית">{ils(r.yearly)}</td>
+                    <td className="dim" data-label="החיוב הבא" style={{ fontSize: 12.5 }}>
                       {nextChargeMonth(r.lastMonth, r.frequency)
                         ? monthLabel(nextChargeMonth(r.lastMonth, r.frequency)!)
                         : '—'}
@@ -217,7 +217,7 @@ export default function RecurringPanel({
           <p className="dim">אין עסקאות בתשלומים פתוחות.</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="responsive">
               <thead>
                 <tr>
                   <th>בית עסק</th>
@@ -231,15 +231,15 @@ export default function RecurringPanel({
               <tbody>
                 {commitments.map((c, i) => (
                   <tr key={`${c.merchant}-${i}`}>
-                    <td className="strong">
+                    <td className="strong" data-label="בית עסק">
                       <span className="truncate">{c.merchant}</span>
                       <div className="mini-label">חיוב אחרון: {monthLabel(c.lastChargeMonth)}</div>
                     </td>
-                    <td>
+                    <td data-label="קטגוריה">
                       {cats.byId(c.category).emoji} {cats.byId(c.category).name}
                     </td>
-                    <td className="num">{ils(c.monthly)}</td>
-                    <td style={{ minWidth: 140 }}>
+                    <td className="num" data-label="תשלום חודשי">{ils(c.monthly)}</td>
+                    <td data-label="התקדמות" style={{ minWidth: 140 }}>
                       <div className="bar">
                         <span style={{ width: `${(c.paid / c.total) * 100}%`, background: 'var(--viz-bar)' }} />
                       </div>
@@ -247,8 +247,8 @@ export default function RecurringPanel({
                         תשלום {c.paid} מתוך {c.total}
                       </div>
                     </td>
-                    <td className="num">{c.remaining}</td>
-                    <td className="num strong">{ils(c.remainingAmount)}</td>
+                    <td className="num" data-label="נותרו">{c.remaining}</td>
+                    <td className="num strong" data-label="יתרה לתשלום">{ils(c.remainingAmount)}</td>
                   </tr>
                 ))}
               </tbody>
