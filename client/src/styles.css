@@ -206,6 +206,35 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
 .logo-text b .dot { -webkit-text-fill-color: var(--accent); color: var(--accent); }
 .logo-text small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
 
+/* ---------- שורת הניווט ---------- */
+/* flex-basis אפס בכוונה: הרוחב נקבע ממה שנשאר בכותרת ולא מהתוכן.
+   עם basis auto היה נוצר מעגל — התוכן קובע רוחב, הרוחב קובע כמה תוכן. */
+.topnav { position: relative; flex: 1 1 0; min-width: 0; overflow: hidden; }
+.topnav-list { display: flex; align-items: center; gap: 4px; }
+/* שורת המדידה. יוצאת מזרימת העמוד ומכילה תמיד את כל הלשוניות */
+.topnav-ghost {
+  position: absolute; top: 0; inset-inline-start: 0;
+  display: flex; gap: 4px;
+  visibility: hidden; pointer-events: none;
+}
+
+.topnav-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 12px; border-radius: 10px; white-space: nowrap;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-dim); font-size: 13.5px; font-weight: 550;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+.topnav-btn svg { flex: none; opacity: 0.85; }
+.topnav-btn:hover { background: var(--surface-2); color: var(--text); }
+/* הקו הפנימי — מסגרת חיצונית הייתה נגזרת ב-overflow של השורה */
+.topnav-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.topnav-btn.active {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: var(--border-bright); font-weight: 650;
+}
+.topnav-btn.active svg { opacity: 1; }
+
 /* ============================================================
    מגירת הניווט
    ============================================================ */
@@ -258,6 +287,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
 }
 
 .drawer-nav { padding: 10px 9px 4px; }
+/* במסך רחב כל המסכים כבר בשורת הניווט ולא נשאר מה להציג כאן */
+.drawer-nav:empty { display: none; }
+.drawer-nav:empty + .drawer-section { border-top: none; margin-top: 0; }
 .drawer-group + .drawer-group { margin-top: 14px; }
 .drawer-group-title {
   font-size: 11px; font-weight: 700; letter-spacing: 0.7px;
@@ -311,6 +343,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.2px; }
   font-size: 16px; transition: border-color 0.15s, box-shadow 0.15s;
 }
 .icon-btn:hover { border-color: var(--border-bright); box-shadow: 0 0 18px -6px var(--accent-glow); }
+/* המסך הפעיל מוסתר בתפריט — בלי הסימון הזה אין שום מקום שמראה איפה אנחנו */
+.icon-btn.on { background: var(--accent-soft); border-color: var(--border-bright); color: var(--accent); }
 
 .main {
   flex: 1;

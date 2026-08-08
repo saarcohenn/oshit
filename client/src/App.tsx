@@ -26,6 +26,7 @@ import RecurringPanel from './components/RecurringPanel'
 import SavingsPanel from './components/SavingsPanel'
 import PlanPanel from './components/PlanPanel'
 import AppDrawer from './components/AppDrawer'
+import TopNav from './components/TopNav'
 import {
   IconBrand,
   IconBudget,
@@ -74,6 +75,13 @@ const SETUP_TABS: TabDef[] = [
   { id: 'import', label: 'ייבוא', Icon: IconImport },
 ]
 
+/**
+ * הסדר כאן הוא סדר הוויתור: שורת הניווט מציגה כמה שנכנס מההתחלה,
+ * והשאר עובר לתפריט. לכן מסכי ההגדרות באים אחרונים — הם אלה שאפשר
+ * לוותר על נראותם הקבועה כשהחלון צר.
+ */
+const ALL_TABS: TabDef[] = [...VIEW_TABS, ...SETUP_TABS]
+
 /** תוצאת מיזוג של קובץ אחד לתוך הנתונים הקיימים */
 export interface ImportSummary {
   added: number
@@ -108,6 +116,8 @@ export default function App() {
   /** יעד שנבחר במסך התכנון — מסנן את מסך העסקאות */
   const [goalFilter, setGoalFilter] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  /** הלשוניות שלא נכנסו לשורת הניווט ולכן מוצגות במגירה */
+  const [overflowTabs, setOverflowTabs] = useState<Tab[]>(() => ALL_TABS.map((t) => t.id))
 
   useEffect(() => applyTheme(theme), [theme])
 
@@ -333,9 +343,22 @@ export default function App() {
   setCycleStartDay(state.settings?.cycleStartDay ?? 1)
 
   const hasData = transactions.length > 0
-  // הכותרת מציגה את שם המסך הפעיל, כי הלשוניות כבר לא נראות כל הזמן
-  const activeTabLabel =
-    [...VIEW_TABS, ...SETUP_TABS].find((t) => t.id === tab)?.label ?? ''
+
+  /*
+   * המגירה מקבלת רק את מה שלא נכנס לשורה. כשהחלון רחב היא מכילה משקי בית
+   * ותצוגה בלבד, ואין שני מקומות שמובילים לאותו מסך.
+   */
+  const hiddenTabs = new Set(overflowTabs)
+  const drawerGroups = [
+    { title: 'מסכים', tabs: VIEW_TABS.filter((t) => hiddenTabs.has(t.id)) },
+    { title: 'הגדרות ונתונים', tabs: SETUP_TABS.filter((t) => hiddenTabs.has(t.id)) },
+  ].filter((g) => g.tabs.length > 0)
+
+  // כשהמסך הפעיל מסומן בשורה אין צורך לחזור על שמו, והכותרת חוזרת לסלוגן
+  const activeHidden = hiddenTabs.has(tab)
+  const subtitle = activeHidden
+    ? ALL_TABS.find((t) => t.id === tab)?.label ?? ''
+    : 'לאן הלך העו״ש'
 
   if (status === 'loading' && !households.length) {
     return (
@@ -371,10 +394,7 @@ export default function App() {
     <AppDrawer
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
-      groups={[
-        { title: 'מסכים', tabs: VIEW_TABS },
-        { title: 'הגדרות ונתונים', tabs: SETUP_TABS },
-      ]}
+      groups={drawerGroups}
       activeTab={tab}
       onSelectTab={setTab}
       households={households}
@@ -389,7 +409,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <button
-          className="icon-btn"
+          className={`icon-btn ${activeHidden ? 'on' : ''}`}
           onClick={() => setDrawerOpen(true)}
           aria-label="פתיחת התפריט"
           aria-expanded={drawerOpen}
@@ -404,11 +424,11 @@ export default function App() {
           </span>
           <div className="logo-text">
             <b>Osh<span className="dot">.</span>it</b>
-            <small>{activeTabLabel}</small>
+            <small>{subtitle}</small>
           </div>
         </div>
 
-        <div className="spacer" />
+        <TopNav tabs={ALL_TABS} activeTab={tab} onSelect={setTab} onOverflow={setOverflowTabs} />
 
         {hasData && months.length > 0 && (
           <select
