@@ -109,6 +109,20 @@ export function useHouseholdState() {
   }, [state, activeId])
 
   /**
+   * משק הבית הפעיל יכול להיעלם מתחת לרגליים: עזיבה, הסרה על ידי הבעלים,
+   * או מחיקה של מי שחולק אותו. במקרה כזה עוברים למשק בית אחר במקום
+   * להישאר עם מזהה שכל בקשה עליו תיכשל.
+   */
+  useEffect(() => {
+    // בחירה ראשונה נעשית באתחול; כאן מטפלים רק במזהה פעיל שנעלם
+    if (!activeId || !households.length) return
+    if (households.some((h) => h.id === activeId)) return
+    const next = households[0].id
+    setActiveId(next)
+    void loadHousehold(next)
+  }, [households, activeId, loadHousehold])
+
+  /**
    * מנוי לזרם העדכונים. כשמכשיר אחר כותב, מגיעה הודעה עם מספר הגרסה
    * ואנחנו מושכים את המצב החדש — בלי רענון ובלי להמתין לפוקוס.
    */

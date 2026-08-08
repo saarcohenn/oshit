@@ -13,13 +13,36 @@ db.pragma('foreign_keys = ON')
 /**
  * הסכימה.
  *
- * משק בית הוא יחידת הבידוד היחידה: כל טבלה תלויה בו, וכל מחיקה מדורדרת.
- * אין טבלת משתמשים — הגישה נעשית לפי מזהה משק הבית, בהתאם לכך שהשרת
- * מיועד לרוץ ברשת ביתית סגורה.
+ * משק בית הוא יחידת הבידוד של הנתונים: כל טבלת תוכן תלויה בו, וכל מחיקה
+ * מדורדרת. משתמש אינו הבעלים של נתונים במישרין אלא חבר במשק בית, ולכן
+ * שיתוף בין בני זוג הוא שורה בטבלת החברויות ולא העתקה של שום דבר, ולכן גם
+ * אין "נתונים אישיים" שצריך למזג כששניים מצטרפים לאותו משק בית.
  *
  * קטגוריות הן שורות ולא קבועים בקוד, כדי שכל משק בית יוכל לערוך אותן במלואן.
  */
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id             TEXT PRIMARY KEY,
+  -- נשמר תמיד באותיות קטנות; ההשוואה נעשית על הערך המנורמל בלבד
+  email          TEXT NOT NULL UNIQUE,
+  name           TEXT NOT NULL,
+  password_hash  TEXT NOT NULL,
+  created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+/*
+ * הטוקן עצמו לעולם אינו נשמר — רק גיבוב שלו. מי שמשיג עותק של קובץ
+ * המסד אינו מקבל איתו חיבורים חיים לחשבונות.
+ */
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash  TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  seen_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
 CREATE TABLE IF NOT EXISTS households (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -29,6 +52,32 @@ CREATE TABLE IF NOT EXISTS households (
   -- שנשענת על מצב ישן במקום לתת לה לדרוס נתונים של מכשיר אחר
   version     INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS household_members (
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- owner רשאי לשתף, לשנות שם ולמחוק; member רואה ועורך את הנתונים בלבד
+  role          TEXT NOT NULL DEFAULT 'member',
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (household_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_members_user ON household_members(user_id);
+
+/*
+ * הזמנה לשיתוף. הקוד הוא סוד לשימוש חד-פעמי עם תפוגה — קישור שדלף
+ * שבוע אחרי ששימש אינו פותח דבר.
+ */
+CREATE TABLE IF NOT EXISTS invites (
+  code          TEXT PRIMARY KEY,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  role          TEXT NOT NULL DEFAULT 'member',
+  created_by    TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at    TEXT NOT NULL,
+  accepted_by   TEXT REFERENCES users(id) ON DELETE SET NULL,
+  accepted_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_invites_household ON invites(household_id);
 
 CREATE TABLE IF NOT EXISTS categories (
   id            TEXT NOT NULL,
@@ -153,6 +202,17 @@ const householdColumns = (db.prepare('PRAGMA table_info(households)').all() as A
   .map((c) => c.name)
 if (!householdColumns.includes('version')) {
   db.exec('ALTER TABLE households ADD COLUMN version INTEGER NOT NULL DEFAULT 0')
+}
+
+/**
+ * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.
+ *
+ * toISOString מחזיר 'YYYY-MM-DDTHH:MM:SS.sssZ', והשוואה מול datetime('now')
+ * היא השוואת מחרוזות — התו 'T' גדול מרווח, ולכן כל תפוגה באותו יום הייתה
+ * נראית עתידית. תוקף היה פג רק במעבר התאריך, עד יממה באיחור.
+ */
+export function sqlTime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ')
 }
 
 export function uid(prefix = ''): string {

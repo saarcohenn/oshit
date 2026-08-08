@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react'
-import type { Household } from '../lib/api'
+import type { AuthUser, Household } from '../lib/api'
 import { THEME_LABEL, type Theme } from '../lib/theme'
 import {
   IconAuto,
   IconBrand,
   IconClose,
+  IconLogout,
   IconMoon,
   IconPlus,
+  IconShare,
   IconSun,
+  IconUser,
 } from './Icons'
 
 export interface DrawerTab<T extends string> {
@@ -30,6 +33,10 @@ interface Props<T extends string> {
   onCreateHousehold: (name: string, emoji: string) => void
   onRenameHousehold: (id: string, name: string, emoji: string) => void
   onDeleteHousehold: (id: string) => void
+  onShareHousehold: (id: string) => void
+
+  user: AuthUser | null
+  onLogout: () => void
 
   theme: Theme
   onSetTheme: (t: Theme) => void
@@ -59,6 +66,9 @@ export default function AppDrawer<T extends string>({
   onCreateHousehold,
   onRenameHousehold,
   onDeleteHousehold,
+  onShareHousehold,
+  user,
+  onLogout,
   theme,
   onSetTheme,
 }: Props<T>) {
@@ -176,16 +186,31 @@ export default function AppDrawer<T extends string>({
               >
                 <span aria-hidden>{h.emoji}</span>
                 <span className="grow">{h.name}</span>
+                {/* חיווי שקט שהנתונים כאן אינם פרטיים לחשבון הזה */}
+                {h.memberCount > 1 && (
+                  <span className="shared-badge" title={`${h.memberCount} אנשים`}>
+                    <IconShare size={13} />
+                    {h.memberCount}
+                  </span>
+                )}
                 <span className="dim tiny">{h.transactionCount}</span>
               </button>
               <div className="drawer-household-actions">
-                <button className="link-btn" onClick={() => rename(h)}>
-                  שינוי שם
+                <button className="link-btn" onClick={() => onShareHousehold(h.id)}>
+                  {h.role === 'owner' ? 'שיתוף' : 'מי רואה'}
                 </button>
-                {households.length > 1 && (
-                  <button className="link-btn danger-link" onClick={() => remove(h)}>
-                    מחיקה
-                  </button>
+                {/* שינוי שם ומחיקה שמורים לבעלים — חבר משתף בנתונים, לא בשליטה */}
+                {h.role === 'owner' && (
+                  <>
+                    <button className="link-btn" onClick={() => rename(h)}>
+                      שינוי שם
+                    </button>
+                    {households.length > 1 && (
+                      <button className="link-btn danger-link" onClick={() => remove(h)}>
+                        מחיקה
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -197,6 +222,23 @@ export default function AppDrawer<T extends string>({
         </div>
 
         <div className="drawer-foot">
+          {user && (
+            <div className="drawer-user">
+              <span className="drawer-user-avatar" aria-hidden>
+                <IconUser size={16} />
+              </span>
+              <div className="drawer-user-who">
+                <b>{user.name}</b>
+                <small className="dim" dir="ltr">
+                  {user.email}
+                </small>
+              </div>
+              <button className="icon-btn sm" onClick={onLogout} title="יציאה" aria-label="יציאה">
+                <IconLogout size={16} />
+              </button>
+            </div>
+          )}
+
           <div className="drawer-group-title">מצב תצוגה</div>
           <div className="theme-switch" role="group" aria-label="מצב תצוגה">
             {THEMES.map(({ id, Icon }) => (

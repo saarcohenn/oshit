@@ -185,3 +185,38 @@ export const IconHome = ({ size = 19, className }: IconProps) => (
     <path d="M5.5 9.5V19a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5V9.5" />
   </svg>
 )
+
+/** משתמש בודד — חשבון ההזדהות */
+export const IconUser = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" />
+  </svg>
+)
+
+/** שיתוף — שני אנשים חולקים משק בית */
+export const IconShare = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M2.5 19.5c0-3.1 2.9-5.2 6.5-5.2s6.5 2.1 6.5 5.2" />
+    <path d="M16.5 5.2a3.2 3.2 0 0 1 0 6" />
+    <path d="M18 14.6c2.1.6 3.5 2.1 3.5 4.1" />
+  </svg>
+)
+
+/** יציאה מהחשבון */
+export const IconLogout = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M14.5 4.5H18a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-3.5" />
+    <path d="M10 8.5 6.5 12l3.5 3.5" />
+    <path d="M6.5 12H15" />
+  </svg>
+)
+
+/** העתקה ללוח */
+export const IconCopy = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M15 6.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h.5" />
+  </svg>
+)

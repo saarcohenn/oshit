@@ -8,7 +8,7 @@
  * שום בקשה אינה נשלחת לשרת חיצוני ושום נתון פיננסי אינו נשמר כאן —
  * הנתונים חיים ב-localStorage בלבד.
  */
-const VERSION = 'oshit-v2'
+const VERSION = 'oshit-v3'
 const PRECACHE = [
   '/',
   '/index.html',
@@ -66,6 +66,21 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+
+  /*
+   * ה-API לעולם אינו עובר דרך המטמון.
+   *
+   * המטמון הכללי כאן הוא מטמון-קודם, ובלי החרגה מפורשת הוא שמר תשובות
+   * של ‎/api/‎ לצמיתות: רשימת משקי הבית, ואפילו המצב המלא. מרגע שנשמרה
+   * תשובה אחת, כל טעינה קיבלה אותה שוב — האפליקציה הייתה קופאת על
+   * תמונת מצב ישנה ולא מתכנסת לעולם, גם כשהרשת תקינה.
+   *
+   * זה לא התגלה קודם כי service worker נרשם רק בהקשר מאובטח, והשרת היה
+   * נגיש ב-http לפי כתובת IP. המעבר ל-HTTPS הוא שמפעיל את הקוד הזה.
+   *
+   * גם זרם ה-SSE נשען על ההחרגה: תשובה שלא נגמרת לא אמורה להישמר בכלל.
+   */
+  if (url.pathname.startsWith('/api/')) return
 
   if (request.mode === 'navigate') {
     event.respondWith(

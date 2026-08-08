@@ -13,7 +13,7 @@ import { exportState } from './lib/storage'
 import { useHouseholdState } from './lib/useHouseholdState'
 import { CategoryProvider } from './lib/categoryContext'
 import { setCycleStartDay } from './lib/cycle'
-import { api } from './lib/api'
+import { api, type AuthUser } from './lib/api'
 import { availableMonths } from './lib/analytics'
 import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
@@ -27,6 +27,9 @@ import SavingsPanel from './components/SavingsPanel'
 import PlanPanel from './components/PlanPanel'
 import AppDrawer from './components/AppDrawer'
 import TopNav from './components/TopNav'
+import AuthScreen from './components/AuthScreen'
+import ShareDialog from './components/ShareDialog'
+import { useAuth } from './lib/useAuth'
 import {
   IconBrand,
   IconBudget,
@@ -91,7 +94,63 @@ export interface ImportSummary {
   newTotal: number
 }
 
+/**
+ * שער ההזדהות.
+ *
+ * כל מה שמדבר עם השרת חי בתוך AppShell, שמורכב רק אחרי שיש משתמש —
+ * כך אין בקשות שנשלחות לפני שידוע מי שולח אותן, וניתוק מפרק את זרם
+ * העדכונים החי במקום להשאיר אותו פתוח מול חשבון שכבר יצא.
+ */
 export default function App() {
+  const auth = useAuth()
+
+  if (auth.loading) {
+    return (
+      <div className="app">
+        <div className="empty">
+          <h2>טוען…</h2>
+          <p>מתחבר לשרת של Osh.it</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (auth.error && !auth.user) {
+    return (
+      <div className="app">
+        <div className="empty">
+          <h2>אין חיבור לשרת</h2>
+          <p>
+            לא הצלחנו להגיע ל-API של Osh.it. ({auth.error})
+            <br />
+            ודאו שהשרת רץ, ונסו לרענן.
+          </p>
+          <button className="btn" onClick={() => location.reload()}>
+            רענון
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!auth.user) {
+    return (
+      <AuthScreen
+        needsSetup={auth.needsSetup}
+        openRegistration={auth.openRegistration}
+        invite={auth.invite}
+        onLogin={auth.login}
+        onRegister={auth.register}
+      />
+    )
+  }
+
+  // מפתח לפי מזהה המשתמש: החלפת חשבון מפרקת את כל המצב במקום לגרור
+  // אליו נתונים של החשבון הקודם
+  return <AppShell key={auth.user.id} user={auth.user} onLogout={() => void auth.logout()} />
+}
+
+function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const {
     households,
     activeId,
@@ -118,6 +177,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   /** הלשוניות שלא נכנסו לשורת הניווט ולכן מוצגות במגירה */
   const [overflowTabs, setOverflowTabs] = useState<Tab[]>(() => ALL_TABS.map((t) => t.id))
+  /** משק הבית שפתוח כרגע בחלון השיתוף */
+  const [shareId, setShareId] = useState<string | null>(null)
 
   useEffect(() => applyTheme(theme), [theme])
 
@@ -343,6 +404,7 @@ export default function App() {
   setCycleStartDay(state.settings?.cycleStartDay ?? 1)
 
   const hasData = transactions.length > 0
+  const shareHousehold = households.find((h) => h.id === shareId) ?? null
 
   /*
    * המגירה מקבלת רק את מה שלא נכנס לשורה. כשהחלון רחב היא מכילה משקי בית
@@ -403,9 +465,24 @@ export default function App() {
       onCreateHousehold={(n, e) => void createHousehold(n, e)}
       onRenameHousehold={(id, n, e) => void renameHousehold(id, n, e)}
       onDeleteHousehold={(id) => void deleteHousehold(id)}
+      onShareHousehold={(id) => {
+        setShareId(id)
+        setDrawerOpen(false)
+      }}
+      user={user}
+      onLogout={onLogout}
       theme={theme}
       onSetTheme={setTheme}
     />
+
+    {shareHousehold && (
+      <ShareDialog
+        household={shareHousehold}
+        onClose={() => setShareId(null)}
+        onChanged={() => void refreshHouseholds()}
+      />
+    )}
+
     <div className="app">
       <header className="topbar">
         <button
@@ -449,7 +526,7 @@ export default function App() {
       </header>
 
       <main className="main">
-        {pendingLocalImport() && (
+        {pendingLocalImport() && households.length > 0 && (
           <div className="notice warn" style={{ marginBottom: 16 }}>
             נמצאו נתונים ששמרתם בדפדפן לפני שהאפליקציה עברה לשרת.{' '}
             <button className="link-btn" onClick={() => void migrateLocalData()}>
@@ -457,7 +534,19 @@ export default function App() {
             </button>
           </div>
         )}
-        {!hasData && tab !== 'import' ? (
+        {!households.length ? (
+          /* אפשרי אחרי עזיבת משק הבית האחרון שחלקנו עם מישהו */
+          <div className="empty">
+            <h2>אין לכם משק בית</h2>
+            <p>צרו משק בית חדש, או בקשו קישור הזמנה ממי שכבר מנהל אחד.</p>
+            <button
+              className="btn"
+              onClick={() => void createHousehold('משק הבית שלי', '🏡')}
+            >
+              יצירת משק בית
+            </button>
+          </div>
+        ) : !hasData && tab !== 'import' ? (
           <div className="empty">
             <h2>עוד אין נתונים</h2>
             <p>ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.</p>
