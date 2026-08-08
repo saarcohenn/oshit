@@ -61,6 +61,24 @@ const app = express()
 app.set('trust proxy', 1)
 // קובץ אשראי של שנה שלמה עדיין קטן, אבל ברירת המחדל של express קטנה מדי עבורו
 app.use(express.json({ limit: '20mb' }))
+
+/*
+ * שום תשובת API אינה ניתנת לשמירה במטמון.
+ *
+ * הלקוח מבקש no-store, אבל זה חל רק על מטמון הדפדפן עצמו. בלי הכרזה
+ * מצד השרת, כל שכבה בדרך — reverse proxy, CDN, או service worker —
+ * רשאית לשמור את התשובה ולהגיש אותה שוב.
+ *
+ * זה לא תיאורטי: מספיק שתשובה אחת של ‎/state‎ נשמרת, והלקוח קורא לנצח
+ * מספר גרסה ישן. כל כתיבה שלו נדחית אז ב-409, הוא טוען מחדש, מקבל שוב
+ * את אותה תשובה שמורה — ונכנס ללולאה שאין ממנה יציאה.
+ */
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  res.setHeader('Pragma', 'no-cache')
+  next()
+})
+
 app.use(attachUser)
 
 app.get('/api/health', (_req, res) => {

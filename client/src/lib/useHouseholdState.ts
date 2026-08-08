@@ -30,6 +30,14 @@ export function useHouseholdState() {
   const version = useRef(0)
   // שמירה נדחית רק אחרי טעינה מוצלחת, כדי שהמצב הריק ההתחלתי לא ידרוס נתונים
   const loadedFor = useRef<string | null>(null)
+  /*
+   * מצב שהתקבל מהשרת אינו שינוי של המשתמש, ואסור שיחזור אליו ככתיבה.
+   *
+   * בלי הסימון הזה כל טעינה מפעילה את אפקט השמירה, ומצב שבו הכתיבה
+   * נדחית סוגר לולאה הדוקה: 409 ← טעינה ← שמירה ← 409, בלי הפסקה
+   * ובלי שאיש נגע במקלדת.
+   */
+  const fromServer = useRef(false)
 
   const loadHousehold = useCallback(async (id: string, silent = false) => {
     // רענון חי לא מחזיר את המסך למצב טעינה — המשתמש באמצע עבודה
@@ -38,6 +46,7 @@ export function useHouseholdState() {
     try {
       const { version: loadedVersion, ...next } = await api.getState(id)
       version.current = loadedVersion ?? 0
+      fromServer.current = true
       setState({ ...EMPTY_STATE, ...next })
       loadedFor.current = id
       setStatus('ready')
@@ -74,6 +83,11 @@ export function useHouseholdState() {
   /** שמירה מושהית בכל שינוי מצב */
   useEffect(() => {
     if (!activeId || loadedFor.current !== activeId) return
+    // המצב הזה הגיע מהשרת ולא מהמשתמש — אין מה להחזיר לו
+    if (fromServer.current) {
+      fromServer.current = false
+      return
+    }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       // הבדיקה חוזרת גם כאן: בין תזמון השמירה לבין הרגע שהיא רצה אפשר היה
