@@ -519,7 +519,7 @@ export default function PlanPanel({
           <p className="dim">עוד לא הוזנו הכנסות.</p>
         ) : (
           <div className="table-wrap">
-            <table className="responsive">
+            <table className="responsive income-table">
               <thead>
                 <tr>
                   <th style={{ minWidth: 170 }}>מקור</th>
@@ -533,7 +533,7 @@ export default function PlanPanel({
               <tbody>
                 {state.incomes.map((income) => (
                   <tr key={income.id}>
-                    <td data-label="מקור">
+                    <td className="c-name" data-label="מקור">
                       <input
                         type="text"
                         value={income.name}
@@ -541,7 +541,7 @@ export default function PlanPanel({
                         style={{ minWidth: 150 }}
                       />
                     </td>
-                    <td data-label="של מי">
+                    <td className="c-owner" data-label="של מי">
                       <input
                         type="text"
                         value={income.owner ?? ''}
@@ -550,7 +550,7 @@ export default function PlanPanel({
                         style={{ width: 120 }}
                       />
                     </td>
-                    <td data-label="סוג">
+                    <td className="c-kind" data-label="סוג">
                       <select
                         value={income.kind}
                         onChange={(e) =>
@@ -561,7 +561,7 @@ export default function PlanPanel({
                         <option value="oneoff">חד-פעמית</option>
                       </select>
                     </td>
-                    <td data-label="חודש">
+                    <td className="c-month" data-label="חודש">
                       {income.kind === 'oneoff' && !income.month && (
                         <span className="pill optional" title="הכנסה חד-פעמית בלי חודש אינה נספרת">
                           בחרו חודש
@@ -582,7 +582,7 @@ export default function PlanPanel({
                         <span className="dim">כל חודש</span>
                       )}
                     </td>
-                    <td className="num" data-label="סכום">
+                    <td className="num c-amount" data-label="סכום">
                       <input
                         type="number"
                         min={0}
@@ -594,7 +594,7 @@ export default function PlanPanel({
                         style={{ width: 110 }}
                       />
                     </td>
-                    <td data-label="">
+                    <td className="c-del" data-label="">
                       <button
                         className="icon-btn sm danger"
                         onClick={() => removeIncome(income.id)}

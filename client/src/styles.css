@@ -940,13 +940,24 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 .archive-body { margin-top: 10px; }
 .archive-body > p { margin-bottom: 12px; }
 
-/* כפתור אייקון הרסני — מחיקה והסרה */
-.icon-btn.danger { color: var(--danger); }
-.icon-btn.danger:hover {
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  box-shadow: none;
+/*
+ * כפתור מחיקה: הסימן עצמו, בלי קופסה.
+ *
+ * מסגרת ורקע סביב X בכל שורה מכפילים את הרעש הוויזואלי בדיוק במקום שבו
+ * מנסים להרגיע אותו. הצורה מגיעה בריחוף ובמיקוד בלבד, וההיטבוקס נשאר
+ * במלוא גודלו כדי שאפשר יהיה לפגוע בו באצבע.
+ */
+.icon-btn.danger {
+  background: none; border-color: transparent; box-shadow: none;
+  color: var(--danger); opacity: 0.6;
+  transition: opacity 0.14s ease, background 0.14s ease;
 }
+.icon-btn.danger:hover, .icon-btn.danger:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+  border-color: transparent; box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) { .icon-btn.danger { transition: none; } }
 
 /* ---------- Merchant alias ---------- */
 .alias-cell { display: flex; align-items: center; gap: 7px; }
@@ -1024,6 +1035,53 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   }
   .tx-table.responsive .tx-details-row { padding: 0; border: none; background: none; margin-bottom: 10px; }
   .tx-table.responsive .tx-details-row td { padding: 0; display: block; }
+
+  /* ---- כרטיס הכנסה ----
+     שש שורות של "תווית: פקד" זו רשימה, לא כרטיס. כאן זה טופס: המקור
+     בראש ברוחב מלא, ומתחתיו זוגות — כמה ושל מי, איזה סוג ולאיזה חודש. */
+  .income-table.responsive tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 11px 10px;
+    padding: 12px;
+  }
+  /* התווית מעל הפקד: בשתי עמודות צרות אין מקום לתווית לצדו */
+  .income-table.responsive td {
+    display: flex; flex-direction: column; align-items: stretch;
+    gap: 4px; padding: 0; min-width: 0;
+  }
+  .income-table.responsive td::before { min-width: 0; }
+  /* המקור הוא הכותרת של הכרטיס, ומפנה מקום לכפתור המחיקה בפינה */
+  .income-table.responsive td.c-name { grid-column: 1 / -1; padding-inline-end: 34px; }
+  .income-table.responsive td.c-name input { font-weight: 600; }
+  /*
+   * סדר קריאה ולא סדר עמודות: אחרי השם בא הסכום — זה מה שמחפשים בהכנסה.
+   * אחריו של מי, ולבסוף הסוג והחודש שהולכים יחד.
+   */
+  .income-table.responsive td.c-name { order: 1; }
+  .income-table.responsive td.c-amount { order: 2; }
+  .income-table.responsive td.c-owner { order: 3; }
+  .income-table.responsive td.c-kind { order: 4; }
+  .income-table.responsive td.c-month { order: 5; }
+  /*
+   * ביטול flex-basis שנקבע לשורה: כאן הציר הוא אנכי, ו-‎130px‎ היה הופך
+   * לגובה של כל שדה במקום לרוחבו.
+   */
+  .income-table.responsive td select,
+  .income-table.responsive td input:not(.emoji-input) {
+    flex: 0 0 auto; width: 100% !important;
+  }
+  /*
+   * width: auto חובה כאן. הכלל הכללי של מצב הכרטיסים נותן לכל td רוחב
+   * 100%, וכשהתא הופך ל-absolute הוא נמתח על כל הכרטיס ודוחף את הכפתור
+   * אל מעבר לקצה — במקום להצטמצם לרוחב האייקון.
+   */
+  .income-table.responsive td.c-del {
+    position: absolute; inset-inline-end: 5px; top: 7px;
+    width: auto; padding: 0; display: block;
+  }
+  .income-table.responsive td.c-del::before { content: none; }
 }
 
 /* טלפון בלבד — כאן מקצצים גם בכרום של הכותרת ובגדלים */
