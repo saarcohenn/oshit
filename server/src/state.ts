@@ -128,7 +128,8 @@ export function readState(householdId: string): HouseholdState {
     })),
     goals: q(
       `SELECT id, name, emoji, target_amount AS targetAmount, paid_manual AS paidManual,
-              linked_category AS linkedCategory, target_month AS targetMonth, note, done
+              linked_category AS linkedCategory, target_month AS targetMonth,
+              target_date AS targetDate, note, done
        FROM goals WHERE household_id = ?`,
     ).map((g) => ({
       id: g.id,
@@ -138,6 +139,7 @@ export function readState(householdId: string): HouseholdState {
       paidManual: g.paidManual,
       ...(g.linkedCategory ? { linkedCategory: g.linkedCategory } : {}),
       ...(g.targetMonth ? { targetMonth: g.targetMonth } : {}),
+      ...(g.targetDate ? { targetDate: g.targetDate } : {}),
       ...(g.note ? { note: g.note } : {}),
       ...(g.done ? { done: true } : {}),
     })),
@@ -303,12 +305,13 @@ export const writeState = db.transaction((
     del('goals')
     const ins = db.prepare(`
       INSERT INTO goals (id, household_id, name, emoji, target_amount, paid_manual,
-        linked_category, target_month, note, done)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        linked_category, target_month, target_date, note, done)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     for (const g of state.goals as Row[])
       ins.run(
         g.id, householdId, g.name, g.emoji ?? '🎁', g.targetAmount ?? 0, g.paidManual ?? 0,
-        nullIfEmpty(g.linkedCategory), nullIfEmpty(g.targetMonth), nullIfEmpty(g.note), bool(g.done),
+        nullIfEmpty(g.linkedCategory), nullIfEmpty(g.targetMonth), nullIfEmpty(g.targetDate),
+        nullIfEmpty(g.note), bool(g.done),
       )
   }
 

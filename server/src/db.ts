@@ -164,6 +164,8 @@ CREATE TABLE IF NOT EXISTS goals (
   paid_manual     REAL NOT NULL DEFAULT 0,
   linked_category TEXT,
   target_month    TEXT,
+  -- תאריך מדויק כשהוא ידוע. חודש היעד נשאר לצד זה עבור יעדים שאין להם יום
+  target_date     TEXT,
   note            TEXT,
   done            INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (household_id, id)
@@ -197,12 +199,20 @@ CREATE TABLE IF NOT EXISTS settings (
 
 db.exec(SCHEMA)
 
-// מסד נתונים שנוצר לפני הוספת בקרת המקביליות לא מכיל את העמודה
-const householdColumns = (db.prepare('PRAGMA table_info(households)').all() as Array<{ name: string }>)
-  .map((c) => c.name)
-if (!householdColumns.includes('version')) {
-  db.exec('ALTER TABLE households ADD COLUMN version INTEGER NOT NULL DEFAULT 0')
+/*
+ * הגירות לעמודות שנוספו אחרי שכבר היו מסדים בשטח.
+ * CREATE TABLE IF NOT EXISTS לא נוגע בטבלה קיימת, ולכן עמודה חדשה חייבת
+ * ALTER מפורש — אחרת שדרוג של שרת פעיל נופל על "no such column".
+ */
+function addColumnIfMissing(table: string, column: string, definition: string) {
+  const columns = (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+    (c) => c.name,
+  )
+  if (!columns.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
 }
+
+addColumnIfMissing('households', 'version', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('goals', 'target_date', 'TEXT')
 
 /**
  * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.

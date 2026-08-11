@@ -247,9 +247,14 @@ export function savingIdeas(
   transactions: Transaction[],
   month: string,
   cats: CategoryIndex,
+  /*
+   * כללי התדירות חייבים להגיע לכאן. בלעדיהם המסך המשיך להציע לבטל בית עסק
+   * שכבר סומן כחד-פעמי במסך העסקאות — עצה על חיוב שאינו קיים.
+   */
+  frequencies: Record<string, Frequency> = {},
 ): SavingIdea[] {
   const ideas: SavingIdea[] = []
-  const recurring = findRecurring(transactions)
+  const recurring = findRecurring(transactions, frequencies)
   const summary = summarize(transactions, month)
 
   // מנויים יציבים שאינם חובה — הקיצוץ הכי קל שיש

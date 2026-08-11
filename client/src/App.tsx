@@ -579,7 +579,13 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                 onSetMerchantRule={setMerchantRule}
               />
             )}
-            {tab === 'savings' && <SavingsPanel transactions={transactions} month={activeMonth} />}
+            {tab === 'savings' && (
+              <SavingsPanel
+                transactions={transactions}
+                month={activeMonth}
+                frequencies={frequencies}
+              />
+            )}
             {tab === 'plan' && (
               <PlanPanel
                 state={state}

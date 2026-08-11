@@ -5,6 +5,7 @@ import { useCategories } from '../lib/categoryContext'
 import { findRecurring, openCommitments, availableMonths, partialMonths, transactionMonth } from '../lib/analytics'
 import { FREQUENCIES, FREQUENCY_SHORT, nextChargeMonth } from '../lib/frequency'
 import { ils, monthLabel, monthLabelShort, plural } from '../lib/format'
+import { IconClose } from './Icons'
 
 export default function RecurringPanel({
   transactions,
@@ -48,6 +49,11 @@ export default function RecurringPanel({
     const groups = new Map<string, { merchant: string; category: Transaction['category']; necessity: Transaction['necessity']; amount: number }>()
     for (const t of transactions) {
       if (transactionMonth(t) !== latest || t.installment) continue
+      /*
+       * החלטת המשתמש גוברת על הניחוש לפי הקטגוריה. בלי הבדיקה הזו בית עסק
+       * שסומן כחד-פעמי המשיך להופיע כאן, והסימון נראה כאילו לא נקלט.
+       */
+      if (frequencies[t.merchantKey] === 'oneoff') continue
       if (t.category !== 'subscriptions' && t.category !== 'communication' && t.category !== 'insurance') continue
       const entry = groups.get(t.merchantKey) ?? {
         merchant: t.merchant,
@@ -61,9 +67,21 @@ export default function RecurringPanel({
     return [...groups.entries()]
       .map(([merchantKey, v]) => ({ merchantKey, ...v }))
       .sort((a, b) => b.amount - a.amount)
-  }, [transactions, singleMonth, fullMonths])
+  }, [transactions, singleMonth, fullMonths, frequencies])
 
   const likelyYearly = likelySubscriptions.reduce((s, t) => s + t.amount * 12, 0)
+
+  /** סימון בית עסק כחד-פעמי — מוציא אותו מכל רשימות החיובים הקבועים */
+  function markOneOff(merchantKey: string, merchant: string) {
+    if (
+      !confirm(
+        `להסיר את "${merchant}" מרשימת החיובים הקבועים?\n` +
+          `הוא יסומן כחד-פעמי. העסקאות עצמן נשארות במקומן.`,
+      )
+    )
+      return
+    onSetMerchantRule(merchantKey, { frequency: 'oneoff' })
+  }
 
   return (
     <div className="grid">
@@ -89,6 +107,7 @@ export default function RecurringPanel({
                   <th>נחיצות</th>
                   <th className="num">חיוב החודש</th>
                   <th className="num">בשנה</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -105,6 +124,16 @@ export default function RecurringPanel({
                     </td>
                     <td className="num" data-label="חיוב החודש">{ils(t.amount)}</td>
                     <td className="num strong" data-label="בשנה">{ils(t.amount * 12)}</td>
+                    <td data-label="">
+                      <button
+                        className="icon-btn sm danger"
+                        title="זה לא מנוי — סימון כחד-פעמי"
+                        aria-label={`סימון ${t.merchant} כחד-פעמי`}
+                        onClick={() => markOneOff(t.merchantKey, t.merchant)}
+                      >
+                        <IconClose size={15} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -218,20 +247,12 @@ export default function RecurringPanel({
                     </td>
                     <td data-label="">
                       <button
-                        className="link-btn danger-link"
+                        className="icon-btn sm danger"
                         title="סימון כחד-פעמי — החיוב יוסר מרשימת החיובים הקבועים"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `להסיר את "${r.merchant}" מרשימת החיובים הקבועים?
-` +
-                                `הוא יסומן כחד-פעמי. העסקאות עצמן נשארות במקומן.`,
-                            )
-                          )
-                            onSetMerchantRule(r.merchantKey, { frequency: 'oneoff' })
-                        }}
+                        aria-label={`הסרת ${r.merchant} מהחיובים הקבועים`}
+                        onClick={() => markOneOff(r.merchantKey, r.merchant)}
                       >
-                        הסרה
+                        <IconClose size={15} />
                       </button>
                     </td>
                   </tr>

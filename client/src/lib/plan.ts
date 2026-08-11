@@ -13,6 +13,15 @@ export function recurringIncome(incomes: Income[]): number {
   return incomes.filter((i) => i.kind === 'recurring').reduce((s, i) => s + i.amount, 0)
 }
 
+/**
+ * החודש שאליו היעד מכוון, בין אם נקבע לו תאריך מדויק ובין אם רק חודש.
+ * כל חישוב שמסתכל על "מתי" חייב לעבור דרך כאן — אחרת יעד עם תאריך מדויק
+ * ייראה כאילו אין לו מועד בכלל.
+ */
+export function goalDueMonth(goal: Goal): string | undefined {
+  return goal.targetDate ? goal.targetDate.slice(0, 7) : goal.targetMonth
+}
+
 export interface GoalProgress {
   goal: Goal
   /** תשלומים שאותרו בעסקאות בפועל דרך הקטגוריה המקושרת או שיוך ידני */
@@ -50,8 +59,9 @@ export function goalProgress(
 
   let monthsLeft: number | null = null
   let overdue = false
-  if (goal.targetMonth && !goal.done) {
-    monthsLeft = monthsBetween(currentMonth, goal.targetMonth)
+  const due = goalDueMonth(goal)
+  if (due && !goal.done) {
+    monthsLeft = monthsBetween(currentMonth, due)
     if (monthsLeft < 0) {
       overdue = true
       monthsLeft = 0

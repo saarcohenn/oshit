@@ -220,3 +220,19 @@ export const IconCopy = ({ size = 16, className }: IconProps) => (
     <path d="M15 6.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h.5" />
   </svg>
 )
+
+/** חץ פתיחה/סגירה לכרטיס מתקפל */
+export const IconChevron = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M6 9.5 12 15l6-5.5" />
+  </svg>
+)
+
+/** ארכיון — קופסה סגורה */
+export const IconArchive = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <rect x="3.5" y="4.5" width="17" height="4" rx="1.2" />
+    <path d="M5 8.5v10a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-10" />
+    <path d="M10 12.5h4" />
+  </svg>
+)

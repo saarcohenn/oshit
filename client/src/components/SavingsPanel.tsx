@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Transaction } from '../types'
+import type { Frequency, Transaction } from '../types'
 import { savingIdeas, summarize } from '../lib/analytics'
 import { useCategories } from '../lib/categoryContext'
 import { ils, monthLabel } from '../lib/format'
@@ -13,12 +13,18 @@ const SEVERITY_LABEL: Record<'high' | 'medium' | 'low', string> = {
 export default function SavingsPanel({
   transactions,
   month,
+  frequencies,
 }: {
   transactions: Transaction[]
   month: string
+  /** כללי התדירות ממסך העסקאות — בית עסק שסומן כחד-פעמי אינו מועמד לביטול */
+  frequencies: Record<string, Frequency>
 }) {
   const cats = useCategories()
-  const ideas = useMemo(() => savingIdeas(transactions, month, cats), [transactions, month, cats])
+  const ideas = useMemo(
+    () => savingIdeas(transactions, month, cats, frequencies),
+    [transactions, month, cats, frequencies],
+  )
   const summary = useMemo(() => summarize(transactions, month), [transactions, month])
 
   const monthlyTotal = ideas.reduce((s, i) => s + i.monthlySaving, 0)

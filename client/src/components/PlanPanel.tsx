@@ -9,12 +9,13 @@ import type {
   Transaction,
 } from '../types'
 import { useCategories } from '../lib/categoryContext'
-import { ils, monthLabel } from '../lib/format'
+import { ils, monthLabel, shortDate } from '../lib/format'
 import { cycleRangeLabel } from '../lib/cycle'
-import { IconPlus } from './Icons'
+import { IconArchive, IconChevron, IconClose, IconPlus } from './Icons'
 import {
   addMonths,
   changeSaving,
+  goalDueMonth,
   goalProgress,
   incomeForMonth,
   monthlyPicture,
@@ -47,7 +48,18 @@ export default function PlanPanel({
   onSetSettings,
 }: Props) {
   const cats = useCategories()
-  const [showPaidGoals, setShowPaidGoals] = useState(true)
+  /* יעד נפתח רק כשנוגעים בו. כרטיס פתוח הוא כשמונה שדות, וחמישה כאלה
+     זה קיר של פקדים — בנייד במיוחד */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [archiveOpen, setArchiveOpen] = useState(false)
+
+  const toggleGoal = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const goalIdByTx = useMemo(() => {
     const map: Record<string, string | undefined> = {}
@@ -65,9 +77,9 @@ export default function PlanPanel({
   const totalRemaining = progress.reduce((s, p) => s + p.remaining, 0)
   const changesSaving = state.plannedChanges.reduce((s, c) => s + changeSaving(c), 0)
 
-  const shownGoals = showPaidGoals
-    ? progress
-    : progress.filter((p) => !p.goal.done && (p.goal.targetAmount <= 0 || p.remaining > 0))
+  /* יעד שסומן כהושלם יורד מהרשימה הפעילה ועובר לארכיון */
+  const activeGoals = progress.filter((p) => !p.goal.done)
+  const archivedGoals = progress.filter((p) => p.goal.done)
 
   /** מספר העסקאות שנספרות לכל יעד — כדי להראות שיש מה לפתוח */
   const relatedCount = useMemo(() => {
@@ -97,9 +109,10 @@ export default function PlanPanel({
     )
   }
   function addIncome() {
+    // בראש הרשימה: השורה החדשה היא זו שצריך למלא, ואין סיבה לגלול אליה
     onSetIncomes([
-      ...state.incomes,
       { id: uid(), name: 'משכורת', amount: 0, kind: 'recurring', owner: '' },
+      ...state.incomes,
     ])
   }
   function removeIncome(id: string) {
@@ -110,17 +123,24 @@ export default function PlanPanel({
     onSetGoals(state.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)))
   }
   function addGoal() {
-    onSetGoals([
-      ...state.goals,
-      {
-        id: uid(),
-        name: 'הוצאה גדולה חדשה',
-        emoji: '🎁',
-        targetAmount: 0,
-        paidManual: 0,
-        targetMonth: addMonths(month, 6),
-      },
-    ])
+    const goal: Goal = {
+      id: uid(),
+      name: 'הוצאה גדולה חדשה',
+      emoji: '🎁',
+      targetAmount: 0,
+      paidManual: 0,
+      targetMonth: addMonths(month, 6),
+    }
+    onSetGoals([goal, ...state.goals])
+    setExpanded((prev) => new Set(prev).add(goal.id))
+  }
+
+  /** בחירת אופן המועד. שומר על החודש שכבר נבחר כשעוברים בין המצבים */
+  function setDueMode(g: Goal, mode: 'none' | 'month' | 'date') {
+    const current = goalDueMonth(g) ?? addMonths(month, 6)
+    if (mode === 'none') patchGoal(g.id, { targetMonth: undefined, targetDate: undefined })
+    else if (mode === 'month') patchGoal(g.id, { targetMonth: current, targetDate: undefined })
+    else patchGoal(g.id, { targetDate: `${current}-01`, targetMonth: undefined })
   }
   function removeGoal(id: string) {
     onSetGoals(state.goals.filter((g) => g.id !== id))
@@ -131,7 +151,6 @@ export default function PlanPanel({
   }
   function addChange() {
     onSetChanges([
-      ...state.plannedChanges,
       {
         id: uid(),
         name: 'הוצאה קבועה שמשתנה',
@@ -139,6 +158,7 @@ export default function PlanPanel({
         futureMonthly: 0,
         fromMonth: addMonths(month, 1),
       },
+      ...state.plannedChanges,
     ])
   }
   function removeChange(id: string) {
@@ -151,6 +171,245 @@ export default function PlanPanel({
     for (let i = -12; i <= 24; i++) list.push(addMonths(month, i))
     return list
   }, [month])
+
+  /**
+   * כרטיס יעד מתקפל.
+   *
+   * סגור הוא שורה אחת שעונה על מה ששואלים בפועל — כמה שולם, מתי, וכמה
+   * להפריש החודש. כל השדות נפתחים רק כשבאים לערוך, אחרת חמישה יעדים הם
+   * קיר של עשרות פקדים שאי אפשר לסרוק, בטח לא בטלפון.
+   */
+  const renderGoal = (p: (typeof progress)[number]) => {
+    const g = p.goal
+    const open = expanded.has(g.id)
+    // יעד ללא סכום עדיין לא מולא — הוא אינו "מכוסה", הוא פשוט ריק
+    const empty = g.targetAmount <= 0
+    const covered = !empty && p.remaining === 0
+    const due = goalDueMonth(g)
+    const dueLabel = g.targetDate ? shortDate(g.targetDate) : due ? monthLabel(due) : 'בלי מועד'
+    const mode: 'none' | 'month' | 'date' = g.targetDate ? 'date' : g.targetMonth ? 'month' : 'none'
+
+    return (
+      <div className={`card goal-card ${g.done ? 'goal-done' : ''}`} key={g.id}>
+        <div className="goal-head-row">
+          <button
+            className="goal-head"
+            onClick={() => toggleGoal(g.id)}
+            aria-expanded={open}
+            title={open ? 'סגירת הפרטים' : 'פתיחת הפרטים'}
+          >
+            <span className="goal-emoji" aria-hidden>
+              {g.emoji}
+            </span>
+            <span className="goal-head-text">
+              <b>{g.name}</b>
+              <span className="mini-label">
+                {empty
+                  ? 'עוד לא הוזנה עלות'
+                  : `${ils(p.paid)} מתוך ${ils(g.targetAmount)} · ${p.percent}%`}
+                {' · '}
+                {dueLabel}
+              </span>
+            </span>
+            <span className="goal-head-figure">
+              {g.done ? (
+                <span className="pill mandatory">הושלם</span>
+              ) : covered ? (
+                <span className="pill mandatory">מכוסה</span>
+              ) : p.overdue ? (
+                <span className="pill optional">באיחור</span>
+              ) : p.monthlyNeeded ? (
+                <>
+                  <b>{ils(p.monthlyNeeded)}</b>
+                  <span className="mini-label">בחודש</span>
+                </>
+              ) : null}
+            </span>
+            <IconChevron size={16} className={`chev ${open ? 'open' : ''}`} />
+          </button>
+          <button
+            className="icon-btn sm danger"
+            title="מחיקת היעד"
+            aria-label={`מחיקת ${g.name}`}
+            onClick={() => {
+              if (confirm(`למחוק את "${g.name}"? הפעולה אינה הפיכה.`)) removeGoal(g.id)
+            }}
+          >
+            <IconClose size={15} />
+          </button>
+        </div>
+
+        <div className="bar goal-bar">
+          <span
+            style={{
+              width: `${g.done ? 100 : p.percent}%`,
+              background:
+                covered || g.done
+                  ? 'var(--ok)'
+                  : 'linear-gradient(90deg, var(--accent-2), var(--accent))',
+            }}
+          />
+        </div>
+
+        {open && (
+          <div className="goal-body">
+            <div className="toolbar" style={{ marginBottom: 10 }}>
+              <input
+                className="emoji-input"
+                type="text"
+                value={g.emoji}
+                onChange={(e) => patchGoal(g.id, { emoji: e.target.value })}
+                aria-label="אימוג׳י"
+              />
+              <input
+                type="text"
+                value={g.name}
+                onChange={(e) => patchGoal(g.id, { name: e.target.value })}
+                style={{ flex: 1, minWidth: 120, fontWeight: 650 }}
+                aria-label="שם היעד"
+              />
+            </div>
+
+            <div className="toolbar" style={{ marginBottom: 12 }}>
+              <label className="done-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!g.done}
+                  onChange={(e) => patchGoal(g.id, { done: e.target.checked })}
+                />
+                <span>{g.done ? '✅ בארכיון' : 'סמנו כשהיעד סגור — יעבור לארכיון'}</span>
+              </label>
+              <button
+                className="link-btn spacer"
+                onClick={() => onShowGoalExpenses(g.id)}
+                title="מעבר למסך העסקאות עם סינון לפי היעד"
+              >
+                🔎 הצגת ההוצאות ({relatedCount[g.id] ?? 0}) ←
+              </button>
+            </div>
+
+            <div className="mini-label" style={{ marginBottom: 12 }}>
+              שולם {ils(p.paid)} מתוך {ils(g.targetAmount)} · {p.percent}%
+              {p.paidFromTransactions > 0 && (
+                <> · מתוכם {ils(p.paidFromTransactions)} אותרו בעסקאות</>
+              )}
+            </div>
+
+            <div className="grid" style={{ gap: 9 }}>
+              <label className="field-row">
+                <span>עלות כוללת</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={g.targetAmount || ''}
+                  onChange={(e) => patchGoal(g.id, { targetAmount: Number(e.target.value) || 0 })}
+                />
+              </label>
+              <label className="field-row">
+                <span>שולם מחוץ לכרטיס</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={g.paidManual || ''}
+                  onChange={(e) => patchGoal(g.id, { paidManual: Number(e.target.value) || 0 })}
+                />
+              </label>
+
+              {/* חתונה או טיסה הן תאריך, לא חודש. שיפוץ הוא חודש ותו לא */}
+              <div className="field-row">
+                <span>מועד היעד</span>
+                <div className="due-picker">
+                  <select
+                    value={mode}
+                    onChange={(e) => setDueMode(g, e.target.value as typeof mode)}
+                    aria-label="סוג המועד"
+                  >
+                    <option value="none">בלי מועד</option>
+                    <option value="month">חודש</option>
+                    <option value="date">תאריך מדויק</option>
+                  </select>
+                  {mode === 'month' && (
+                    <select
+                      value={g.targetMonth ?? ''}
+                      onChange={(e) => patchGoal(g.id, { targetMonth: e.target.value })}
+                      aria-label="חודש היעד"
+                    >
+                      {monthOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {monthLabel(m)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {mode === 'date' && (
+                    <input
+                      type="date"
+                      value={g.targetDate ?? ''}
+                      onChange={(e) => patchGoal(g.id, { targetDate: e.target.value || undefined })}
+                      aria-label="תאריך היעד"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <label className="field-row">
+                <span>קטגוריה מקושרת</span>
+                <select
+                  value={g.linkedCategory ?? ''}
+                  onChange={(e) =>
+                    patchGoal(g.id, {
+                      linkedCategory: (e.target.value || undefined) as CategoryId | undefined,
+                    })
+                  }
+                >
+                  <option value="">אין — ספירה ידנית בלבד</option>
+                  {cats.list.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.emoji} {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div
+              className={`notice ${empty && !g.done ? 'warn' : ''}`}
+              style={{ marginTop: 12, fontSize: 13 }}
+            >
+              {g.done ? (
+                <>
+                  ✅ היעד בארכיון ואינו נכלל עוד בהפרשה החודשית.
+                  {p.paid < g.targetAmount && g.targetAmount > 0 && (
+                    <>
+                      {' '}
+                      נרשמו {ils(p.paid)} מתוך {ils(g.targetAmount)}.
+                    </>
+                  )}
+                </>
+              ) : empty ? (
+                <>✏️ מלאו את העלות הכוללת ואת המועד כדי שנחשב כמה להפריש בחודש.</>
+              ) : covered ? (
+                <>✅ היעד מכוסה במלואו.</>
+              ) : p.overdue ? (
+                <>
+                  ⚠ המועד כבר עבר ונותרו <strong>{ils(p.remaining)}</strong>.
+                </>
+              ) : p.monthlyNeeded !== null ? (
+                <>
+                  נותרו {ils(p.remaining)} על פני {p.monthsLeft} חודשים —{' '}
+                  <strong>{ils(p.monthlyNeeded)} בחודש</strong>
+                </>
+              ) : (
+                <>נותרו {ils(p.remaining)}. קבעו מועד כדי לחשב הפרשה חודשית.</>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="grid">
@@ -336,8 +595,13 @@ export default function PlanPanel({
                       />
                     </td>
                     <td data-label="">
-                      <button className="link-btn" onClick={() => removeIncome(income.id)}>
-                        מחיקה
+                      <button
+                        className="icon-btn sm danger"
+                        onClick={() => removeIncome(income.id)}
+                        title="מחיקת ההכנסה"
+                        aria-label={`מחיקת ${income.name}`}
+                      >
+                        <IconClose size={15} />
                       </button>
                     </td>
                   </tr>
@@ -358,15 +622,7 @@ export default function PlanPanel({
               כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית לפי הקטגוריה המקושרת.
             </div>
           </div>
-          <label className="spacer" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={showPaidGoals}
-              onChange={(e) => setShowPaidGoals(e.target.checked)}
-            />
-            הצגת יעדים שהושלמו ({progress.filter((p) => p.goal.done || (p.goal.targetAmount > 0 && p.remaining === 0)).length})
-          </label>
-          <button className="add-btn" onClick={addGoal} title="הוספת יעד" aria-label="הוספת יעד">
+          <button className="add-btn spacer" onClick={addGoal} title="הוספת יעד" aria-label="הוספת יעד">
             <IconPlus size={19} />
           </button>
         </div>
@@ -374,10 +630,14 @@ export default function PlanPanel({
         <div className="grid cols-3" style={{ marginBottom: 14 }}>
           <div className="card">
             <div className="stat-label">סך היעדים</div>
+            {/* הארכיון אינו נספר: יעד סגור אינו התחייבות שצריך לתכנן מולה */}
             <div className="stat-value">
-              {ils(state.goals.reduce((s, g) => s + g.targetAmount, 0))}
+              {ils(activeGoals.reduce((s, p) => s + p.goal.targetAmount, 0))}
             </div>
-            <div className="stat-note">{state.goals.length} יעדים</div>
+            <div className="stat-note">
+              {activeGoals.length} יעדים פעילים
+              {archivedGoals.length > 0 && ` · ${archivedGoals.length} בארכיון`}
+            </div>
           </div>
           <div className="card">
             <div className="stat-label">עוד צריך לשלם</div>
@@ -395,157 +655,33 @@ export default function PlanPanel({
 
         {state.goals.length === 0 ? (
           <p className="dim">עוד לא הוגדרו הוצאות גדולות.</p>
+        ) : activeGoals.length === 0 ? (
+          <p className="dim">כל היעדים הושלמו ועברו לארכיון.</p>
         ) : (
-          <div className="grid cols-2">
-            {shownGoals.map((p) => {
-              const g = p.goal
-              // יעד ללא סכום עדיין לא מולא — הוא אינו "מכוסה", הוא פשוט ריק
-              const empty = g.targetAmount <= 0
-              const done = !empty && p.remaining === 0
-              return (
-                <div className={`card goal-card ${g.done ? 'goal-done' : ''}`} key={g.id}>
-                  <div className="toolbar" style={{ marginBottom: 10 }}>
-                    <input
-                      className="emoji-input"
-                      type="text"
-                      value={g.emoji}
-                      onChange={(e) => patchGoal(g.id, { emoji: e.target.value })}
-                      aria-label="אימוג׳י"
-                    />
-                    <input
-                      type="text"
-                      value={g.name}
-                      onChange={(e) => patchGoal(g.id, { name: e.target.value })}
-                      style={{ flex: 1, minWidth: 120, fontWeight: 650 }}
-                    />
-                    <button className="link-btn" onClick={() => removeGoal(g.id)}>
-                      מחיקה
-                    </button>
-                  </div>
+          <div className="grid cols-2">{activeGoals.map(renderGoal)}</div>
+        )}
 
-                  <div className="toolbar" style={{ marginBottom: 12 }}>
-                    <label className="done-toggle">
-                      <input
-                        type="checkbox"
-                        checked={!!g.done}
-                        onChange={(e) => patchGoal(g.id, { done: e.target.checked })}
-                      />
-                      <span>{g.done ? '✅ הושלם' : 'סמנו כשהיעד סגור'}</span>
-                    </label>
-                    <button
-                      className="link-btn spacer"
-                      onClick={() => onShowGoalExpenses(g.id)}
-                      title="מעבר למסך העסקאות עם סינון לפי היעד"
-                    >
-                      🔎 הצגת ההוצאות ({relatedCount[g.id] ?? 0}) ←
-                    </button>
-                  </div>
-
-                  <div className="bar" style={{ marginBottom: 6 }}>
-                    <span
-                      style={{
-                        width: `${g.done ? 100 : p.percent}%`,
-                        background:
-                          done || g.done
-                            ? 'var(--ok)'
-                            : 'linear-gradient(90deg, var(--accent-2), var(--accent))',
-                      }}
-                    />
-                  </div>
-                  <div className="mini-label" style={{ marginBottom: 12 }}>
-                    שולם {ils(p.paid)} מתוך {ils(g.targetAmount)} · {p.percent}%
-                    {p.paidFromTransactions > 0 && (
-                      <> · מתוכם {ils(p.paidFromTransactions)} אותרו בעסקאות</>
-                    )}
-                  </div>
-
-                  <div className="grid" style={{ gap: 9 }}>
-                    <label className="field-row">
-                      <span>עלות כוללת</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={500}
-                        value={g.targetAmount || ''}
-                        onChange={(e) =>
-                          patchGoal(g.id, { targetAmount: Number(e.target.value) || 0 })
-                        }
-                      />
-                    </label>
-                    <label className="field-row">
-                      <span>שולם מחוץ לכרטיס</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={500}
-                        value={g.paidManual || ''}
-                        onChange={(e) =>
-                          patchGoal(g.id, { paidManual: Number(e.target.value) || 0 })
-                        }
-                      />
-                    </label>
-                    <label className="field-row">
-                      <span>חודש היעד</span>
-                      <select
-                        value={g.targetMonth ?? ''}
-                        onChange={(e) => patchGoal(g.id, { targetMonth: e.target.value || undefined })}
-                      >
-                        <option value="">בלי תאריך</option>
-                        {monthOptions.map((m) => (
-                          <option key={m} value={m}>
-                            {monthLabel(m)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field-row">
-                      <span>קטגוריה מקושרת</span>
-                      <select
-                        value={g.linkedCategory ?? ''}
-                        onChange={(e) =>
-                          patchGoal(g.id, {
-                            linkedCategory: (e.target.value || undefined) as CategoryId | undefined,
-                          })
-                        }
-                      >
-                        <option value="">אין — ספירה ידנית בלבד</option>
-                        {cats.list.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.emoji} {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className={`notice ${empty && !g.done ? 'warn' : ''}`} style={{ marginTop: 12, fontSize: 13 }}>
-                    {g.done ? (
-                      <>
-                        ✅ היעד סומן כהושלם ואינו נכלל עוד בהפרשה החודשית.
-                        {p.paid < g.targetAmount && g.targetAmount > 0 && (
-                          <> נרשמו {ils(p.paid)} מתוך {ils(g.targetAmount)}.</>
-                        )}
-                      </>
-                    ) : empty ? (
-                      <>✏️ מלאו את העלות הכוללת ואת חודש היעד כדי שנחשב כמה להפריש בחודש.</>
-                    ) : done ? (
-                      <>✅ היעד מכוסה במלואו.</>
-                    ) : p.overdue ? (
-                      <>
-                        ⚠ חודש היעד כבר עבר ונותרו <strong>{ils(p.remaining)}</strong>.
-                      </>
-                    ) : p.monthlyNeeded !== null ? (
-                      <>
-                        נותרו {ils(p.remaining)} על פני {p.monthsLeft} חודשים —{' '}
-                        <strong>{ils(p.monthlyNeeded)} בחודש</strong>
-                      </>
-                    ) : (
-                      <>נותרו {ils(p.remaining)}. קבעו חודש יעד כדי לחשב הפרשה חודשית.</>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+        {archivedGoals.length > 0 && (
+          <div className="archive">
+            <button
+              className="archive-head"
+              onClick={() => setArchiveOpen((v) => !v)}
+              aria-expanded={archiveOpen}
+            >
+              <IconArchive size={17} />
+              <span className="grow">ארכיון — יעדים שהושלמו</span>
+              <span className="chip">{archivedGoals.length}</span>
+              <IconChevron size={16} className={`chev ${archiveOpen ? 'open' : ''}`} />
+            </button>
+            {archiveOpen && (
+              <div className="archive-body">
+                <p className="dim tiny">
+                  היעדים האלה אינם נספרים בהפרשה החודשית, אבל הנתונים שלהם נשמרים במלואם.
+                  ביטול הסימון מחזיר יעד לרשימה הפעילה.
+                </p>
+                <div className="grid cols-2">{archivedGoals.map(renderGoal)}</div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -640,8 +776,13 @@ export default function PlanPanel({
                         {ils(changeSaving(c))}
                       </td>
                       <td data-label="">
-                        <button className="link-btn" onClick={() => removeChange(c.id)}>
-                          מחיקה
+                        <button
+                          className="icon-btn sm danger"
+                          onClick={() => removeChange(c.id)}
+                          title="מחיקת השינוי"
+                          aria-label={`מחיקת ${c.name}`}
+                        >
+                          <IconClose size={15} />
                         </button>
                       </td>
                     </tr>
@@ -676,7 +817,7 @@ export default function PlanPanel({
                   const inc = incomeForMonth(state.incomes, m)
                   const activeChanges = state.plannedChanges.filter((c) => m >= c.fromMonth)
                   const saved = activeChanges.reduce((s, c) => s + changeSaving(c), 0)
-                  const dueGoals = progress.filter((p) => p.goal.targetMonth === m)
+                  const dueGoals = progress.filter((p) => goalDueMonth(p.goal) === m)
                   return (
                     <tr key={m}>
                       <td className="strong" data-label="חודש">
