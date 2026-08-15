@@ -1,272 +1,244 @@
-# 🪙 Oshit
+# 🪙 Osh.it
 
-> **או-שיט.** בדיוק ההברה שיוצאת לכם כשאתם פותחים את דף העו״ש בסוף החודש.
+> **Osh-it.** The exact syllable that escapes you when you open the statement at the end of the month.
 
-אפליקציית ניהול הוצאות למשק בית, בעברית, שעונה על שלוש שאלות:
-**על מה אנחנו משלמים? כמה מזה באמת חובה? ואיפה אפשר לחסוך?**
+A self-hosted household expense tracker for **Israeli households**, in Hebrew and English.
+It answers three questions:
 
-הקלט הוא קובץ האקסל "פירוט עסקאות — כרטיסי אשראי" שמורידים מאתר הבנק. אין שירות
-מנוהל: מריצים את זה על שרת משלכם, והנתונים נשארים שם.
+**What are we paying for? How much of it is genuinely unavoidable? And where can we cut?**
 
-## הרצה בדוקר (כך זה רץ בהומלאב)
+You feed it the Excel file your bank or credit-card issuer already lets you download.
+There is no hosted service and no account with us — you run the container, and the data
+stays on your machine.
+
+---
+
+## Why "for Israeli households"
+
+This is not a generic budgeting app with a Hebrew skin. The parts that took the most work
+are specific to how money moves in Israel, and they are the reason the numbers come out right:
+
+- **Israeli utilities bill every two months.** Electricity, water and city tax (arnona)
+  arrive on a bi-monthly cycle, which wrecks month-to-month comparison — the month with the
+  bill looks like an overspend, the next like a windfall. Mark a merchant's frequency once
+  and Osh.it shows the true monthly cost and predicts the next charge.
+- **Bank merchant names are truncated to 14 characters.** `מרכבה a45 (חצי` tells you nothing.
+  Give it a name you recognise once, and it replaces the truncated one everywhere — every
+  month, and every file you import later.
+- **Instalments (תשלומים).** Israeli cards split purchases across months. Osh.it tracks what
+  you have already committed to but not yet paid.
+- **Money that never touches the card.** Cash, a bank standing order, a cheque, or the
+  transfer to your mother who pays the electricity. There is a "paid via" field for exactly this.
+- **Shekels, Hebrew dates, RTL layout** throughout — with an English interface available.
+
+If you bank outside Israel, the import step will not work for you as-is. The parser targets
+specific Hebrew column headers. Everything downstream is generic, so a new parser is the
+main thing a different country would need.
+
+---
+
+## Supported files
+
+Two formats, detected automatically from the file contents rather than the filename:
+
+| Source | File | Notes |
+|---|---|---|
+| **Your bank** | "פירוט עסקאות — כרטיסי אשראי" | Several tables in one sheet, one month at a time |
+| **CAL (כאל)** | "פירוט עסקאות וזיכויים" | **Long history in one download** — often a year or more |
+
+The CAL export is the fastest way to get started: a single file can carry 1,000+ transactions
+across 20 months, which is what makes trends, averages and recurring-charge detection actually
+meaningful.
+
+**Each card has its own file.** If you and your partner each hold a card, download one file
+per cardholder and drag both in — the card identity is read from the file header, so they
+stay distinct and never merge.
+
+Re-importing the same period later is safe. Osh.it compares against what it already has and
+reports exactly what happened: how many transactions were **added**, how many were **updated**
+(a foreign-currency purchase that finally received its final shekel amount), and how many were
+already there and unchanged. Nothing is duplicated, and your notes, references and goal links
+survive.
+
+---
+
+## The core idea: necessity
+
+Every transaction lands in a category, and every category carries a necessity level:
+
+- **Essential** — rent, bills, insurance, health, basic food. You do not cut here.
+- **Semi-essential** — fuel, parking, everyday shopping. Needed, but it can be made cheaper.
+- **Discretionary** — restaurants, subscriptions, going out. This is where real saving lives.
+
+Savings suggestions never touch anything marked essential. The automatic classification will
+not always get it right — **changing it applies to every transaction from that merchant,
+including future imports**, so you fix each merchant exactly once.
+
+---
+
+## What's in the app
+
+| Tab | What it answers |
+|---|---|
+| **Overview** | Monthly total, breakdown by category and merchant, trend across months, and the essential/semi/discretionary split. Enter income and you also get what's left at month end and your savings rate |
+| **Income & goals** | Recurring and one-off income, big expenses coming up with the required monthly set-aside, and planned changes to recurring costs |
+| **Budgets** | A monthly ceiling per category with a usage bar and overspend warnings |
+| **Recurring** | Subscriptions and standing orders detected automatically, the annual cost of each, and open instalments that keep charging you |
+| **Where to save** | Concrete suggestions with the monthly and yearly saving attached |
+| **Transactions** | Everything, with search and filters, reclassification, manual payments, and per-merchant billing frequency |
+| **Merchants** | Every merchant in one place — give each a name you recognise, fix its category and necessity |
+| **Categories** | Fully editable per household: name, emoji, colour, necessity, order, keywords |
+| **Import** | Drag files, export a backup, delete data |
+
+---
+
+## Language
+
+The interface ships in **Hebrew (default, RTL)** and **English (LTR)**. Switch from the menu
+under **Language**; the choice is stored per browser and flips the entire layout direction.
+
+Two things deliberately stay in Hebrew regardless of interface language, because they are
+your data rather than the app's text: **category names** (which you can rename freely) and
+**merchant names** (which come from the bank).
+
+---
+
+## Accounts and sharing
+
+The first visit to a fresh server creates the first account, and that account owns the data.
+**Registration then closes permanently** — anyone arriving without an invite cannot create an
+account. That is the right default for a home server exposed through a tunnel.
+
+Sharing a household with a partner uses an invite link: menu → households → **Share** → *new
+invite link*. It is valid for seven days, stops working once someone joins with it, and whoever
+joins can see and edit everything in that household — and only that household.
+
+- **Owner** invites, renames and deletes the household.
+- **Member** sees and edits the data, and can leave at any time. Leaving deletes nothing.
+- One account can hold several households; only members see them.
+
+Upgrading from a version that ran before accounts existed: your existing data is adopted
+automatically by the first account created. Nothing to export or re-import.
+
+---
+
+## Running it
 
 ```bash
 docker compose up -d --build
 ```
 
-האפליקציה תעלה על `http://<SERVER_IP>:8082`. בסיס הנתונים יושב ב-volume בשם
-`oshit-data` ואפשר לגבות אותו כמו כל תיקייה.
+The app comes up on `http://<SERVER_IP>:8082`. The database is a single SQLite file in a
+volume named `oshit-data`, which you can back up like any other directory.
 
-## חשבונות ושיתוף
+### Environment variables
 
-הכניסה הראשונה לשרת חדש יוצרת את החשבון הראשון, והוא הבעלים של הנתונים.
-**מהרגע הזה ההרשמה סגורה** — מי שמגיע לכתובת בלי הזמנה לא יכול ליצור חשבון.
-זו ההתנהגות הנכונה לשרת ביתי שנחשף לאינטרנט דרך מנהרה.
-
-משק בית משותף בין בני זוג נעשה בקישור הזמנה: בתפריט ← משקי בית ← **שיתוף** ←
-*קישור הזמנה חדש*. הקישור תקף שבעה ימים, מתבטל ברגע שמישהו הצטרף באמצעותו,
-ומי שנכנס דרכו רואה ועורך את כל נתוני אותו משק בית — ורק אותו.
-
-- **בעלים** מזמין, משנה שם ומוחק את משק הבית.
-- **חבר** רואה ועורך את הנתונים, ויכול לעזוב בכל רגע. עזיבה אינה מוחקת דבר.
-- לכל חשבון יכולים להיות כמה משקי בית, ורק החברים בהם רואים אותם.
-
-שדרוג משרת שרץ לפני הגרסה הזו: הנתונים הקיימים עוברים אוטומטית לבעלות החשבון
-הראשון שנוצר. אין צורך לייצא ולייבא כלום.
-
-### משתני סביבה
-
-| משתנה | ברירת מחדל | מה זה עושה |
+| Variable | Default | What it does |
 | --- | --- | --- |
-| `PORT` | `8080` | הפורט שהשרת מאזין בו |
-| `DATA_DIR` | `./data` | תיקיית בסיס הנתונים |
-| `OSHIT_OPEN_REGISTRATION` | `false` | `true` פותח הרשמה חופשית לכל מי שמגיע לכתובת. אל תפעילו אותו על שרת שנגיש מהאינטרנט |
+| `PORT` | `8080` | Port the server listens on |
+| `DATA_DIR` | `./data` | Directory holding the database |
+| `OSHIT_OPEN_REGISTRATION` | `false` | `true` opens registration to anyone who reaches the address. Do not enable it on a server reachable from the internet |
 
-לפריסה להומלאב עם עדכון אוטומטי — ראו [`deploy/README.md`](deploy/README.md).
+For homelab deployment with automatic updates, see [`deploy/README.md`](deploy/README.md).
 
-## פיתוח מקומי
+### Backups
 
-השרת והלקוח רצים בנפרד. בטרמינל אחד:
+The database uses SQLite in WAL mode, which means **copying `oshit.db` on its own is not a
+backup** — recent writes live in the `-wal` file alongside it and you would silently restore
+stale data. Use SQLite's own backup instead:
+
+```bash
+docker exec oshit sqlite3 /app/data/oshit.db ".backup '/app/data/backup.db'"
+```
+
+The irreplaceable part is not the transactions — you can always re-download those from the
+bank. It is the manual work layered on top: merchant names, necessity overrides, billing
+frequencies, income, goals and notes.
+
+---
+
+## Where your data lives
+
+This is the reason the project does not offer a hosted service: **whoever runs the container
+holds the data.** There is no telemetry, no analytics, and no outbound call to any third-party
+service. One SQLite file sits in your volume, and you can copy, back up or delete it without
+going through the app at all.
+
+- `GET /api/households/:id/export` downloads everything for a household as JSON.
+- `DELETE /api/households/:id` permanently deletes it and everything attached.
+
+Passwords are stored as scrypt hashes with a random salt, and session tokens are stored
+hashed as well — a copy of the database file does not hand over passwords or live sessions.
+
+Household access is membership-based. A household you are not a member of does not appear in
+your list, and every API route touching it returns 404 rather than 403, so IDs cannot be
+enumerated.
+
+---
+
+## Development
+
+Server and client run separately. In one terminal:
 
 ```bash
 npm --prefix server install && npm --prefix server run dev
 ```
 
-ובשני:
+And in another:
 
 ```bash
 npm --prefix client install && npm --prefix client run dev
 ```
 
-הדפדפן ייפתח ב-`http://localhost:5180`, וקריאות `/api` עוברות בפרוקסי לשרת שב-8080.
+The browser opens at `http://localhost:5180`, and `/api` calls are proxied to the server on 8080.
 
-## ארכיטקטורה
+### Architecture
 
 ```
 oshit/
-  client/   React + TypeScript, PWA. כל החישובים נעשים כאן
-  server/   Express + SQLite (better-sqlite3). אחסון בלבד, בלי לוגיקה עסקית
-  Dockerfile          בונה את שניהם לתמונה אחת
-  docker-compose.yml  מפה את /app/data ל-volume
+  client/   React + TypeScript, PWA. All calculations happen here
+  server/   Express + SQLite (better-sqlite3). Storage only, no business logic
+  Dockerfile          builds both into a single image
+  docker-compose.yml  maps /app/data to a volume
 ```
 
-השרת מגיש גם את ה-API וגם את הלקוח הבנוי, כך שיש קונטיינר אחד ופורט אחד.
-
-## על מי הנתונים
-
-זו הסיבה שהפרויקט לא מציע שירות מנוהל: **מי שמריץ את הקונטיינר מחזיק את הנתונים.**
-אין טלמטריה, אין analytics, אין קריאה החוצה לשום שירות. קובץ SQLite אחד יושב
-ב-volume שלכם, ואפשר להעתיק, לגבות או למחוק אותו בלי לעבור דרך האפליקציה.
-
-- `GET /api/households/:id/export` מוריד את כל הנתונים של משק בית כ-JSON.
-- `DELETE /api/households/:id` מוחק אותו לצמיתות, על כל התלויות שלו.
-
-הסיסמאות נשמרות כגיבוב scrypt עם מלח אקראי, וטוקן החיבור נשמר מגובב אף הוא —
-עותק של קובץ המסד אינו מוסר איתו סיסמאות או חיבורים פעילים.
-
-## משקי בית
-
-הבורר בתפריט מחליף בין משקי בית. כל אחד מהם מבודד לחלוטין — עסקאות, קטגוריות,
-בתי עסק, תקציבים, הכנסות ויעדים. מתאים להפרדה בין "אנחנו" לבין הורים, דירה
-להשקעה, או עסק קטן. הגישה נקבעת לפי חברות: משק בית שאינכם חברים בו אינו מופיע
-ברשימה, וכל נתיב API שנוגע בו מחזיר 404.
-
-## מה יש באפליקציה
-
-| לשונית | מה היא עונה |
-|---|---|
-| **סקירה** | סך ההוצאות החודשי, פילוח לפי קטגוריה ולפי בתי עסק, מגמה בין חודשים, והחלוקה לחובה / חצי-חובה / מותרות. אם הוזנו הכנסות — גם כמה נשאר בסוף החודש ושיעור החיסכון |
-| **הכנסות ויעדים** | הכנסות קבועות וחד-פעמיות, הוצאות גדולות שבדרך עם חישוב הפרשה חודשית, ושינויים מתוכננים בהוצאות קבועות |
-| **תקציבים** | תקרה חודשית לכל קטגוריה, עם פס ניצול והתראה על חריגות. כפתור "הצעה לפי הממוצע שלכם" ממלא תקציב התחלתי לפי ההוצאה בפועל |
-| **חיובים קבועים** | מנויים והוראות קבע שזוהו אוטומטית, העלות השנתית של כל אחד, ותשלומים פתוחים שממשיכים לחייב בחודשים הבאים |
-| **איפה לחסוך** | רשימת הצעות קונקרטיות עם סכום החיסכון החודשי והשנתי. אף הצעה לא נוגעת בהוצאות שסומנו כ"חובה" |
-| **עסקאות** | כל העסקאות, עם סינון וחיפוש, שינוי סיווג, הוספת תשלומים שלא בכרטיס וסימון תדירות חיוב |
-| **בתי עסק** | כל בתי העסק במקום אחד — כאן נותנים לכל אחד שם שמזהים, ומתקנים קטגוריה ונחיצות |
-| **ייבוא** | גרירת קבצים, ייצוא גיבוי, ומחיקת נתונים |
-
-בפינה העליונה יש מתג מצב תצוגה: **בהיר / כהה / לפי המערכת**. הבחירה נשמרת, ומצב
-שנבחר ידנית גובר על הגדרת מערכת ההפעלה.
-
-## שמות של בתי עסק
-
-הבנק מקצר שמות ל-14 תווים, ולכן "מרכבה a45 (חצי" או "אחים סרור - ב." לא תמיד אומרים
-משהו. בלשונית **בתי עסק** אפשר לתת לכל אחד שם שאתם מזהים ("המוסך של אבי"), והוא יחליף
-את השם המקוצר בכל האפליקציה — בכל החודשים, ובכל קובץ שתייבאו בעתיד. השם המקורי מהבנק
-נשאר מוצג בשורה קטנה מתחת, כדי שתמיד אפשר להצליב מול הדף של הבנק.
-אפשר גם לשנות שם ישירות מלשונית "עסקאות" בלחיצה על ✏️ ליד שם בית העסק.
-
-## קטגוריות
-
-ערכת הקטגוריות שייכת למשק הבית וניתנת לעריכה מלאה בלשונית "קטגוריות": שם, אימוג׳י,
-צבע, נחיצות, סדר, מילות מפתח — והוספה או מחיקה. משק בית חדש מתחיל עם 19 קטגוריות
-ברירת מחדל בעברית.
-
-**הסדר קובע קדימות בזיהוי האוטומטי.** הקטגוריה הראשונה שאחת ממילות המפתח שלה מוכלת
-בשם בית העסק מנצחת, ולכן חריגים צריכים לשבת מעל כללים רחבים — "חשמל ומיזוג" (חנות)
-מעל "חשמל" (חשבון התשתית).
-
-מחיקת קטגוריה שיש בה עסקאות מבקשת לאן להעביר אותן. הקטגוריה "שונות" היא עוגן
-ואי אפשר למחוק אותה.
-
-## התקנה כאפליקציה (PWA)
-
-האפליקציה מותקנת מהדפדפן — בכרום בנייד "הוספה למסך הבית", ובמחשב אייקון ההתקנה
-בשורת הכתובת. אחרי ההתקנה היא נפתחת כאפליקציה עצמאית ועובדת גם בלי רשת (הנתונים
-עצמם עדיין מגיעים מהשרת, אז אופליין מלא מציג את מה שכבר נטען).
-
-## הרעיון המרכזי: נחיצות
-
-כל עסקה מסווגת אוטומטית לקטגוריה, ולכל קטגוריה יש רמת נחיצות:
-
-- **חובה** — שכר דירה, חשבונות, ביטוח, בריאות, מזון בסיסי. לא מקצצים כאן.
-- **חצי-חובה** — דלק, חניה, קניות שוטפות. נחוץ, אבל אפשר להוזיל.
-- **מותרות** — מסעדות, מנויים, בילויים. כאן נמצא החיסכון האמיתי.
-
-הסיווג האוטומטי לא תמיד יקלע. **שינוי הסיווג בלשונית "עסקאות" חל על כל העסקאות של
-אותו בית עסק — כולל אלה שיובאו בעתיד**, כך שמסדרים כל בית עסק פעם אחת בלבד.
-
-## תשלומים שלא עוברים בכרטיס
-
-לא כל הכסף יוצא דרך כרטיס האשראי. בלשונית "עסקאות" יש כפתור
-**"+ תשלום שלא בכרטיס"** לכל מה שלא מופיע בקובץ: העברה לאמא שמשלמת את החשמל,
-מזומן, הוראת קבע בבנק או צ׳ק. יש שדה **"דרך מי שולם"** בדיוק למקרה הזה — ההוצאה
-נרשמת על מה שבאמת שילמתם עליו ("חשמל"), ומצוין שהיא עברה דרך אמא.
-
-תשלומים ידניים מסומנים בתווית "ידני", וניתן לערוך ולמחוק אותם. עסקאות שהגיעו מהבנק
-אינן ניתנות למחיקה — הן מקור האמת. ייבוא קובץ חדש לעולם לא ידרוס ולא ימחק תשלום ידני.
-
-## חיובים שאינם חודשיים
-
-חשמל, מים וארנונה בישראל מגיעים בדרך כלל **אחת לחודשיים**, וזה מעוות כל השוואה
-חודשית: החודש עם החשבון נראה כמו חריגה, והחודש שאחריו כמו חיסכון.
-
-לכל בית עסק אפשר לסמן תדירות — חודשי, דו-חודשי, רבעוני, חצי-שנתי, שנתי או חד-פעמי —
-מעמודת "תדירות" בלשונית "עסקאות" או בלשונית "בתי עסק". הסימון חל על בית העסק,
-כך שגם החיובים הבאים שלו יטופלו נכון. מרגע שסומן:
-
-- מוצגת **העלות החודשית האמיתית** — חשבון חשמל של 740 ₪ כל חודשיים הוא 370 ₪ בחודש,
-  וזה המספר להשוואה מול תקציב חודשי.
-- החיוב נכנס לרשימת **החיובים הקבועים כבר מהופעה ראשונה**, בלי להמתין שיופיע בשני
-  חודשים — חיוב דו-חודשי לא יופיע בחודשיים רצופים לעולם.
-- מוצג **מתי צפוי החיוב הבא**.
-- בראש רשימת העסקאות מופיעה שורה שמסבירה כמה הסכום המוצג שווה במונחים חודשיים.
-
-## שורות שנפתחות
-
-לחיצה על שורת עסקה פותחת אותה. השורה הסגורה מציגה רק את מה שסורקים בעין — תאריך,
-בית עסק, סכום, קטגוריה, נחיצות ותדירות — והפרטים המלאים נפתחים למטה: אסמכתא, הערה
-חופשית, שיוך ליעד, פרטי הכרטיס, הסכום במטבע המקורי, מצב התשלומים ושם הקובץ שממנו
-הגיעה העסקה. יש גם "פתיחת הכול" לסריקה מהירה.
-
-## מה עדיין לא נטען
-
-מסך הייבוא מציג ציר של כל החודשים בטווח הנתונים: ירוק = חודש מלא, כתום = חלקי,
-מקווקו = חסר לגמרי. כך רואים מיד עד כמה אחורה מגיעים הנתונים ואילו חודשים כדאי
-להוריד מהבנק.
-
-בנוסף, עסקה בתשלומים שמופיעה כ-"תשלום 3 מתוך 10" מציינת בפירוט שלה ששני התשלומים
-הקודמים חויבו לפני התקופה שיובאה ואינם נכללים בנתונים.
-
-## שתי רמות של שמות והערות
-
-חשוב להבחין בין השניים:
-
-- **שם בית העסק** (✏️ ליד השם, או לשונית "בתי עסק") — חל על **כל** העסקאות של אותו
-  בית עסק, בכל החודשים ובכל ייבוא עתידי. מתאים ל"מרכבה a45" ← "המוסך של אבי".
-- **אסמכתא והערה** (עמודת "אסמכתא / הערה" בלשונית "עסקאות") — שייכות **לעסקה
-  הבודדת בלבד**. מתאים ל"מקדמה לצלם" או "מתנה לחתונה של דני". אפשר גם לשייך עסקה
-  ליעד גדול, וכך היא תיספר אוטומטית בהתקדמות אליו.
-
-שתיהן ניתנות לחיפוש, ושתיהן שורדות ייבוא חוזר.
-
-## הכנסות ויעדים
-
-קובץ האשראי מכיל הוצאות בלבד, ולכן את ההכנסות מזינים ידנית — בלעדיהן אי אפשר לדעת
-כמה באמת נשאר בסוף החודש.
-
-**הוצאות גדולות שבדרך** הן ההבדל בין "כמה הוצאנו" ל"כמה אנחנו יכולים להוציא": לכל
-יעד רושמים עלות כוללת, מה שכבר שולם וחודש יעד, והאפליקציה מחשבת כמה צריך להפריש
-כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית דרך הקטגוריה המקושרת — יעד
-שמקושר לקטגוריית הטיולים, למשל, סופר לבד את מה שכבר שולם על טיסות ומלונות.
-
-לכל יעד יש **"🔎 הצגת ההוצאות"** שעובר למסך העסקאות מסונן לפי אותו יעד — כל החודשים
-ומכל הקטגוריות גם יחד, כי הוצאות של אירוע גדול מגיעות גם מטיסות, גם ממלונות וגם
-מעסקה שסווגה אחרת ושויכה ליעד ידנית.
-
-יעד שנסגר אפשר **לסמן כהושלם**. הוא יוצא מחישוב ההפרשה החודשית גם אם על הנייר נותרה
-יתרה — מצב נפוץ כשההפרש שולם ממקור שאינו מנוהל כאן.
-
-**שינויים מתוכננים** מטפלים בהוצאה קבועה שכבר ידוע שתשתנה בתאריך מסוים — מנוי
-שמסתיים, חוזר שמתחדש במחיר אחר. הם לא משנים את העבר, אלא מראים את החיסכון
-החודשי והשנתי שייכנס לתוקף.
-
-## ייבוא של כמה חודשים
-
-האפליקציה שימושית מקובץ אחד, אבל נפתחת באמת אחרי 3–4 חודשים: רק אז אפשר לזהות
-חיובים חוזרים, לחשב ממוצעים אמינים, ולראות מגמה. הורידו מהבנק קובץ לכל חודש
-וגררו את כולם יחד.
-
-אפשר גם להוריד מהבנק את **אותו חודש שוב** כעבור כמה ימים. המערכת משווה מול מה שכבר
-קיים ומדווחת בדיוק מה קרה: כמה עסקאות **חדשות** נוספו, כמה **עודכנו** (עסקה במטבע זר
-שהופיעה קודם עם סכום משוער וקיבלה עכשיו סכום חיוב ותאריך סופיים), וכמה כבר היו ולא
-השתנו. שום דבר לא משוכפל, וההערות, האסמכתאות והשיוכים ליעדים נשמרים.
-
-## פרטי מימוש
-
-- **התאמת חודש לפי תאריך החיוב**, לא תאריך העסקה — זה הכסף שיוצא מהחשבון בפועל,
-  וזה גם מה שגורם לעסקה בתשלומים להיספר בחודש הנכון.
-- **חודש חלקי** מסומן ב-⚠. קובץ של חודש אחד מכיל גם כמה עסקאות חו"ל מחודשים קודמים
-  שחויבו מיידית; חודש כזה לא מייצג הוצאה חודשית מלאה, ולכן הוא לא משמש להשוואה
-  ולא נכנס לחישוב הממוצעים.
-- **זיהוי כפילויות** לפי כרטיס, בית עסק, תאריך, מטבע ומספר תשלום — במכוון לא לפי
-  תאריך החיוב, שמשתנה בין קובץ לקובץ.
-- **צבעי הגרפים** נבדקו מול שלושה סוגי עיוורון צבעים ומול ניגודיות הרקע, במצב בהיר
-  ובמצב כהה. גרף העוגה מוגבל לשמונה פרוסות והשאר מתקפל ל"אחר" — מעבר לזה הפרוסות
-  נהיות דקות מדי והצבעים מתחילים לחזור על עצמם. לכל פרוסה יש שורת מקרא עם הסכום
-  והאחוז, כך שהזיהוי לא נשען על הצבע בלבד.
-- **מצב כהה אינו היפוך אוטומטי** של המצב הבהיר אלא סט ערכים שנבחר בנפרד, כולל גוונים
-  מדורגים מחדש לגרפים מול הרקע הכהה.
-
-## מבנה
+The server serves both the API and the built client, so there is one container and one port.
 
 ```
-src/
+client/src/
   lib/
-    parseExcel.ts   קריאת קובץ הבנק — כמה טבלאות ברצף בגיליון אחד
-    categories.ts   הקטגוריות, רמות הנחיצות, וכללי השיוך לפי שם בית עסק
-    analytics.ts    סיכומים, חיובים חוזרים, תשלומים פתוחים, הצעות חיסכון
-    storage.ts      שמירה מקומית וגיבוי
-    format.ts       פורמט שקלים, תאריכים ושמות חודשים בעברית
-    theme.ts        מצב תצוגה בהיר/כהה/מערכת
-    plan.ts         הכנסות, התקדמות ליעדים, שינויים מתוכננים
-    frequency.ts    תדירות חיוב ונרמול לעלות חודשית
-    merchant.ts     נרמול שמות בתי עסק
-    starterPlan.ts  היעדים ההתחלתיים שהוגדרו בהקמה — ניתנים לעריכה ולמחיקה
-  components/       לשונית לכל מסך + charts.tsx לעוגה, לפסים ולמגמה
+    parseExcel.ts    reads the bank and CAL files
+    categories.ts    categories, necessity levels, merchant-name matching rules
+    analytics.ts     totals, recurring charges, open instalments, savings ideas
+    plan.ts          income, goal progress, planned changes
+    frequency.ts     billing frequency and normalisation to monthly cost
+    format.ts        shekels, dates and month names
+    i18n.ts          language switching; translations.ts holds the English dictionary
+  components/        one panel per screen, plus charts.tsx
 ```
 
-## פרטיות
+Translation keys are the Hebrew strings themselves rather than invented identifiers, so the
+code stays readable in the language it was written in, and any string without a translation
+simply renders in Hebrew instead of showing a broken key.
 
-הנתונים נשמרים ב-`localStorage` של הדפדפן בלבד. אין שרת ואין בקשת רשת יוצאת אחת.
-ניקוי היסטוריית הדפדפן ימחק את הנתונים — לכן יש כפתור "ייצוא גיבוי" במסך הייבוא.
-קבצי אקסל וקבצי גיבוי מוחרגים ב-`.gitignore`.
+---
+
+## Implementation notes
+
+- **Months follow the charge date, not the transaction date** — that is the money actually
+  leaving the account, and it is what puts an instalment in the right month.
+- **Partial months are marked ⚠** and excluded from averages and comparisons. A single-month
+  file also contains a few foreign purchases from earlier months charged immediately; such a
+  month does not represent full monthly spending.
+- **Duplicate detection** keys on card, merchant, date, currency and instalment number —
+  deliberately not on the charge date, which changes between files.
+- **CAL instalment rows carry no charge date**, and a ten-payment purchase appears as ten
+  identical rows. Osh.it derives the payment number from the row's position and spreads the
+  charges one month apart, so a ten-payment purchase does not land entirely in the month it
+  was made.
+- **Chart colours** were checked against three types of colour blindness and against
+  background contrast, in both light and dark mode. The pie is capped at eight slices with
+  the rest folded into "Other", and every slice has a legend row with amount and percentage
+  so identification never depends on colour alone.
+- **Dark mode is not an automatic inversion** of light mode but a separately chosen set of
+  values, including chart hues regraded against the dark background.
