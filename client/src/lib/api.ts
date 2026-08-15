@@ -1,3 +1,4 @@
+import { tr, trf } from './i18n'
 import type { AppState } from '../types'
 
 export interface Household {
@@ -63,14 +64,14 @@ export const CLIENT_ID = Math.random().toString(36).slice(2) + Date.now().toStri
 /** נזרקת כשמכשיר אחר שינה את הנתונים בין הטעינה לשמירה */
 export class ConflictError extends Error {
   constructor(public currentVersion: number) {
-    super('הנתונים שונו ממכשיר אחר')
+    super(tr('הנתונים שונו ממכשיר אחר'))
   }
 }
 
 /** נזרקת כשהחיבור פג או בוטל. כל מסך שמקבל אותה חוזר למסך ההתחברות */
 export class UnauthorizedError extends Error {
   constructor() {
-    super('נדרשת התחברות')
+    super(tr('נדרשת התחברות'))
   }
 }
 
@@ -101,7 +102,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
       throw new UnauthorizedError()
     }
-    throw new Error(body.error ?? `הבקשה נכשלה (${res.status})`)
+    throw new Error(body.error ?? trf('הבקשה נכשלה ({status})', { status: res.status }))
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T

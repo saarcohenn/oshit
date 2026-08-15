@@ -4,6 +4,7 @@ import { NECESSITY_LABEL } from '../lib/categories'
 import { useCategories } from '../lib/categoryContext'
 import { FREQUENCIES, FREQUENCY_SHORT, monthlyEquivalent } from '../lib/frequency'
 import { ils, txCount } from '../lib/format'
+import { tr } from '../lib/i18n'
 
 interface Props {
   transactions: Transaction[]
@@ -101,35 +102,31 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
     <div className="grid">
       <div className="grid cols-3">
         <div className="card">
-          <div className="stat-label">בתי עסק</div>
+          <div className="stat-label">{tr('בתי עסק')}</div>
           <div className="stat-value">{rows.length}</div>
-          <div className="stat-note">בכל החודשים שיובאו</div>
+          <div className="stat-note">{tr('בכל החודשים שיובאו')}</div>
         </div>
         <div className="card">
-          <div className="stat-label">קיבלו שם מוכר</div>
+          <div className="stat-label">{tr('קיבלו שם מוכר')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
             {named}
           </div>
           <div className="stat-note">מתוך {rows.length}</div>
         </div>
         <div className="card">
-          <div className="stat-label">חוזרים ביותר מחודש</div>
+          <div className="stat-label">{tr('חוזרים ביותר מחודש')}</div>
           <div className="stat-value">{rows.filter((r) => r.months > 1).length}</div>
-          <div className="stat-note">מועמדים לחיוב קבוע</div>
+          <div className="stat-note">{tr('מועמדים לחיוב קבוע')}</div>
         </div>
       </div>
 
-      <div className="notice">
-        הבנק מקצר שמות של בתי עסק ל-14 תווים, ולכן "מרכבה a45 (חצי" או "אחים סרור - ב." לא תמיד אומרים
-        משהו. תנו כאן שם שאתם מזהים — הוא יחליף את השם המקוצר בכל האפליקציה, בכל החודשים,
-        וגם בקבצים שתייבאו בעתיד.
-      </div>
+      <div className="notice">{tr('הבנק מקצר שמות של בתי עסק ל-14 תווים, ולכן "מרכבה a45 (חצי" או "אחים סרור - ב." לא תמיד אומרים משהו. תנו כאן שם שאתם מזהים — הוא יחליף את השם המקוצר בכל האפליקציה, בכל החודשים, וגם בקבצים שתייבאו בעתיד.')}</div>
 
       <div className="card">
         <div className="toolbar">
           <input
             type="search"
-            placeholder="חיפוש בית עסק…"
+            placeholder={tr('חיפוש בית עסק…')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{ minWidth: 230 }}
@@ -139,9 +136,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
               type="checkbox"
               checked={onlyUnnamed}
               onChange={(e) => setOnlyUnnamed(e.target.checked)}
-            />
-            רק כאלה שעוד לא נתתי להם שם
-          </label>
+            />{tr('רק כאלה שעוד לא נתתי להם שם')}</label>
           <div className="spacer strong">{shown.length} בתי עסק</div>
         </div>
 
@@ -149,26 +144,26 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
           <table className="responsive">
             <thead>
               <tr>
-                <th style={{ minWidth: 260 }}>שם תצוגה</th>
-                <th className="num">סך הכל</th>
-                <th className="num">עסקאות</th>
-                <th className="num">חודשים</th>
-                <th>קטגוריה</th>
-                <th>נחיצות</th>
-                <th title="חשמל, מים וארנונה מגיעים בדרך כלל אחת לחודשיים">תדירות</th>
+                <th style={{ minWidth: 260 }}>{tr('שם תצוגה')}</th>
+                <th className="num">{tr('סך הכל')}</th>
+                <th className="num">{tr('עסקאות')}</th>
+                <th className="num">{tr('חודשים')}</th>
+                <th>{tr('קטגוריה')}</th>
+                <th>{tr('נחיצות')}</th>
+                <th title={tr('חשמל, מים וארנונה מגיעים בדרך כלל אחת לחודשיים')}>{tr('תדירות')}</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((row) => (
                 <tr key={row.merchantKey}>
-                  <td data-label="שם תצוגה">
+                  <td data-label={tr('שם תצוגה')}>
                     {editing === row.merchantKey ? (
                       <div className="alias-cell">
                         <input
                           type="text"
                           autoFocus
                           value={draft}
-                          placeholder="למשל: מוסך של אבי"
+                          placeholder={tr('למשל: מוסך של אבי')}
                           onChange={(e) => setDraft(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') commit(row.merchantKey)
@@ -176,12 +171,8 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                           }}
                           style={{ minWidth: 170 }}
                         />
-                        <button className="btn sm" onClick={() => commit(row.merchantKey)}>
-                          שמירה
-                        </button>
-                        <button className="link-btn" onClick={() => setEditing(null)}>
-                          ביטול
-                        </button>
+                        <button className="btn sm" onClick={() => commit(row.merchantKey)}>{tr('שמירה')}</button>
+                        <button className="link-btn" onClick={() => setEditing(null)}>{tr('ביטול')}</button>
                       </div>
                     ) : (
                       <div className="alias-cell">
@@ -198,10 +189,10 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                       </div>
                     )}
                   </td>
-                  <td className="num strong" data-label="סך הכל">{ils(row.total)}</td>
-                  <td className="num dim" data-label="עסקאות">{txCount(row.count)}</td>
-                  <td className="num dim" data-label="חודשים">{row.months}</td>
-                  <td data-label="קטגוריה">
+                  <td className="num strong" data-label={tr('סך הכל')}>{ils(row.total)}</td>
+                  <td className="num dim" data-label={tr('עסקאות')}>{txCount(row.count)}</td>
+                  <td className="num dim" data-label={tr('חודשים')}>{row.months}</td>
+                  <td data-label={tr('קטגוריה')}>
                     <select
                       value={row.category}
                       onChange={(e) =>
@@ -215,7 +206,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                       ))}
                     </select>
                   </td>
-                  <td data-label="נחיצות">
+                  <td data-label={tr('נחיצות')}>
                     <select
                       value={row.necessity}
                       onChange={(e) =>
@@ -224,12 +215,12 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                     >
                       {(['mandatory', 'semi', 'optional'] as Necessity[]).map((n) => (
                         <option key={n} value={n}>
-                          {NECESSITY_LABEL[n]}
+                          {tr(NECESSITY_LABEL[n])}
                         </option>
                       ))}
                     </select>
                   </td>
-                  <td data-label="תדירות">
+                  <td data-label={tr('תדירות')}>
                     <select
                       value={row.frequency}
                       onChange={(e) =>
@@ -240,7 +231,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
                     >
                       {FREQUENCIES.map((f) => (
                         <option key={f} value={f}>
-                          {FREQUENCY_SHORT[f]}
+                          {tr(FREQUENCY_SHORT[f])}
                         </option>
                       ))}
                     </select>
@@ -256,7 +247,7 @@ export default function MerchantsPanel({ transactions, merchantRules, onSetMerch
           </table>
         </div>
 
-        {shown.length === 0 && <p className="dim">לא נמצאו בתי עסק מתאימים לסינון.</p>}
+        {shown.length === 0 && <p className="dim">{tr('לא נמצאו בתי עסק מתאימים לסינון.')}</p>}
       </div>
     </div>
   )

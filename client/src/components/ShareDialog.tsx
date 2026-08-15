@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type Household, type Member, type PendingInvite } from '../lib/api'
 import { IconClose, IconCopy, IconPlus } from './Icons'
+import { tr, trf } from '../lib/i18n'
 
 interface Props {
   household: Household
@@ -80,7 +81,7 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
       setTimeout(() => setCopied(null), 2200)
     } catch {
       // דפדפן שחוסם גישה ללוח — הקישור מוצג ממילא וניתן לסימון ידני
-      setError('לא הצלחנו להעתיק. סמנו את הקישור והעתיקו ידנית')
+      setError(tr('לא הצלחנו להעתיק. סמנו את הקישור והעתיקו ידנית'))
     }
   }
 
@@ -89,7 +90,8 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
     if (!me) return
     if (
       !confirm(
-        `לעזוב את "${household.name}"?\nהנתונים יישארו אצל שאר החברים, ואתם תאבדו את הגישה אליהם.`,
+        `${trf('לעזוב את "{name}"?', { name: household.name })}\n` +
+          tr('הנתונים יישארו אצל שאר החברים, ואתם תאבדו את הגישה אליהם.'),
       )
     )
       return
@@ -97,22 +99,23 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
   }
 
   function remove(m: Member) {
-    if (!confirm(`להסיר את ${m.name} מ"${household.name}"?`)) return
+    if (!confirm(trf('להסיר את {who} מ"{house}"?', { who: m.name, house: household.name })))
+      return
     void run(() => api.removeMember(household.id, m.userId))
   }
 
   return (
     <>
       <div className="drawer-scrim open" onClick={onClose} />
-      <div className="modal" role="dialog" aria-modal="true" aria-label="שיתוף משק בית">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={tr('שיתוף משק בית')}>
         <div className="modal-head">
           <div>
             <h3>
               {household.emoji} {household.name}
             </h3>
-            <small className="dim">שיתוף עם בן/בת זוג או שותף</small>
+            <small className="dim">{tr('שיתוף עם בן/בת זוג או שותף')}</small>
           </div>
-          <button className="icon-btn sm" onClick={onClose} aria-label="סגירה">
+          <button className="icon-btn sm" onClick={onClose} aria-label={tr('סגירה')}>
             <IconClose size={17} />
           </button>
         </div>
@@ -120,34 +123,30 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
         <div className="modal-body">
           {error && <div className="notice danger">{error}</div>}
           {loading ? (
-            <p className="dim">טוען…</p>
+            <p className="dim">{tr('טוען…')}</p>
           ) : (
             <>
-              <div className="share-group-title">מי רואה את הנתונים</div>
+              <div className="share-group-title">{tr('מי רואה את הנתונים')}</div>
               <ul className="member-list">
                 {members.map((m) => (
                   <li key={m.userId}>
                     <div className="member-who">
                       <b>
                         {m.name}
-                        {m.isSelf && <span className="dim tiny"> (אתם)</span>}
+                        {m.isSelf && <span className="dim tiny">{tr('(אתם)')}</span>}
                       </b>
                       <span className="dim tiny" dir="ltr">
                         {m.email}
                       </span>
                     </div>
-                    <span className={`role-pill ${m.role}`}>{ROLE_LABEL[m.role]}</span>
+                    <span className={`role-pill ${m.role}`}>{tr(ROLE_LABEL[m.role])}</span>
                     {m.isSelf ? (
                       // הבעלים היחיד אינו יכול לעזוב — לא היה נשאר אף אחד
                       members.length > 1 && (
-                        <button className="link-btn danger-link" onClick={leave}>
-                          עזיבה
-                        </button>
+                        <button className="link-btn danger-link" onClick={leave}>{tr('עזיבה')}</button>
                       )
                     ) : isOwner ? (
-                      <button className="link-btn danger-link" onClick={() => remove(m)}>
-                        הסרה
-                      </button>
+                      <button className="link-btn danger-link" onClick={() => remove(m)}>{tr('הסרה')}</button>
                     ) : null}
                   </li>
                 ))}
@@ -155,11 +154,9 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
 
               {isOwner ? (
                 <>
-                  <div className="share-group-title">קישורי הזמנה</div>
+                  <div className="share-group-title">{tr('קישורי הזמנה')}</div>
                   {invites.length === 0 && (
-                    <p className="dim tiny">
-                      אין הזמנות פתוחות. צרו קישור ושלחו אותו — מי שיפתח אותו יצטרף למשק הבית הזה.
-                    </p>
+                    <p className="dim tiny">{tr('אין הזמנות פתוחות. צרו קישור ושלחו אותו — מי שיפתח אותו יצטרף למשק הבית הזה.')}</p>
                   )}
                   {invites.map((inv) => (
                     <div className="invite-row" key={inv.code}>
@@ -172,36 +169,27 @@ export default function ShareDialog({ household, onClose, onChanged }: Props) {
                       <button
                         className="btn sm"
                         onClick={() => void copy(inv.code)}
-                        title="העתקת הקישור"
+                        title={tr('העתקת הקישור')}
                       >
                         <IconCopy size={15} />
-                        {copied === inv.code ? 'הועתק' : 'העתקה'}
+                        {copied === inv.code ? tr('הועתק') : tr('העתקה')}
                       </button>
                     </div>
                   ))}
                   <div className="invite-actions">
                     <button className="btn sm" onClick={() => void run(() => api.createInvite(household.id))}>
-                      <IconPlus size={15} />
-                      קישור הזמנה חדש
-                    </button>
+                      <IconPlus size={15} />{tr('קישור הזמנה חדש')}</button>
                     {invites.length > 0 && (
                       <button
                         className="link-btn danger-link"
                         onClick={() => void run(() => api.revokeInvites(household.id))}
-                      >
-                        ביטול ההזמנות הפתוחות
-                      </button>
+                      >{tr('ביטול ההזמנות הפתוחות')}</button>
                     )}
                   </div>
-                  <p className="dim tiny share-note">
-                    הקישור תקף שבעה ימים ומתבטל אחרי שמישהו הצטרף באמצעותו. כל מי שמצטרף רואה
-                    ועורך את כל נתוני משק הבית הזה.
-                  </p>
+                  <p className="dim tiny share-note">{tr('הקישור תקף שבעה ימים ומתבטל אחרי שמישהו הצטרף באמצעותו. כל מי שמצטרף רואה ועורך את כל נתוני משק הבית הזה.')}</p>
                 </>
               ) : (
-                <p className="dim tiny share-note">
-                  רק בעלים של משק הבית יכול להזמין אנשים נוספים.
-                </p>
+                <p className="dim tiny share-note">{tr('רק בעלים של משק הבית יכול להזמין אנשים נוספים.')}</p>
               )}
             </>
           )}

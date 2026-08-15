@@ -6,6 +6,7 @@ import { useCategories } from '../lib/categoryContext'
 import { availableMonths, monthlySeries, partialMonths, summarize, topMerchants } from '../lib/analytics'
 import { ils, monthLabel, pct, txCount } from '../lib/format'
 import { DonutChart, foldSlices, NECESSITY_VAR, NecessityBar, RankedBars, TrendChart } from './charts'
+import { tr, trf } from '../lib/i18n'
 
 export default function Dashboard({
   transactions,
@@ -62,7 +63,7 @@ export default function Dashboard({
     .filter((n) => summary.byNecessity[n] > 0)
     .map((n) => ({
       key: n,
-      label: NECESSITY_LABEL[n],
+      label: tr(NECESSITY_LABEL[n]),
       value: summary.byNecessity[n],
       color: NECESSITY_VAR[n],
     }))
@@ -71,8 +72,10 @@ export default function Dashboard({
     <div className="grid">
       {monthIsPartial && (
         <div className="notice warn">
-          ל{monthLabel(month)} יש רק {txCount(summary.count)} — כנראה עסקאות חו"ל שחויבו מיידית, ולא חודש
-          שלם. ייבאו את קובץ הבנק של אותו חודש כדי לראות תמונה מלאה.
+          {trf(
+            'ל{month} יש רק {count} — כנראה עסקאות חו"ל שחויבו מיידית, ולא חודש שלם. ייבאו את קובץ הבנק של אותו חודש כדי לראות תמונה מלאה.',
+            { month: monthLabel(month), count: txCount(summary.count) },
+          )}
         </div>
       )}
 
@@ -80,19 +83,19 @@ export default function Dashboard({
         <div className="card">
           <div className="grid cols-4" style={{ alignItems: 'center' }}>
             <div>
-              <div className="stat-label">הכנסות</div>
+              <div className="stat-label">{tr('הכנסות')}</div>
               <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
                 {ils(income)}
               </div>
             </div>
             <div>
-              <div className="stat-label">הוצאות</div>
+              <div className="stat-label">{tr('הוצאות')}</div>
               <div className="stat-value tinted" style={{ color: 'var(--danger)' }}>
                 {ils(summary.total)}
               </div>
             </div>
             <div>
-              <div className="stat-label">נשאר בסוף החודש</div>
+              <div className="stat-label">{tr('נשאר בסוף החודש')}</div>
               <div
                 className="stat-value tinted"
                 style={{ color: net >= 0 ? 'var(--ok)' : 'var(--danger)' }}
@@ -102,7 +105,7 @@ export default function Dashboard({
               </div>
             </div>
             <div>
-              <div className="stat-label">שיעור חיסכון</div>
+              <div className="stat-label">{tr('שיעור חיסכון')}</div>
               <div
                 className="stat-value tinted"
                 style={{ color: net >= 0 ? 'var(--ok)' : 'var(--danger)' }}
@@ -114,22 +117,22 @@ export default function Dashboard({
         </div>
       ) : (
         <div className="notice">
-          כדי לדעת כמה באמת נחסך בסוף החודש צריך להזין הכנסות — קובץ האשראי מכיל הוצאות בלבד.{' '}
-          <button className="link-btn" onClick={onGoToPlan}>
-            מעבר להכנסות ויעדים ←
-          </button>
+          {tr(
+            'כדי לדעת כמה באמת נחסך בסוף החודש צריך להזין הכנסות — קובץ האשראי מכיל הוצאות בלבד.',
+          )}{' '}
+          <button className="link-btn" onClick={onGoToPlan}>{tr('מעבר להכנסות ויעדים ←')}</button>
         </div>
       )}
 
       <div className="grid cols-4">
         <div className="card">
-          <div className="stat-label">סך ההוצאות — {monthLabel(month)}</div>
+          <div className="stat-label">{trf('סך ההוצאות — {month}', { month: monthLabel(month) })}</div>
           <div className="stat-value">{ils(summary.total)}</div>
           <div className="stat-note">{txCount(summary.count)}</div>
         </div>
 
         <div className="card">
-          <div className="stat-label">שינוי מהחודש הקודם</div>
+          <div className="stat-label">{tr('שינוי מהחודש הקודם')}</div>
           <div
             className="stat-value tinted"
             style={{ color: !prev ? undefined : delta > 0 ? 'var(--danger)' : 'var(--ok)' }}
@@ -138,67 +141,65 @@ export default function Dashboard({
           </div>
           <div className="stat-note">
             {prev
-              ? `${deltaPct > 0 ? '+' : ''}${deltaPct}% לעומת ${monthLabel(prevMonth!)}`
-              : 'ייבאו חודש מלא נוסף כדי להשוות'}
+              ? `${deltaPct > 0 ? '+' : ''}${deltaPct}% ${trf('לעומת {month}', { month: monthLabel(prevMonth!) })}`
+              : tr('ייבאו חודש מלא נוסף כדי להשוות')}
           </div>
         </div>
 
         <div className="card">
-          <div className="stat-label">הוצאות חובה</div>
+          <div className="stat-label">{tr('הוצאות חובה')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--viz-mandatory)' }}>
             {ils(summary.byNecessity.mandatory)}
           </div>
           <div className="stat-note">
-            {pct(summary.byNecessity.mandatory, summary.total)}% מההוצאות — לא נוגעים בזה
+            {pct(summary.byNecessity.mandatory, summary.total)}%{' '}
+            {tr('מההוצאות — לא נוגעים בזה')}
           </div>
         </div>
 
         <div className="card">
-          <div className="stat-label">פוטנציאל קיצוץ</div>
+          <div className="stat-label">{tr('פוטנציאל קיצוץ')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--viz-optional)' }}>
             {ils(cuttable)}
           </div>
-          <div className="stat-note">מותרות + 30% מהחצי-חובה</div>
+          <div className="stat-note">{tr('מותרות + 30% מהחצי-חובה')}</div>
         </div>
       </div>
 
       <div className="grid cols-2">
         <div className="card">
-          <div className="card-title">🥧 ההוצאות לפי קטגוריה</div>
-          <div className="card-sub">{monthLabel(month)} — הקטגוריות הקטנות מקובצות ל"אחר"</div>
+          <div className="card-title">{tr('🥧 ההוצאות לפי קטגוריה')}</div>
+          <div className="card-sub">
+            {trf('{month} — הקטגוריות הקטנות מקובצות ל"אחר"', { month: monthLabel(month) })}
+          </div>
           <DonutChart
             slices={categorySlices}
             centerValue={ils(summary.total)}
-            centerLabel="סך החודש"
+            centerLabel={tr('סך החודש')}
           />
         </div>
 
         <div className="card">
-          <div className="card-title">כמה מההוצאות באמת הכרחיות?</div>
-          <div className="card-sub">
-            החלוקה נקבעת לפי הקטגוריה. אפשר לשנות אותה לכל בית עסק בלשונית "בתי עסק".
-          </div>
+          <div className="card-title">{tr('כמה מההוצאות באמת הכרחיות?')}</div>
+          <div className="card-sub">{tr('החלוקה נקבעת לפי הקטגוריה. אפשר לשנות אותה לכל בית עסק בלשונית "בתי עסק".')}</div>
           <DonutChart
             slices={necessitySlices}
             centerValue={`${pct(summary.byNecessity.mandatory, summary.total)}%`}
-            centerLabel="חובה"
+            centerLabel={tr('חובה')}
           />
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">אותה חלוקה, כפס אחד</div>
-        <div className="card-sub">נוח להשוואה מהירה בין חודשים</div>
+        <div className="card-title">{tr('אותה חלוקה, כפס אחד')}</div>
+        <div className="card-sub">{tr('נוח להשוואה מהירה בין חודשים')}</div>
         <NecessityBar byNecessity={summary.byNecessity} />
       </div>
 
       {series.length > 1 && (
         <div className="card">
-          <div className="card-title">מגמה חודשית</div>
-          <div className="card-sub">
-            העסקאות משויכות לחודש לפי תאריך החיוב — זה הכסף שיוצא מהחשבון בפועל.
-            חודשים מסומנים ב-⚠ הם חלקיים.
-          </div>
+          <div className="card-title">{tr('מגמה חודשית')}</div>
+          <div className="card-sub">{tr('העסקאות משויכות לחודש לפי תאריך החיוב — זה הכסף שיוצא מהחשבון בפועל. חודשים מסומנים ב-⚠ הם חלקיים.')}</div>
           <TrendChart
             points={series.map((s) => ({
               month: s.month,
@@ -213,14 +214,14 @@ export default function Dashboard({
 
       <div className="grid cols-2">
         <div className="card">
-          <div className="card-title">כל הקטגוריות, מדורגות</div>
-          <div className="card-sub">השוואת גדלים מדויקת יותר מאשר בעוגה</div>
+          <div className="card-title">{tr('כל הקטגוריות, מדורגות')}</div>
+          <div className="card-sub">{tr('השוואת גדלים מדויקת יותר מאשר בעוגה')}</div>
           <RankedBars items={categoryItems} />
         </div>
 
         <div className="card">
-          <div className="card-title">בתי העסק הגדולים</div>
-          <div className="card-sub">איפה רוב הכסף התרכז החודש</div>
+          <div className="card-title">{tr('בתי העסק הגדולים')}</div>
+          <div className="card-sub">{tr('איפה רוב הכסף התרכז החודש')}</div>
           <RankedBars
             items={merchants.map((m) => ({
               key: m.merchantKey,

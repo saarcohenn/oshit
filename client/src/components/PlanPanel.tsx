@@ -12,6 +12,7 @@ import { useCategories } from '../lib/categoryContext'
 import { ils, monthLabel, shortDate } from '../lib/format'
 import { cycleRangeLabel } from '../lib/cycle'
 import { IconArchive, IconChevron, IconClose, IconPlus } from './Icons'
+import { tr } from '../lib/i18n'
 import {
   addMonths,
   changeSaving,
@@ -213,15 +214,15 @@ export default function PlanPanel({
             </span>
             <span className="goal-head-figure">
               {g.done ? (
-                <span className="pill mandatory">הושלם</span>
+                <span className="pill mandatory">{tr('הושלם')}</span>
               ) : covered ? (
-                <span className="pill mandatory">מכוסה</span>
+                <span className="pill mandatory">{tr('מכוסה')}</span>
               ) : p.overdue ? (
-                <span className="pill optional">באיחור</span>
+                <span className="pill optional">{tr('באיחור')}</span>
               ) : p.monthlyNeeded ? (
                 <>
                   <b>{ils(p.monthlyNeeded)}</b>
-                  <span className="mini-label">בחודש</span>
+                  <span className="mini-label">{tr('בחודש')}</span>
                 </>
               ) : null}
             </span>
@@ -229,7 +230,7 @@ export default function PlanPanel({
           </button>
           <button
             className="icon-btn sm danger"
-            title="מחיקת היעד"
+            title={tr('מחיקת היעד')}
             aria-label={`מחיקת ${g.name}`}
             onClick={() => {
               if (confirm(`למחוק את "${g.name}"? הפעולה אינה הפיכה.`)) removeGoal(g.id)
@@ -259,14 +260,14 @@ export default function PlanPanel({
                 type="text"
                 value={g.emoji}
                 onChange={(e) => patchGoal(g.id, { emoji: e.target.value })}
-                aria-label="אימוג׳י"
+                aria-label={tr('אימוג׳י')}
               />
               <input
                 type="text"
                 value={g.name}
                 onChange={(e) => patchGoal(g.id, { name: e.target.value })}
                 style={{ flex: 1, minWidth: 120, fontWeight: 650 }}
-                aria-label="שם היעד"
+                aria-label={tr('שם היעד')}
               />
             </div>
 
@@ -282,7 +283,7 @@ export default function PlanPanel({
               <button
                 className="link-btn spacer"
                 onClick={() => onShowGoalExpenses(g.id)}
-                title="מעבר למסך העסקאות עם סינון לפי היעד"
+                title={tr('מעבר למסך העסקאות עם סינון לפי היעד')}
               >
                 🔎 הצגת ההוצאות ({relatedCount[g.id] ?? 0}) ←
               </button>
@@ -297,7 +298,7 @@ export default function PlanPanel({
 
             <div className="grid" style={{ gap: 9 }}>
               <label className="field-row">
-                <span>עלות כוללת</span>
+                <span>{tr('עלות כוללת')}</span>
                 <input
                   type="number"
                   min={0}
@@ -307,7 +308,7 @@ export default function PlanPanel({
                 />
               </label>
               <label className="field-row">
-                <span>שולם מחוץ לכרטיס</span>
+                <span>{tr('שולם מחוץ לכרטיס')}</span>
                 <input
                   type="number"
                   min={0}
@@ -319,22 +320,22 @@ export default function PlanPanel({
 
               {/* חתונה או טיסה הן תאריך, לא חודש. שיפוץ הוא חודש ותו לא */}
               <div className="field-row">
-                <span>מועד היעד</span>
+                <span>{tr('מועד היעד')}</span>
                 <div className="due-picker">
                   <select
                     value={mode}
                     onChange={(e) => setDueMode(g, e.target.value as typeof mode)}
-                    aria-label="סוג המועד"
+                    aria-label={tr('סוג המועד')}
                   >
-                    <option value="none">בלי מועד</option>
-                    <option value="month">חודש</option>
-                    <option value="date">תאריך מדויק</option>
+                    <option value="none">{tr('בלי מועד')}</option>
+                    <option value="month">{tr('חודש')}</option>
+                    <option value="date">{tr('תאריך מדויק')}</option>
                   </select>
                   {mode === 'month' && (
                     <select
                       value={g.targetMonth ?? ''}
                       onChange={(e) => patchGoal(g.id, { targetMonth: e.target.value })}
-                      aria-label="חודש היעד"
+                      aria-label={tr('חודש היעד')}
                     >
                       {monthOptions.map((m) => (
                         <option key={m} value={m}>
@@ -348,14 +349,14 @@ export default function PlanPanel({
                       type="date"
                       value={g.targetDate ?? ''}
                       onChange={(e) => patchGoal(g.id, { targetDate: e.target.value || undefined })}
-                      aria-label="תאריך היעד"
+                      aria-label={tr('תאריך היעד')}
                     />
                   )}
                 </div>
               </div>
 
               <label className="field-row">
-                <span>קטגוריה מקושרת</span>
+                <span>{tr('קטגוריה מקושרת')}</span>
                 <select
                   value={g.linkedCategory ?? ''}
                   onChange={(e) =>
@@ -364,7 +365,7 @@ export default function PlanPanel({
                     })
                   }
                 >
-                  <option value="">אין — ספירה ידנית בלבד</option>
+                  <option value="">{tr('אין — ספירה ידנית בלבד')}</option>
                   {cats.list.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.emoji} {c.name}
@@ -416,7 +417,7 @@ export default function PlanPanel({
       {/* ---------- תמונת החודש ---------- */}
       <div className="grid cols-4">
         <div className="card">
-          <div className="stat-label">הכנסות בחודש</div>
+          <div className="stat-label">{tr('הכנסות בחודש')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
             {ils(picture.income)}
           </div>
@@ -425,14 +426,14 @@ export default function PlanPanel({
           </div>
         </div>
         <div className="card">
-          <div className="stat-label">הוצאות בחודש</div>
+          <div className="stat-label">{tr('הוצאות בחודש')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--danger)' }}>
             {ils(picture.expenses)}
           </div>
           <div className="stat-note">{monthLabel(month)} — מתוך נתוני האשראי</div>
         </div>
         <div className="card">
-          <div className="stat-label">נשאר בסוף החודש</div>
+          <div className="stat-label">{tr('נשאר בסוף החודש')}</div>
           <div
             className="stat-value tinted"
             style={{ color: picture.net >= 0 ? 'var(--ok)' : 'var(--danger)' }}
@@ -444,7 +445,7 @@ export default function PlanPanel({
           </div>
         </div>
         <div className="card">
-          <div className="stat-label">אחרי הפרשה ליעדים</div>
+          <div className="stat-label">{tr('אחרי הפרשה ליעדים')}</div>
           <div
             className="stat-value tinted"
             style={{ color: picture.free >= 0 ? 'var(--ok)' : 'var(--danger)' }}
@@ -456,28 +457,21 @@ export default function PlanPanel({
       </div>
 
       {picture.income > 0 && picture.free < 0 && (
-        <div className="notice warn">
-          בקצב הנוכחי חסרים <strong>{ils(Math.abs(picture.free))}</strong> בחודש כדי לעמוד בכל היעדים
-          בזמן. אפשר לדחות חודש יעד, להוריד סכום יעד, או לקצץ בהוצאות — ראו "איפה לחסוך".
-        </div>
+        <div className="notice warn">{tr('בקצב הנוכחי חסרים')}<strong>{ils(Math.abs(picture.free))}</strong>{tr('בחודש כדי לעמוד בכל היעדים בזמן. אפשר לדחות חודש יעד, להוריד סכום יעד, או לקצץ בהוצאות — ראו "איפה לחסוך".')}</div>
       )}
 
       {/* ---------- מחזור החיוב ---------- */}
       <div className="card">
-        <div className="card-title">🗓️ מחזור החיוב</div>
-        <div className="card-sub">
-          אם המשכורות נכנסות בתחילת החודש והאשראי נגבה ב-10, חודש קלנדרי חותך את
-          התקופה באמצע. כאן קובעים באיזה יום נפתח מחזור חדש, וכל החישובים —
-          סיכומים, תקציבים, מגמה והשוואות — עוברים לפיו.
-        </div>
+        <div className="card-title">{tr('🗓️ מחזור החיוב')}</div>
+        <div className="card-sub">{tr('אם המשכורות נכנסות בתחילת החודש והאשראי נגבה ב-10, חודש קלנדרי חותך את התקופה באמצע. כאן קובעים באיזה יום נפתח מחזור חדש, וכל החישובים — סיכומים, תקציבים, מגמה והשוואות — עוברים לפיו.')}</div>
         <div className="cycle-row">
           <label className="form-field" style={{ maxWidth: 220 }}>
-            <span>המחזור מתחיל ביום</span>
+            <span>{tr('המחזור מתחיל ביום')}</span>
             <select
               value={state.settings?.cycleStartDay ?? 1}
               onChange={(e) => onSetSettings({ cycleStartDay: Number(e.target.value) })}
             >
-              <option value={1}>1 — חודש קלנדרי רגיל</option>
+              <option value={1}>{tr('1 — חודש קלנדרי רגיל')}</option>
               {Array.from({ length: 27 }, (_, i) => i + 2).map((d) => (
                 <option key={d} value={d}>
                   {d} בחודש
@@ -489,12 +483,10 @@ export default function PlanPanel({
             {(state.settings?.cycleStartDay ?? 1) > 1 ? (
               <>
                 המחזור הנוכחי: <strong>{cycleRangeLabel(month)}</strong>
-                <div className="mini-label">
-                  חיוב שמתבצע לפני היום הזה נספר עדיין למחזור הקודם.
-                </div>
+                <div className="mini-label">{tr('חיוב שמתבצע לפני היום הזה נספר עדיין למחזור הקודם.')}</div>
               </>
             ) : (
-              <span className="dim">כרגע החישוב לפי חודשים קלנדריים.</span>
+              <span className="dim">{tr('כרגע החישוב לפי חודשים קלנדריים.')}</span>
             )}
           </div>
         </div>
@@ -504,36 +496,33 @@ export default function PlanPanel({
       <div className="card">
         <div className="toolbar">
           <div>
-            <div className="card-title">💼 הכנסות</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>
-              קובץ האשראי מכיל רק הוצאות, ולכן את ההכנסות מזינים כאן. בלעדיהן אי אפשר לדעת
-              כמה באמת נשאר בסוף החודש.
-            </div>
+            <div className="card-title">{tr('💼 הכנסות')}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('קובץ האשראי מכיל רק הוצאות, ולכן את ההכנסות מזינים כאן. בלעדיהן אי אפשר לדעת כמה באמת נשאר בסוף החודש.')}</div>
           </div>
-          <button className="add-btn spacer" onClick={addIncome} title="הוספת הכנסה" aria-label="הוספת הכנסה">
+          <button className="add-btn spacer" onClick={addIncome} title={tr('הוספת הכנסה')} aria-label={tr('הוספת הכנסה')}>
             <IconPlus size={19} />
           </button>
         </div>
 
         {state.incomes.length === 0 ? (
-          <p className="dim">עוד לא הוזנו הכנסות.</p>
+          <p className="dim">{tr('עוד לא הוזנו הכנסות.')}</p>
         ) : (
           <div className="table-wrap">
             <table className="responsive income-table">
               <thead>
                 <tr>
-                  <th style={{ minWidth: 170 }}>מקור</th>
-                  <th>של מי</th>
-                  <th>סוג</th>
-                  <th>חודש</th>
-                  <th className="num">סכום</th>
+                  <th style={{ minWidth: 170 }}>{tr('מקור')}</th>
+                  <th>{tr('של מי')}</th>
+                  <th>{tr('סוג')}</th>
+                  <th>{tr('חודש')}</th>
+                  <th className="num">{tr('סכום')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {state.incomes.map((income) => (
                   <tr key={income.id}>
-                    <td className="c-name" data-label="מקור">
+                    <td className="c-name" data-label={tr('מקור')}>
                       <input
                         type="text"
                         value={income.name}
@@ -541,31 +530,29 @@ export default function PlanPanel({
                         style={{ minWidth: 150 }}
                       />
                     </td>
-                    <td className="c-owner" data-label="של מי">
+                    <td className="c-owner" data-label={tr('של מי')}>
                       <input
                         type="text"
                         value={income.owner ?? ''}
-                        placeholder="אני / בת הזוג"
+                        placeholder={tr('אני / בת הזוג')}
                         onChange={(e) => patchIncome(income.id, { owner: e.target.value })}
                         style={{ width: 120 }}
                       />
                     </td>
-                    <td className="c-kind" data-label="סוג">
+                    <td className="c-kind" data-label={tr('סוג')}>
                       <select
                         value={income.kind}
                         onChange={(e) =>
                           patchIncome(income.id, { kind: e.target.value as Income['kind'] })
                         }
                       >
-                        <option value="recurring">קבועה כל חודש</option>
-                        <option value="oneoff">חד-פעמית</option>
+                        <option value="recurring">{tr('קבועה כל חודש')}</option>
+                        <option value="oneoff">{tr('חד-פעמית')}</option>
                       </select>
                     </td>
-                    <td className="c-month" data-label="חודש">
+                    <td className="c-month" data-label={tr('חודש')}>
                       {income.kind === 'oneoff' && !income.month && (
-                        <span className="pill optional" title="הכנסה חד-פעמית בלי חודש אינה נספרת">
-                          בחרו חודש
-                        </span>
+                        <span className="pill optional" title={tr('הכנסה חד-פעמית בלי חודש אינה נספרת')}>{tr('בחרו חודש')}</span>
                       )}
                       {income.kind === 'oneoff' ? (
                         <select
@@ -579,10 +566,10 @@ export default function PlanPanel({
                           ))}
                         </select>
                       ) : (
-                        <span className="dim">כל חודש</span>
+                        <span className="dim">{tr('כל חודש')}</span>
                       )}
                     </td>
-                    <td className="num c-amount" data-label="סכום">
+                    <td className="num c-amount" data-label={tr('סכום')}>
                       <input
                         type="number"
                         min={0}
@@ -598,7 +585,7 @@ export default function PlanPanel({
                       <button
                         className="icon-btn sm danger"
                         onClick={() => removeIncome(income.id)}
-                        title="מחיקת ההכנסה"
+                        title={tr('מחיקת ההכנסה')}
                         aria-label={`מחיקת ${income.name}`}
                       >
                         <IconClose size={15} />
@@ -616,20 +603,17 @@ export default function PlanPanel({
       <div className="card">
         <div className="toolbar">
           <div>
-            <div className="card-title">🏔️ הוצאות גדולות שבדרך</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>
-              לכל יעד: כמה הוא עולה, כמה כבר שולם, ומתי הוא. האפליקציה מחשבת כמה צריך להפריש
-              כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית לפי הקטגוריה המקושרת.
-            </div>
+            <div className="card-title">{tr('🏔️ הוצאות גדולות שבדרך')}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('לכל יעד: כמה הוא עולה, כמה כבר שולם, ומתי הוא. האפליקציה מחשבת כמה צריך להפריש כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית לפי הקטגוריה המקושרת.')}</div>
           </div>
-          <button className="add-btn spacer" onClick={addGoal} title="הוספת יעד" aria-label="הוספת יעד">
+          <button className="add-btn spacer" onClick={addGoal} title={tr('הוספת יעד')} aria-label={tr('הוספת יעד')}>
             <IconPlus size={19} />
           </button>
         </div>
 
         <div className="grid cols-3" style={{ marginBottom: 14 }}>
           <div className="card">
-            <div className="stat-label">סך היעדים</div>
+            <div className="stat-label">{tr('סך היעדים')}</div>
             {/* הארכיון אינו נספר: יעד סגור אינו התחייבות שצריך לתכנן מולה */}
             <div className="stat-value">
               {ils(activeGoals.reduce((s, p) => s + p.goal.targetAmount, 0))}
@@ -640,23 +624,23 @@ export default function PlanPanel({
             </div>
           </div>
           <div className="card">
-            <div className="stat-label">עוד צריך לשלם</div>
+            <div className="stat-label">{tr('עוד צריך לשלם')}</div>
             <div className="stat-value tinted" style={{ color: 'var(--warn)' }}>
               {ils(totalRemaining)}
             </div>
-            <div className="stat-note">אחרי מה שכבר שולם</div>
+            <div className="stat-note">{tr('אחרי מה שכבר שולם')}</div>
           </div>
           <div className="card">
-            <div className="stat-label">הפרשה חודשית נדרשת</div>
+            <div className="stat-label">{tr('הפרשה חודשית נדרשת')}</div>
             <div className="stat-value">{ils(goalsMonthly)}</div>
-            <div className="stat-note">כדי לעמוד בכל חודשי היעד</div>
+            <div className="stat-note">{tr('כדי לעמוד בכל חודשי היעד')}</div>
           </div>
         </div>
 
         {state.goals.length === 0 ? (
-          <p className="dim">עוד לא הוגדרו הוצאות גדולות.</p>
+          <p className="dim">{tr('עוד לא הוגדרו הוצאות גדולות.')}</p>
         ) : activeGoals.length === 0 ? (
-          <p className="dim">כל היעדים הושלמו ועברו לארכיון.</p>
+          <p className="dim">{tr('כל היעדים הושלמו ועברו לארכיון.')}</p>
         ) : (
           <div className="grid cols-2">{activeGoals.map(renderGoal)}</div>
         )}
@@ -669,16 +653,13 @@ export default function PlanPanel({
               aria-expanded={archiveOpen}
             >
               <IconArchive size={17} />
-              <span className="grow">ארכיון — יעדים שהושלמו</span>
+              <span className="grow">{tr('ארכיון — יעדים שהושלמו')}</span>
               <span className="chip">{archivedGoals.length}</span>
               <IconChevron size={16} className={`chev ${archiveOpen ? 'open' : ''}`} />
             </button>
             {archiveOpen && (
               <div className="archive-body">
-                <p className="dim tiny">
-                  היעדים האלה אינם נספרים בהפרשה החודשית, אבל הנתונים שלהם נשמרים במלואם.
-                  ביטול הסימון מחזיר יעד לרשימה הפעילה.
-                </p>
+                <p className="dim tiny">{tr('היעדים האלה אינם נספרים בהפרשה החודשית, אבל הנתונים שלהם נשמרים במלואם. ביטול הסימון מחזיר יעד לרשימה הפעילה.')}</p>
                 <div className="grid cols-2">{archivedGoals.map(renderGoal)}</div>
               </div>
             )}
@@ -690,18 +671,16 @@ export default function PlanPanel({
       <div className="card">
         <div className="toolbar">
           <div>
-            <div className="card-title">🔀 שינויים מתוכננים בהוצאות קבועות</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>
-              הוצאה קבועה שאתם כבר יודעים שתשתנה בתאריך מסוים — הפסקת מנוי, הוזלה, סיום התחייבות.
-            </div>
+            <div className="card-title">{tr('🔀 שינויים מתוכננים בהוצאות קבועות')}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('הוצאה קבועה שאתם כבר יודעים שתשתנה בתאריך מסוים — הפסקת מנוי, הוזלה, סיום התחייבות.')}</div>
           </div>
-          <button className="add-btn spacer" onClick={addChange} title="הוספת שינוי" aria-label="הוספת שינוי">
+          <button className="add-btn spacer" onClick={addChange} title={tr('הוספת שינוי')} aria-label={tr('הוספת שינוי')}>
             <IconPlus size={19} />
           </button>
         </div>
 
         {state.plannedChanges.length === 0 ? (
-          <p className="dim">לא הוגדרו שינויים מתוכננים.</p>
+          <p className="dim">{tr('לא הוגדרו שינויים מתוכננים.')}</p>
         ) : (
           <>
             <div className="notice" style={{ marginBottom: 14 }}>
@@ -712,18 +691,18 @@ export default function PlanPanel({
               <table className="responsive">
                 <thead>
                   <tr>
-                    <th style={{ minWidth: 170 }}>מה משתנה</th>
-                    <th className="num">היום</th>
-                    <th className="num">אחרי השינוי</th>
-                    <th>מתי</th>
-                    <th className="num">חיסכון חודשי</th>
+                    <th style={{ minWidth: 170 }}>{tr('מה משתנה')}</th>
+                    <th className="num">{tr('היום')}</th>
+                    <th className="num">{tr('אחרי השינוי')}</th>
+                    <th>{tr('מתי')}</th>
+                    <th className="num">{tr('חיסכון חודשי')}</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {state.plannedChanges.map((c) => (
                     <tr key={c.id}>
-                      <td data-label="מה משתנה">
+                      <td data-label={tr('מה משתנה')}>
                         <input
                           type="text"
                           value={c.name}
@@ -732,7 +711,7 @@ export default function PlanPanel({
                         />
                         {c.note && <div className="mini-label">{c.note}</div>}
                       </td>
-                      <td className="num" data-label="היום">
+                      <td className="num" data-label={tr('היום')}>
                         <input
                           type="number"
                           min={0}
@@ -744,7 +723,7 @@ export default function PlanPanel({
                           style={{ width: 100 }}
                         />
                       </td>
-                      <td className="num" data-label="אחרי השינוי">
+                      <td className="num" data-label={tr('אחרי השינוי')}>
                         <input
                           type="number"
                           min={0}
@@ -756,7 +735,7 @@ export default function PlanPanel({
                           style={{ width: 100 }}
                         />
                       </td>
-                      <td data-label="מתי">
+                      <td data-label={tr('מתי')}>
                         <select
                           value={c.fromMonth}
                           onChange={(e) => patchChange(c.id, { fromMonth: e.target.value })}
@@ -770,7 +749,7 @@ export default function PlanPanel({
                       </td>
                       <td
                         className="num strong"
-                        data-label="חיסכון חודשי"
+                        data-label={tr('חיסכון חודשי')}
                         style={{ color: changeSaving(c) > 0 ? 'var(--ok)' : undefined }}
                       >
                         {ils(changeSaving(c))}
@@ -779,7 +758,7 @@ export default function PlanPanel({
                         <button
                           className="icon-btn sm danger"
                           onClick={() => removeChange(c.id)}
-                          title="מחיקת השינוי"
+                          title={tr('מחיקת השינוי')}
                           aria-label={`מחיקת ${c.name}`}
                         >
                           <IconClose size={15} />
@@ -796,7 +775,7 @@ export default function PlanPanel({
 
       {state.incomes.length > 0 && (
         <div className="card">
-          <div className="card-title">תחזית קדימה</div>
+          <div className="card-title">{tr('תחזית קדימה')}</div>
           <div className="card-sub">
             בהנחה שההכנסות נשארות כפי שהן וההוצאות דומות ל{monthLabel(month)}, כולל השינויים
             המתוכננים.
@@ -805,10 +784,10 @@ export default function PlanPanel({
             <table className="responsive">
               <thead>
                 <tr>
-                  <th>חודש</th>
-                  <th className="num">הכנסה צפויה</th>
-                  <th className="num">הפרשה ליעדים</th>
-                  <th className="num">שינויים בהוצאות</th>
+                  <th>{tr('חודש')}</th>
+                  <th className="num">{tr('הכנסה צפויה')}</th>
+                  <th className="num">{tr('הפרשה ליעדים')}</th>
+                  <th className="num">{tr('שינויים בהוצאות')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -820,7 +799,7 @@ export default function PlanPanel({
                   const dueGoals = progress.filter((p) => goalDueMonth(p.goal) === m)
                   return (
                     <tr key={m}>
-                      <td className="strong" data-label="חודש">
+                      <td className="strong" data-label={tr('חודש')}>
                         {monthLabel(m)}
                         {dueGoals.length > 0 && (
                           <div className="mini-label">
@@ -828,9 +807,9 @@ export default function PlanPanel({
                           </div>
                         )}
                       </td>
-                      <td className="num" data-label="הכנסה צפויה">{ils(inc)}</td>
-                      <td className="num" data-label="הפרשה ליעדים">{ils(goalsMonthly)}</td>
-                      <td className="num" data-label="שינויים בהוצאות" style={{ color: saved > 0 ? 'var(--ok)' : undefined }}>
+                      <td className="num" data-label={tr('הכנסה צפויה')}>{ils(inc)}</td>
+                      <td className="num" data-label={tr('הפרשה ליעדים')}>{ils(goalsMonthly)}</td>
+                      <td className="num" data-label={tr('שינויים בהוצאות')} style={{ color: saved > 0 ? 'var(--ok)' : undefined }}>
                         {saved > 0 ? `−${ils(saved)}` : '—'}
                       </td>
                     </tr>

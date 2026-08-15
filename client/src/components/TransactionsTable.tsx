@@ -15,6 +15,7 @@ import { FREQUENCIES, FREQUENCY_LABEL, FREQUENCY_SHORT, monthlyEquivalent } from
 import { addMonths } from '../lib/plan'
 import { ils, ilsExact, monthLabel, shortDate, txCount } from '../lib/format'
 import ManualPaymentForm, { type ManualPaymentDraft } from './ManualPaymentForm'
+import { tr, trf } from '../lib/i18n'
 
 interface Props {
   transactions: Transaction[]
@@ -152,13 +153,9 @@ export default function TransactionsTable({
 
       {activeGoal && (
         <div className="notice goal-filter">
-          <span>
-            מוצגות ההוצאות המשויכות ל<strong>{activeGoal.emoji} {activeGoal.name}</strong> — כל
-            החודשים, מכל הקטגוריות. סך הכול <strong>{ils(total)}</strong> ב-{txCount(rows.length)}.
+          <span>{tr('מוצגות ההוצאות המשויכות ל')}<strong>{activeGoal.emoji} {activeGoal.name}</strong>{tr('— כל החודשים, מכל הקטגוריות. סך הכול')}<strong>{ils(total)}</strong> ב-{txCount(rows.length)}.
           </span>
-          <button className="btn ghost sm" onClick={onClearGoalFilter}>
-            ניקוי הסינון
-          </button>
+          <button className="btn ghost sm" onClick={onClearGoalFilter}>{tr('ניקוי הסינון')}</button>
         </div>
       )}
 
@@ -166,7 +163,7 @@ export default function TransactionsTable({
         <div className="toolbar">
           <input
             type="search"
-            placeholder="חיפוש בית עסק, אסמכתא או הערה…"
+            placeholder={tr('חיפוש בית עסק, אסמכתא או הערה…')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{ minWidth: 230 }}
@@ -175,7 +172,7 @@ export default function TransactionsTable({
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value as CategoryId | 'all')}
           >
-            <option value="all">כל הקטגוריות</option>
+            <option value="all">{tr('כל הקטגוריות')}</option>
             {cats.list.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.emoji} {c.name}
@@ -186,15 +183,15 @@ export default function TransactionsTable({
             value={necessityFilter}
             onChange={(e) => setNecessityFilter(e.target.value as Necessity | 'all')}
           >
-            <option value="all">כל רמות הנחיצות</option>
-            <option value="mandatory">חובה</option>
-            <option value="semi">חצי-חובה</option>
-            <option value="optional">מותרות</option>
+            <option value="all">{tr('כל רמות הנחיצות')}</option>
+            <option value="mandatory">{tr('חובה')}</option>
+            <option value="semi">{tr('חצי-חובה')}</option>
+            <option value="optional">{tr('מותרות')}</option>
           </select>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="amount">מיון: סכום</option>
-            <option value="date">מיון: תאריך</option>
-            <option value="merchant">מיון: שם בית עסק</option>
+            <option value="amount">{tr('מיון: סכום')}</option>
+            <option value="date">{tr('מיון: תאריך')}</option>
+            <option value="merchant">{tr('מיון: שם בית עסק')}</option>
           </select>
           {!activeGoal && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -202,9 +199,7 @@ export default function TransactionsTable({
                 type="checkbox"
                 checked={allMonths}
                 onChange={(e) => setAllMonths(e.target.checked)}
-              />
-              כל החודשים
-            </label>
+              />{tr('כל החודשים')}</label>
           )}
           <button
             className="btn spacer"
@@ -212,9 +207,7 @@ export default function TransactionsTable({
               setEditingManual(null)
               setFormOpen(true)
             }}
-          >
-            + תשלום שלא בכרטיס
-          </button>
+          >{tr('+ תשלום שלא בכרטיס')}</button>
         </div>
 
         <div className="toolbar" style={{ marginBottom: 10 }}>
@@ -223,7 +216,7 @@ export default function TransactionsTable({
             {manualCount > 0 && (
               <span className="dim">
                 {' '}
-                · {manualCount === 1 ? 'תשלום ידני אחד' : `${manualCount} תשלומים ידניים`}
+                · {manualCount === 1 ? tr('תשלום ידני אחד') : trf('{n} תשלומים ידניים', { n: manualCount })}
               </span>
             )}
           </div>
@@ -233,26 +226,23 @@ export default function TransactionsTable({
               setExpanded(expanded.size === rows.length ? new Set() : new Set(rows.map((t) => t.id)))
             }
           >
-            {expanded.size === rows.length && rows.length > 0 ? 'סגירת הכול' : 'פתיחת הכול'}
+            {expanded.size === rows.length && rows.length > 0 ? tr('סגירת הכול') : tr('פתיחת הכול')}
           </button>
         </div>
 
         {nonMonthly.length > 0 && (
           <div className="notice warn">
-            ברשימה יש{' '}
+            {tr('ברשימה יש')}{' '}
             {nonMonthly.length === 1
-              ? 'חיוב אחד שאינו חודשי'
-              : `${nonMonthly.length} חיובים שאינם חודשיים`}{' '}
-            (חשמל, מים, ארנונה וכדומה). מנורמל לחודש, הסכום המוצג שווה ל-
-            <strong>{ils(normalizedTotal)}</strong> בחודש במקום {ils(total)} — זה המספר להשוואה מול
-            תקציב חודשי.
+              ? tr('חיוב אחד שאינו חודשי')
+              : trf('{n} חיובים שאינם חודשיים', { n: nonMonthly.length })}{' '}
+            {tr('(חשמל, מים, ארנונה וכדומה). מנורמל לחודש, הסכום המוצג שווה ל-')}
+            <strong>{ils(normalizedTotal)}</strong>{' '}
+            {trf('בחודש במקום {sum} — זה המספר להשוואה מול תקציב חודשי.', { sum: ils(total) })}
           </div>
         )}
 
-        <div className="notice">
-          לחיצה על שורה פותחת אותה: אסמכתא, הערה חופשית, שיוך ליעד ופרטי החיוב המלאים.
-          ✏️ ליד שם בית העסק משנה את השם <strong>בכל העסקאות שלו</strong>, ואילו האסמכתא וההערה
-          שייכות <strong>לעסקה הבודדת</strong>.
+        <div className="notice">{tr('לחיצה על שורה פותחת אותה: אסמכתא, הערה חופשית, שיוך ליעד ופרטי החיוב המלאים. ✏️ ליד שם בית העסק משנה את השם')}<strong>{tr('בכל העסקאות שלו')}</strong>{tr(', ואילו האסמכתא וההערה שייכות')}<strong>{tr('לעסקה הבודדת')}</strong>.
         </div>
 
         <div className="table-wrap">
@@ -260,12 +250,12 @@ export default function TransactionsTable({
             <thead>
               <tr>
                 <th style={{ width: 34 }} />
-                <th>תאריך</th>
-                <th>בית עסק</th>
-                <th className="num">סכום</th>
-                <th>קטגוריה</th>
-                <th>נחיצות</th>
-                <th>תדירות</th>
+                <th>{tr('תאריך')}</th>
+                <th>{tr('בית עסק')}</th>
+                <th className="num">{tr('סכום')}</th>
+                <th>{tr('קטגוריה')}</th>
+                <th>{tr('נחיצות')}</th>
+                <th>{tr('תדירות')}</th>
               </tr>
             </thead>
             <tbody>
@@ -286,7 +276,7 @@ export default function TransactionsTable({
                         ▾
                       </span>
                     </td>
-                    <td className="num dim" data-label="תאריך">
+                    <td className="num dim" data-label={tr('תאריך')}>
                       {shortDate(t.date)}
                       {showAllMonths && (
                         <div className="mini-label">חיוב: {monthLabel(transactionMonth(t))}</div>
@@ -294,10 +284,13 @@ export default function TransactionsTable({
                     </td>
                     <td className="cell-merchant">
                       <span className="strong">{t.merchant}</span>
-                      {t.manual && <span className="chip active tag">ידני</span>}
+                      {t.manual && <span className="chip active tag">{tr('ידני')}</span>}
                       {t.installment && (
                         <span className="chip tag">
-                          תשלום {t.installment.current}/{t.installment.total}
+                          {trf('תשלום {cur}/{total}', {
+                          cur: t.installment.current,
+                          total: t.installment.total,
+                        })}
                         </span>
                       )}
                       {goal && (
@@ -307,9 +300,13 @@ export default function TransactionsTable({
                       )}
                       {ann?.reference && <div className="tx-ref">📌 {ann.reference}</div>}
                       {ann?.note && !isOpen && <div className="tx-note-hint">💬 {ann.note}</div>}
-                      {t.paidVia && <div className="alias-orig">שולם דרך {t.paidVia}</div>}
+                      {t.paidVia && (
+                        <div className="alias-orig">
+                          {trf('שולם דרך {who}', { who: t.paidVia })}
+                        </div>
+                      )}
                     </td>
-                    <td className="num strong" data-label="סכום">
+                    <td className="num strong" data-label={tr('סכום')}>
                       <span>
                         {ilsExact(t.amount)}
                         {freq !== 'monthly' && freq !== 'oneoff' && (
@@ -319,7 +316,7 @@ export default function TransactionsTable({
                         )}
                       </span>
                     </td>
-                    <td data-label="קטגוריה" onClick={(e) => e.stopPropagation()}>
+                    <td data-label={tr('קטגוריה')} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={t.category}
                         onChange={(e) =>
@@ -333,7 +330,7 @@ export default function TransactionsTable({
                         ))}
                       </select>
                     </td>
-                    <td data-label="נחיצות" onClick={(e) => e.stopPropagation()}>
+                    <td data-label={tr('נחיצות')} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={t.necessity}
                         onChange={(e) =>
@@ -342,12 +339,12 @@ export default function TransactionsTable({
                       >
                         {(['mandatory', 'semi', 'optional'] as Necessity[]).map((n) => (
                           <option key={n} value={n}>
-                            {NECESSITY_LABEL[n]}
+                            {tr(NECESSITY_LABEL[n])}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td data-label="תדירות" onClick={(e) => e.stopPropagation()}>
+                    <td data-label={tr('תדירות')} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={freq}
                         onChange={(e) =>
@@ -356,7 +353,7 @@ export default function TransactionsTable({
                       >
                         {FREQUENCIES.map((f) => (
                           <option key={f} value={f}>
-                            {FREQUENCY_SHORT[f]}
+                            {tr(FREQUENCY_SHORT[f])}
                           </option>
                         ))}
                       </select>
@@ -369,11 +366,11 @@ export default function TransactionsTable({
                         <div className="tx-details">
                           <div className="tx-details-main">
                             <label className="form-field">
-                              <span>📌 אסמכתא — למה היה התשלום הזה</span>
+                              <span>{tr('📌 אסמכתא — למה היה התשלום הזה')}</span>
                               <input
                                 type="text"
                                 value={ann?.reference ?? ''}
-                                placeholder="למשל: מקדמה לצלם החתונה"
+                                placeholder={tr('למשל: מקדמה לצלם החתונה')}
                                 onChange={(e) =>
                                   onSetAnnotation(t.id, { reference: e.target.value || undefined })
                                 }
@@ -381,11 +378,11 @@ export default function TransactionsTable({
                             </label>
 
                             <label className="form-field">
-                              <span>💬 הערה</span>
+                              <span>{tr('💬 הערה')}</span>
                               <textarea
                                 rows={3}
                                 value={ann?.note ?? ''}
-                                placeholder="כל מה שתרצו לזכור על העסקה הזו"
+                                placeholder={tr('כל מה שתרצו לזכור על העסקה הזו')}
                                 onChange={(e) =>
                                   onSetAnnotation(t.id, { note: e.target.value || undefined })
                                 }
@@ -393,14 +390,14 @@ export default function TransactionsTable({
                             </label>
 
                             <label className="form-field">
-                              <span>🏔️ שיוך להוצאה גדולה</span>
+                              <span>{tr('🏔️ שיוך להוצאה גדולה')}</span>
                               <select
                                 value={ann?.goalId ?? ''}
                                 onChange={(e) =>
                                   onSetAnnotation(t.id, { goalId: e.target.value || undefined })
                                 }
                               >
-                                <option value="">בלי שיוך ליעד</option>
+                                <option value="">{tr('בלי שיוך ליעד')}</option>
                                 {goals.map((g) => (
                                   <option key={g.id} value={g.id}>
                                     {g.emoji} {g.name}
@@ -408,16 +405,14 @@ export default function TransactionsTable({
                                 ))}
                               </select>
                               {goals.length === 0 && (
-                                <span className="mini-label">
-                                  הגדירו יעדים בלשונית "הכנסות ויעדים"
-                                </span>
+                                <span className="mini-label">{tr('הגדירו יעדים בלשונית "הכנסות ויעדים"')}</span>
                               )}
                             </label>
                           </div>
 
                           <div className="tx-details-side">
                             <div className="detail-line">
-                              <span>שם בית העסק</span>
+                              <span>{tr('שם בית העסק')}</span>
                               <strong>
                                 {t.merchant}
                                 <button
@@ -425,7 +420,8 @@ export default function TransactionsTable({
                                   style={{ marginInlineStart: 7 }}
                                   onClick={() => {
                                     const value = prompt(
-                                      `איך קוראים ל"${t.bankName ?? t.merchant}"?\nהשם יחליף את השם מהבנק בכל העסקאות של בית העסק.`,
+                                      `${trf('איך קוראים ל"{name}"?', { name: t.bankName ?? t.merchant })}\n` +
+          tr('השם יחליף את השם מהבנק בכל העסקאות של בית העסק.'),
                                       t.merchant,
                                     )
                                     if (value === null) return
@@ -433,32 +429,30 @@ export default function TransactionsTable({
                                       alias: value.trim() || undefined,
                                     })
                                   }}
-                                >
-                                  ✏️ שינוי
-                                </button>
+                                >{tr('✏️ שינוי')}</button>
                               </strong>
                             </div>
                             {t.bankName && (
                               <div className="detail-line">
-                                <span>השם בבנק</span>
+                                <span>{tr('השם בבנק')}</span>
                                 <strong>{t.bankName}</strong>
                               </div>
                             )}
                             <div className="detail-line">
-                              <span>כרטיס</span>
+                              <span>{tr('כרטיס')}</span>
                               <strong>{t.card}</strong>
                             </div>
                             <div className="detail-line">
-                              <span>תאריך עסקה</span>
+                              <span>{tr('תאריך עסקה')}</span>
                               <strong>{shortDate(t.date)}</strong>
                             </div>
                             <div className="detail-line">
-                              <span>תאריך חיוב</span>
+                              <span>{tr('תאריך חיוב')}</span>
                               <strong>{shortDate(t.chargeDate)}</strong>
                             </div>
                             {t.currency !== 'ILS' && (
                               <div className="detail-line">
-                                <span>סכום מקורי</span>
+                                <span>{tr('סכום מקורי')}</span>
                                 <strong>
                                   {t.originalAmount.toLocaleString('he-IL')} {t.currency}
                                 </strong>
@@ -467,7 +461,7 @@ export default function TransactionsTable({
                             {t.installment && (
                               <>
                                 <div className="detail-line">
-                                  <span>תשלומים</span>
+                                  <span>{tr('תשלומים')}</span>
                                   <strong>
                                     {t.installment.current} מתוך {t.installment.total}
                                   </strong>
@@ -482,7 +476,7 @@ export default function TransactionsTable({
                                   const missing = t.installment!.current - 1
                                   return (
                                     <div className="notice warn" style={{ fontSize: 12, marginTop: 6 }}>
-                                      {missing === 1 ? 'תשלום קודם אחד' : `${missing} תשלומים קודמים`}{' '}
+                                      {missing === 1 ? tr('תשלום קודם אחד') : trf('{n} תשלומים קודמים', { n: missing })}{' '}
                                       של העסקה הזו חויבו לפני {monthLabel(earliestMonth)} ולא נכללים
                                       בנתונים. ייבאו את הקבצים של אותם חודשים כדי לראות את העסקה
                                       במלואה.
@@ -492,15 +486,15 @@ export default function TransactionsTable({
                               </>
                             )}
                             <div className="detail-line">
-                              <span>סוג</span>
+                              <span>{tr('סוג')}</span>
                               <strong>{t.kind || '—'}</strong>
                             </div>
                             <div className="detail-line">
-                              <span>תדירות</span>
-                              <strong>{FREQUENCY_LABEL[freq]}</strong>
+                              <span>{tr('תדירות')}</span>
+                              <strong>{tr(FREQUENCY_LABEL[freq])}</strong>
                             </div>
                             <div className="detail-line">
-                              <span>מקור</span>
+                              <span>{tr('מקור')}</span>
                               <strong>{t.source}</strong>
                             </div>
 
@@ -512,22 +506,21 @@ export default function TransactionsTable({
                                     setEditingManual(t)
                                     setFormOpen(true)
                                   }}
-                                >
-                                  עריכת התשלום
-                                </button>
+                                >{tr('עריכת התשלום')}</button>
                                 <button
                                   className="btn danger sm"
                                   onClick={() => {
                                     if (
                                       confirm(
-                                        `למחוק את התשלום "${t.merchant}" על ${ilsExact(t.amount)}?`,
+                                        trf('למחוק את התשלום "{name}" על {sum}?', {
+        name: t.merchant,
+        sum: ilsExact(t.amount),
+      }),
                                       )
                                     )
                                       onDeleteManual(t.id)
                                   }}
-                                >
-                                  מחיקה
-                                </button>
+                                >{tr('מחיקה')}</button>
                               </div>
                             )}
                           </div>
@@ -541,7 +534,7 @@ export default function TransactionsTable({
           </table>
         </div>
 
-        {rows.length === 0 && <p className="dim">לא נמצאו עסקאות מתאימות לסינון.</p>}
+        {rows.length === 0 && <p className="dim">{tr('לא נמצאו עסקאות מתאימות לסינון.')}</p>}
       </div>
     </div>
   )

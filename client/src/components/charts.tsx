@@ -1,6 +1,7 @@
 import type { Necessity } from '../types'
 import { NECESSITY_LABEL } from '../lib/categories'
 import { ils, monthLabelShort, pct } from '../lib/format'
+import { tr, trf } from '../lib/i18n'
 
 export const NECESSITY_VAR: Record<Necessity, string> = {
   mandatory: 'var(--viz-mandatory)',
@@ -126,7 +127,7 @@ export function foldSlices(items: Slice[], max = MAX_SLICES): Slice[] {
     ...head,
     {
       key: '__rest',
-      label: `אחר (${tail.length})`,
+      label: trf('אחר ({n})', { n: tail.length }),
       emoji: '➕',
       value: tail.reduce((s, x) => s + x.value, 0),
       color: SERIES_VARS[max - 1],
@@ -188,7 +189,7 @@ export function NecessityBar({ byNecessity }: { byNecessity: Record<Necessity, n
                 background: NECESSITY_VAR[n],
                 boxShadow: 'inset 2px 0 0 var(--surface)',
               }}
-              title={`${NECESSITY_LABEL[n]}: ${ils(byNecessity[n])}`}
+              title={`${tr(NECESSITY_LABEL[n])}: ${ils(byNecessity[n])}`}
             />
           ) : null,
         )}
@@ -198,7 +199,7 @@ export function NecessityBar({ byNecessity }: { byNecessity: Record<Necessity, n
           <div className="legend-item" key={n}>
             <span className="dot" style={{ background: NECESSITY_VAR[n] }} />
             <span>
-              {NECESSITY_LABEL[n]} — <strong>{ils(byNecessity[n])}</strong>{' '}
+              {tr(NECESSITY_LABEL[n])} — <strong>{ils(byNecessity[n])}</strong>{' '}
               <span className="dim">({pct(byNecessity[n], total)}%)</span>
             </span>
           </div>
@@ -242,12 +243,12 @@ export function TrendChart({ points, current }: { points: TrendPoint[]; current:
                       height: `${(p.byNecessity[n] / p.total) * 100}%`,
                       background: NECESSITY_VAR[n],
                     }}
-                    title={`${monthLabelShort(p.month)} · ${NECESSITY_LABEL[n]}: ${ils(p.byNecessity[n])}`}
+                    title={`${monthLabelShort(p.month)} · ${tr(NECESSITY_LABEL[n])}: ${ils(p.byNecessity[n])}`}
                   />
                 ) : null,
               )}
             </div>
-            <div className="trend-label" title={p.partial ? 'חודש חלקי — לא יובא קובץ מלא עבורו' : undefined}>
+            <div className="trend-label" title={p.partial ? tr('חודש חלקי — לא יובא קובץ מלא עבורו') : undefined}>
               {monthLabelShort(p.month)}
             </div>
           </div>
@@ -257,7 +258,7 @@ export function TrendChart({ points, current }: { points: TrendPoint[]; current:
         {NECESSITY_ORDER.map((n) => (
           <div className="legend-item" key={n}>
             <span className="dot" style={{ background: NECESSITY_VAR[n] }} />
-            <span>{NECESSITY_LABEL[n]}</span>
+            <span>{tr(NECESSITY_LABEL[n])}</span>
           </div>
         ))}
       </div>

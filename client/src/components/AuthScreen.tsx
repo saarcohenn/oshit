@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { InviteInfo } from '../lib/api'
 import { IconBrand } from './Icons'
+import { tr, trf } from '../lib/i18n'
 
 interface Props {
   /** אין עדיין אף חשבון בשרת — המסך הזה יוצר את הבעלים הראשון */
@@ -53,24 +54,26 @@ export default function AuthScreen({
   }
 
   const title = needsSetup
-    ? 'ברוכים הבאים ל-Osh.it'
+    ? tr('ברוכים הבאים ל-Osh.it')
     : invite
-      ? `הוזמנתם ל${invite.householdEmoji} ${invite.householdName}`
+      ? trf('הוזמנתם ל{house}', {
+          house: `${invite.householdEmoji} ${invite.householdName}`,
+        })
       : registering
-        ? 'יצירת חשבון'
-        : 'כניסה'
+        ? tr('יצירת חשבון')
+        : tr('כניסה')
 
   const subtitle = needsSetup
-    ? 'זו ההתקנה הראשונה. החשבון שתיצרו כאן יהיה הבעלים של הנתונים.'
+    ? tr('זו ההתקנה הראשונה. החשבון שתיצרו כאן יהיה הבעלים של הנתונים.')
     : invite
       ? // ניסוח בלי פועל: המערכת אינה יודעת את המגדר של המזמין, וכל
         // בחירה בין "הזמין" ל"הזמינה" הייתה שגויה עבור מחצית מהמשתמשים
         invite.invitedBy
-        ? `הזמנה מ${invite.invitedBy} לנהל יחד את התקציב.`
-        : 'הזמנה לנהל יחד את התקציב.'
+        ? trf('הזמנה מ{who} לנהל יחד את התקציב.', { who: invite.invitedBy })
+        : tr('הזמנה לנהל יחד את התקציב.')
       : registering
-        ? 'החשבון נשמר על השרת שלכם בלבד.'
-        : 'שמחים לראות אתכם שוב.'
+        ? tr('החשבון נשמר על השרת שלכם בלבד.')
+        : tr('שמחים לראות אתכם שוב.')
 
   return (
     <div className="auth-screen">
@@ -89,19 +92,19 @@ export default function AuthScreen({
 
         {registering && (
           <label className="auth-field">
-            <span>שם</span>
+            <span>{tr('שם')}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
               required
-              placeholder="איך לקרוא לכם"
+              placeholder={tr('איך לקרוא לכם')}
             />
           </label>
         )}
 
         <label className="auth-field">
-          <span>דוא״ל</span>
+          <span>{tr('דוא״ל')}</span>
           <input
             type="email"
             value={email}
@@ -114,7 +117,7 @@ export default function AuthScreen({
         </label>
 
         <label className="auth-field">
-          <span>סיסמה</span>
+          <span>{tr('סיסמה')}</span>
           <input
             type="password"
             value={password}
@@ -123,14 +126,20 @@ export default function AuthScreen({
             required
             minLength={registering ? 8 : undefined}
             dir="ltr"
-            placeholder={registering ? '8 תווים לפחות' : ''}
+            placeholder={registering ? tr('8 תווים לפחות') : ''}
           />
         </label>
 
         {error && <div className="notice danger auth-error">{error}</div>}
 
         <button className="btn auth-submit" type="submit" disabled={busy}>
-          {busy ? 'רגע…' : registering ? (needsSetup ? 'יצירת החשבון' : 'הצטרפות') : 'כניסה'}
+          {busy
+            ? tr('רגע…')
+            : registering
+              ? needsSetup
+                ? tr('יצירת החשבון')
+                : tr('הצטרפות')
+              : tr('כניסה')}
         </button>
 
         {/* בהתקנה ראשונה אין למה להתחבר, ולכן אין מה להציע */}
@@ -138,22 +147,16 @@ export default function AuthScreen({
           <div className="auth-switch">
             {registering ? (
               <>
-                כבר יש לכם חשבון?{' '}
-                <button type="button" className="link-btn" onClick={() => setMode('login')}>
-                  לכניסה
-                </button>
+                {tr('כבר יש לכם חשבון?')}{' '}
+                <button type="button" className="link-btn" onClick={() => setMode('login')}>{tr('לכניסה')}</button>
               </>
             ) : canRegister ? (
               <>
-                אין לכם עדיין חשבון?{' '}
-                <button type="button" className="link-btn" onClick={() => setMode('register')}>
-                  ליצירת חשבון
-                </button>
+                {tr('אין לכם עדיין חשבון?')}{' '}
+                <button type="button" className="link-btn" onClick={() => setMode('register')}>{tr('ליצירת חשבון')}</button>
               </>
             ) : (
-              <span className="dim">
-                ההרשמה סגורה. כדי להצטרף, בקשו קישור הזמנה ממי שכבר משתמש.
-              </span>
+              <span className="dim">{tr('ההרשמה סגורה. כדי להצטרף, בקשו קישור הזמנה ממי שכבר משתמש.')}</span>
             )}
           </div>
         )}

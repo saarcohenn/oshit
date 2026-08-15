@@ -17,6 +17,7 @@ import { api, type AuthUser } from './lib/api'
 import { availableMonths } from './lib/analytics'
 import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
+import { tr, trf, useLang } from './lib/i18n'
 import ImportPanel from './components/ImportPanel'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
@@ -108,8 +109,8 @@ export default function App() {
     return (
       <div className="app">
         <div className="empty">
-          <h2>טוען…</h2>
-          <p>מתחבר לשרת של Osh.it</p>
+          <h2>{tr('טוען…')}</h2>
+          <p>{tr('מתחבר לשרת של Osh.it')}</p>
         </div>
       </div>
     )
@@ -119,14 +120,14 @@ export default function App() {
     return (
       <div className="app">
         <div className="empty">
-          <h2>אין חיבור לשרת</h2>
+          <h2>{tr('אין חיבור לשרת')}</h2>
           <p>
-            לא הצלחנו להגיע ל-API של Osh.it. ({auth.error})
+            {tr('לא הצלחנו להגיע ל-API של Osh.it.')} ({auth.error})
             <br />
-            ודאו שהשרת רץ, ונסו לרענן.
+            {tr('ודאו שהשרת רץ, ונסו לרענן.')}
           </p>
           <button className="btn" onClick={() => location.reload()}>
-            רענון
+            {tr('רענון')}
           </button>
         </div>
       </div>
@@ -181,6 +182,8 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   const [shareId, setShareId] = useState<string | null>(null)
 
   useEffect(() => applyTheme(theme), [theme])
+  // מרנדר מחדש כשהשפה מתחלפת. ההחלה על המסמך נעשית ב-main לפני הרינדור הראשון
+  useLang()
 
   // הייבוא צריך להשוות מול הנתונים הנוכחיים ולהחזיר סיכום מיד,
   // ולכן הוא קורא מ-ref ולא ממתין לעדכון ה-state
@@ -348,7 +351,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
 
   /** מרוקן את תוכן משק הבית אך משאיר את ערכת הקטגוריות שלו על כנה */
   function resetAll() {
-    if (!confirm('למחוק את כל העסקאות, התקציבים והיעדים של משק הבית הזה? הפעולה אינה הפיכה.'))
+    if (!confirm(tr('למחוק את כל העסקאות, התקציבים והיעדים של משק הבית הזה? הפעולה אינה הפיכה.')))
       return
     setState((prev) => ({
       ...prev,
@@ -387,9 +390,10 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     if (!local || !activeId) return
     if (
       !confirm(
-        `נמצאו נתונים שנשמרו בדפדפן מגרסה קודמת (${local.transactions?.length ?? 0} עסקאות).
-` +
-          `להעלות אותם למשק הבית הפעיל? הנתונים הקיימים בו יוחלפו.`,
+        `${trf('נמצאו נתונים שנשמרו בדפדפן מגרסה קודמת ({n} עסקאות).', {
+          n: local.transactions?.length ?? 0,
+        })}
+` + tr('להעלות אותם למשק הבית הפעיל? הנתונים הקיימים בו יוחלפו.'),
       )
     )
       return
@@ -419,15 +423,15 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   // כשהמסך הפעיל מסומן בשורה אין צורך לחזור על שמו, והכותרת חוזרת לסלוגן
   const activeHidden = hiddenTabs.has(tab)
   const subtitle = activeHidden
-    ? ALL_TABS.find((t) => t.id === tab)?.label ?? ''
-    : 'לאן הלך העו״ש'
+    ? tr(ALL_TABS.find((x) => x.id === tab)?.label ?? '')
+    : tr('לאן הלך העו״ש')
 
   if (status === 'loading' && !households.length) {
     return (
       <div className="app">
         <div className="empty">
-          <h2>טוען…</h2>
-          <p>מתחבר לשרת של Osh.it</p>
+          <h2>{tr('טוען…')}</h2>
+          <p>{tr('מתחבר לשרת של Osh.it')}</p>
         </div>
       </div>
     )
@@ -437,14 +441,14 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     return (
       <div className="app">
         <div className="empty">
-          <h2>אין חיבור לשרת</h2>
+          <h2>{tr('אין חיבור לשרת')}</h2>
           <p>
-            לא הצלחנו להגיע ל-API של Osh.it.{error ? ` (${error})` : ''}
+            {tr('לא הצלחנו להגיע ל-API של Osh.it.')}{error ? ` (${error})` : ''}
             <br />
-            ודאו שהשרת רץ, ונסו לרענן.
+            {tr('ודאו שהשרת רץ, ונסו לרענן.')}
           </p>
           <button className="btn" onClick={() => location.reload()}>
-            רענון
+            {tr('רענון')}
           </button>
         </div>
       </div>
@@ -488,9 +492,9 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
         <button
           className={`icon-btn ${activeHidden ? 'on' : ''}`}
           onClick={() => setDrawerOpen(true)}
-          aria-label="פתיחת התפריט"
+          aria-label={tr('פתיחת התפריט')}
           aria-expanded={drawerOpen}
-          title="תפריט"
+          title={tr('תפריט')}
         >
           <IconMenu />
         </button>
@@ -511,7 +515,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
           <select
             value={activeMonth}
             onChange={(e) => setMonth(e.target.value)}
-            aria-label="בחירת חודש"
+            aria-label={tr('בחירת חודש')}
             className="month-select"
           >
             {months.map((m) => (
@@ -528,30 +532,30 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       <main className="main">
         {pendingLocalImport() && households.length > 0 && (
           <div className="notice warn" style={{ marginBottom: 16 }}>
-            נמצאו נתונים ששמרתם בדפדפן לפני שהאפליקציה עברה לשרת.{' '}
+            {tr('נמצאו נתונים ששמרתם בדפדפן לפני שהאפליקציה עברה לשרת.')}{' '}
             <button className="link-btn" onClick={() => void migrateLocalData()}>
-              העלאה למשק הבית הפעיל ←
+              {tr('העלאה למשק הבית הפעיל ←')}
             </button>
           </div>
         )}
         {!households.length ? (
           /* אפשרי אחרי עזיבת משק הבית האחרון שחלקנו עם מישהו */
           <div className="empty">
-            <h2>אין לכם משק בית</h2>
-            <p>צרו משק בית חדש, או בקשו קישור הזמנה ממי שכבר מנהל אחד.</p>
+            <h2>{tr('אין לכם משק בית')}</h2>
+            <p>{tr('צרו משק בית חדש, או בקשו קישור הזמנה ממי שכבר מנהל אחד.')}</p>
             <button
               className="btn"
-              onClick={() => void createHousehold('משק הבית שלי', '🏡')}
+              onClick={() => void createHousehold(tr('משק הבית שלי'), '🏡')}
             >
-              יצירת משק בית
+              {tr('יצירת משק בית')}
             </button>
           </div>
         ) : !hasData && tab !== 'import' ? (
           <div className="empty">
-            <h2>עוד אין נתונים</h2>
-            <p>ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.</p>
+            <h2>{tr('עוד אין נתונים')}</h2>
+            <p>{tr('ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.')}</p>
             <button className="btn" onClick={() => setTab('import')}>
-              מעבר לייבוא
+              {tr('מעבר לייבוא')}
             </button>
           </div>
         ) : (
@@ -668,22 +672,22 @@ function SyncBadge({
   }, [liveAt])
 
   const label: Record<string, string> = {
-    loading: 'טוען…',
-    ready: 'נשמר',
-    saving: 'שומר…',
-    offline: 'אין חיבור',
-    error: 'שמירה נכשלה',
+    loading: tr('טוען…'),
+    ready: tr('נשמר'),
+    saving: tr('שומר…'),
+    offline: tr('אין חיבור'),
+    error: tr('שמירה נכשלה'),
   }
   // בכותרת של שורה אחת אין מקום לתווית מלאה: מצב תקין הוא נקודה בלבד,
   // ורק תקלה או שמירה פעילה מקבלות מילים
   const quiet = status === 'ready' && !flash
-  const text = flash ? 'עודכן ממכשיר אחר' : (label[status] ?? status)
+  const text = flash ? tr('עודכן ממכשיר אחר') : (label[status] ?? status)
   return (
     <span
       className={`sync-badge ${flash ? 'live' : status} ${quiet ? 'quiet' : ''}`}
       title={error ?? text}
       aria-live="polite"
-      aria-label={`מצב סנכרון: ${text}`}
+      aria-label={trf('מצב סנכרון: {text}', { text })}
     >
       <span className="sync-dot" aria-hidden />
       {!quiet && <span>{text}</span>}

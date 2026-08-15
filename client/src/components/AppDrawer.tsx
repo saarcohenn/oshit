@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { AuthUser, Household } from '../lib/api'
 import { THEME_LABEL, type Theme } from '../lib/theme'
+import { LANGS, setLang, tr, trf, useLang } from '../lib/i18n'
 import {
   IconAuto,
   IconBrand,
@@ -73,6 +74,7 @@ export default function AppDrawer<T extends string>({
   onSetTheme,
 }: Props<T>) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const lang = useLang()
 
   // סגירה ב-Escape, ונעילת גלילת הרקע כל עוד המגירה פתוחה
   useEffect(() => {
@@ -91,29 +93,30 @@ export default function AppDrawer<T extends string>({
   }, [open, onClose])
 
   function create() {
-    const name = prompt('שם משק הבית החדש:', 'משק בית נוסף')
+    const name = prompt(tr('שם משק הבית החדש:'), tr('משק בית נוסף'))
     if (name === null) return
     const trimmed = name.trim()
     if (!trimmed) return
-    const emoji = prompt('אימוג׳י (אפשר להשאיר ריק):', '🏡') ?? '🏡'
+    const emoji = prompt(tr('אימוג׳י (אפשר להשאיר ריק):'), '🏡') ?? '🏡'
     onCreateHousehold(trimmed, emoji.trim() || '🏡')
   }
 
   function rename(h: Household) {
-    const name = prompt('שם משק הבית:', h.name)
+    const name = prompt(tr('שם משק הבית:'), h.name)
     if (name === null) return
-    const emoji = prompt('אימוג׳י:', h.emoji) ?? h.emoji
+    const emoji = prompt(tr('אימוג׳י:'), h.emoji) ?? h.emoji
     onRenameHousehold(h.id, name.trim() || h.name, emoji.trim() || h.emoji)
   }
 
   function remove(h: Household) {
     const typed = prompt(
-      `מחיקת "${h.name}" תמחק לצמיתות את כל העסקאות, הקטגוריות והיעדים שלו.\n` +
-        `אין דרך לשחזר. כדי לאשר, הקלידו את שם משק הבית:`,
+      `${trf('מחיקת "{name}" תמחק לצמיתות את כל העסקאות, הקטגוריות והיעדים שלו.', {
+        name: h.name,
+      })}\n` + tr('אין דרך לשחזר. כדי לאשר, הקלידו את שם משק הבית:'),
     )
     if (typed === null) return
     if (typed.trim() !== h.name) {
-      alert('השם לא תואם — לא נמחק דבר.')
+      alert(tr('השם לא תואם — לא נמחק דבר.'))
       return
     }
     onDeleteHousehold(h.id)
@@ -131,7 +134,7 @@ export default function AppDrawer<T extends string>({
         className={`drawer ${open ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"
-        aria-label="תפריט ראשי"
+        aria-label={tr('תפריט ראשי')}
         aria-hidden={!open}
         tabIndex={-1}
         ref={panelRef}
@@ -144,17 +147,17 @@ export default function AppDrawer<T extends string>({
             <b>
               Osh<span className="dot">.</span>it
             </b>
-            <small>לאן הלך העו״ש</small>
+            <small>{tr('לאן הלך העו״ש')}</small>
           </div>
-          <button className="icon-btn sm spacer" onClick={onClose} aria-label="סגירת התפריט">
+          <button className="icon-btn sm spacer" onClick={onClose} aria-label={tr('סגירת התפריט')}>
             <IconClose size={17} />
           </button>
         </div>
 
-        <nav className="drawer-nav" aria-label="ניווט ראשי">
+        <nav className="drawer-nav" aria-label={tr('ניווט ראשי')}>
           {groups.map((group) => (
-            <div className="drawer-group" key={group.title}>
-              <div className="drawer-group-title">{group.title}</div>
+            <div className="drawer-group" key={tr(group.title)}>
+              <div className="drawer-group-title">{tr(group.title)}</div>
               {group.tabs.map(({ id, label, Icon }) => (
                 <button
                   key={id}
@@ -166,7 +169,7 @@ export default function AppDrawer<T extends string>({
                   }}
                 >
                   <Icon size={18} />
-                  <span>{label}</span>
+                  <span>{tr(label)}</span>
                 </button>
               ))}
             </div>
@@ -174,7 +177,7 @@ export default function AppDrawer<T extends string>({
         </nav>
 
         <div className="drawer-section">
-          <div className="drawer-group-title">משקי בית</div>
+          <div className="drawer-group-title">{tr('משקי בית')}</div>
           {households.map((h) => (
             <div className="drawer-household" key={h.id}>
               <button
@@ -188,7 +191,7 @@ export default function AppDrawer<T extends string>({
                 <span className="grow">{h.name}</span>
                 {/* חיווי שקט שהנתונים כאן אינם פרטיים לחשבון הזה */}
                 {h.memberCount > 1 && (
-                  <span className="shared-badge" title={`${h.memberCount} אנשים`}>
+                  <span className="shared-badge" title={trf('{n} אנשים', { n: h.memberCount })}>
                     <IconShare size={13} />
                     {h.memberCount}
                   </span>
@@ -197,17 +200,17 @@ export default function AppDrawer<T extends string>({
               </button>
               <div className="drawer-household-actions">
                 <button className="link-btn" onClick={() => onShareHousehold(h.id)}>
-                  {h.role === 'owner' ? 'שיתוף' : 'מי רואה'}
+                  {h.role === 'owner' ? tr('שיתוף') : tr('מי רואה')}
                 </button>
                 {/* שינוי שם ומחיקה שמורים לבעלים — חבר משתף בנתונים, לא בשליטה */}
                 {h.role === 'owner' && (
                   <>
                     <button className="link-btn" onClick={() => rename(h)}>
-                      שינוי שם
+                      {tr('שינוי שם')}
                     </button>
                     {households.length > 1 && (
                       <button className="link-btn danger-link" onClick={() => remove(h)}>
-                        מחיקה
+                        {tr('מחיקה')}
                       </button>
                     )}
                   </>
@@ -217,7 +220,7 @@ export default function AppDrawer<T extends string>({
           ))}
           <button className="drawer-item ghost" onClick={create}>
             <IconPlus size={17} />
-            <span>משק בית חדש</span>
+            <span>{tr('משק בית חדש')}</span>
           </button>
         </div>
 
@@ -233,24 +236,39 @@ export default function AppDrawer<T extends string>({
                   {user.email}
                 </small>
               </div>
-              <button className="icon-btn sm" onClick={onLogout} title="יציאה" aria-label="יציאה">
+              <button className="icon-btn sm" onClick={onLogout} title={tr('יציאה')} aria-label={tr('יציאה')}>
                 <IconLogout size={16} />
               </button>
             </div>
           )}
 
-          <div className="drawer-group-title">מצב תצוגה</div>
-          <div className="theme-switch" role="group" aria-label="מצב תצוגה">
+          <div className="drawer-group-title">{tr('מצב תצוגה')}</div>
+          <div className="theme-switch" role="group" aria-label={tr('מצב תצוגה')}>
             {THEMES.map(({ id, Icon }) => (
               <button
                 key={id}
                 className={theme === id ? 'on' : ''}
                 onClick={() => onSetTheme(id)}
                 aria-pressed={theme === id}
-                title={THEME_LABEL[id]}
+                title={tr(THEME_LABEL[id])}
               >
                 <Icon size={16} />
-                <span>{THEME_LABEL[id]}</span>
+                <span>{tr(THEME_LABEL[id])}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="drawer-group-title">{tr('שפה')}</div>
+          <div className="theme-switch" role="group" aria-label={tr('שפה')}>
+            {LANGS.map(({ id, label }) => (
+              <button
+                key={id}
+                className={lang === id ? 'on' : ''}
+                onClick={() => setLang(id)}
+                aria-pressed={lang === id}
+                lang={id}
+              >
+                <span>{tr(label)}</span>
               </button>
             ))}
           </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Category, Necessity, Transaction } from '../types'
 import { FALLBACK_CATEGORY, NECESSITIES, NECESSITY_LABEL } from '../lib/categories'
 import { ils } from '../lib/format'
+import { tr } from '../lib/i18n'
 
 interface Props {
   categories: Category[]
@@ -88,35 +89,28 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
 
   return (
     <div className="grid">
-      <div className="notice">
-        הקטגוריות שייכות למשק הבית הזה בלבד וניתנות לעריכה מלאה — שם, אימוג׳י, צבע, נחיצות וסדר.
-        <strong> הסדר קובע קדימות בזיהוי האוטומטי:</strong> הקטגוריה הראשונה שאחת ממילות המפתח שלה
-        מופיעה בשם בית העסק מנצחת. לכן חריגים ("חשמל ומיזוג" — חנות) צריכים לשבת מעל כללים רחבים
-        ("חשמל" — חשבון).
-      </div>
+      <div className="notice">{tr('הקטגוריות שייכות למשק הבית הזה בלבד וניתנות לעריכה מלאה — שם, אימוג׳י, צבע, נחיצות וסדר.')}<strong>{tr('הסדר קובע קדימות בזיהוי האוטומטי:')}</strong>{tr('הקטגוריה הראשונה שאחת ממילות המפתח שלה מופיעה בשם בית העסק מנצחת. לכן חריגים ("חשמל ומיזוג" — חנות) צריכים לשבת מעל כללים רחבים ("חשמל" — חשבון).')}</div>
 
       <div className="card">
         <div className="toolbar">
           <div>
-            <div className="card-title">🏷️ קטגוריות</div>
+            <div className="card-title">{tr('🏷️ קטגוריות')}</div>
             <div className="card-sub" style={{ marginBottom: 0 }}>
               {categories.length} קטגוריות · לחיצה על שורה פותחת את מילות המפתח שלה
             </div>
           </div>
-          <button className="btn ghost spacer" onClick={add}>
-            + קטגוריה חדשה
-          </button>
+          <button className="btn ghost spacer" onClick={add}>{tr('+ קטגוריה חדשה')}</button>
         </div>
 
         <div className="table-wrap">
           <table className="responsive">
             <thead>
               <tr>
-                <th style={{ width: 70 }}>סדר</th>
-                <th style={{ minWidth: 200 }}>קטגוריה</th>
-                <th>נחיצות</th>
-                <th>צבע</th>
-                <th className="num">בשימוש</th>
+                <th style={{ width: 70 }}>{tr('סדר')}</th>
+                <th style={{ minWidth: 200 }}>{tr('קטגוריה')}</th>
+                <th>{tr('נחיצות')}</th>
+                <th>{tr('צבע')}</th>
+                <th className="num">{tr('בשימוש')}</th>
                 <th />
               </tr>
             </thead>
@@ -127,13 +121,13 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                 return (
                   <>
                     <tr key={cat.id}>
-                      <td data-label="סדר">
+                      <td data-label={tr('סדר')}>
                         <div className="order-btns">
                           <button
                             className="link-btn"
                             disabled={i === 0}
                             onClick={() => move(cat.id, -1)}
-                            title="למעלה"
+                            title={tr('למעלה')}
                           >
                             ▲
                           </button>
@@ -141,20 +135,20 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                             className="link-btn"
                             disabled={i === sorted.length - 1}
                             onClick={() => move(cat.id, 1)}
-                            title="למטה"
+                            title={tr('למטה')}
                           >
                             ▼
                           </button>
                         </div>
                       </td>
-                      <td data-label="קטגוריה">
+                      <td data-label={tr('קטגוריה')}>
                         <div className="cat-name-cell">
                           <input
                             className="emoji-input"
                             type="text"
                             value={cat.emoji}
                             onChange={(e) => patch(cat.id, { emoji: e.target.value })}
-                            aria-label="אימוג׳י"
+                            aria-label={tr('אימוג׳י')}
                           />
                           <input
                             type="text"
@@ -164,12 +158,10 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                           />
                         </div>
                         {cat.isFallback && (
-                          <div className="mini-label">
-                            קטגוריית ברירת המחדל — לא ניתן למחוק אותה
-                          </div>
+                          <div className="mini-label">{tr('קטגוריית ברירת המחדל — לא ניתן למחוק אותה')}</div>
                         )}
                       </td>
-                      <td data-label="נחיצות">
+                      <td data-label={tr('נחיצות')}>
                         <select
                           value={cat.necessity}
                           onChange={(e) =>
@@ -178,12 +170,12 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                         >
                           {NECESSITIES.map((n) => (
                             <option key={n} value={n}>
-                              {NECESSITY_LABEL[n]}
+                              {tr(NECESSITY_LABEL[n])}
                             </option>
                           ))}
                         </select>
                       </td>
-                      <td data-label="צבע">
+                      <td data-label={tr('צבע')}>
                         <div className="swatches">
                           {PALETTE.map((c) => (
                             <button
@@ -196,7 +188,7 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                           ))}
                         </div>
                       </td>
-                      <td className="num dim" data-label="בשימוש">
+                      <td className="num dim" data-label={tr('בשימוש')}>
                         {used ? `${used.count} · ${ils(used.total)}` : '—'}
                       </td>
                       <td data-label="">
@@ -211,9 +203,7 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                             className="link-btn danger-link"
                             style={{ marginInlineStart: 8 }}
                             onClick={() => remove(cat)}
-                          >
-                            מחיקה
-                          </button>
+                          >{tr('מחיקה')}</button>
                         )}
                       </td>
                     </tr>
@@ -221,14 +211,11 @@ export default function CategoriesPanel({ categories, transactions, onChange, on
                       <tr key={`${cat.id}-kw`}>
                         <td colSpan={6}>
                           <label className="form-field">
-                            <span>
-                              מילות מפתח לזיהוי אוטומטי — מופרדות בפסיק. די בכך שהמילה מוכלת בשם
-                              בית העסק.
-                            </span>
+                            <span>{tr('מילות מפתח לזיהוי אוטומטי — מופרדות בפסיק. די בכך שהמילה מוכלת בשם בית העסק.')}</span>
                             <textarea
                               rows={3}
                               value={cat.keywords.join(', ')}
-                              placeholder="שופרסל, רמי לוי, מכולת"
+                              placeholder={tr('שופרסל, רמי לוי, מכולת')}
                               onChange={(e) =>
                                 patch(cat.id, {
                                   keywords: e.target.value

@@ -6,6 +6,7 @@ import { findRecurring, openCommitments, availableMonths, partialMonths, transac
 import { FREQUENCIES, FREQUENCY_SHORT, nextChargeMonth } from '../lib/frequency'
 import { ils, monthLabel, monthLabelShort, plural } from '../lib/format'
 import { IconClose } from './Icons'
+import { tr } from '../lib/i18n'
 
 export default function RecurringPanel({
   transactions,
@@ -86,48 +87,43 @@ export default function RecurringPanel({
   return (
     <div className="grid">
       {singleMonth && (
-        <div className="notice warn">
-          יובא חודש מלא אחד בלבד. זיהוי חיובים חוזרים נהיה הרבה יותר מדויק אחרי ייבוא של 2–3 חודשים נוספים —
-          בינתיים מוצגים החיובים שנראים כמו מנוי לפי הקטגוריה שלהם.
-        </div>
+        <div className="notice warn">{tr('יובא חודש מלא אחד בלבד. זיהוי חיובים חוזרים נהיה הרבה יותר מדויק אחרי ייבוא של 2–3 חודשים נוספים — בינתיים מוצגים החיובים שנראים כמו מנוי לפי הקטגוריה שלהם.')}</div>
       )}
 
       {likelySubscriptions.length > 0 && (
         <div className="card">
           <div className="card-title">🔍 נראים כמו מנוי — {ils(likelyYearly)} בשנה</div>
-          <div className="card-sub">
-            חיובים בקטגוריות שהן כמעט תמיד הוראת קבע. עברו עליהם ובדקו מה עדיין בשימוש.
-          </div>
+          <div className="card-sub">{tr('חיובים בקטגוריות שהן כמעט תמיד הוראת קבע. עברו עליהם ובדקו מה עדיין בשימוש.')}</div>
           <div className="table-wrap">
             <table className="responsive">
               <thead>
                 <tr>
-                  <th>בית עסק</th>
-                  <th>קטגוריה</th>
-                  <th>נחיצות</th>
-                  <th className="num">חיוב החודש</th>
-                  <th className="num">בשנה</th>
+                  <th>{tr('בית עסק')}</th>
+                  <th>{tr('קטגוריה')}</th>
+                  <th>{tr('נחיצות')}</th>
+                  <th className="num">{tr('חיוב החודש')}</th>
+                  <th className="num">{tr('בשנה')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {likelySubscriptions.map((t) => (
                   <tr key={t.merchantKey}>
-                    <td className="strong" data-label="בית עסק">
+                    <td className="strong" data-label={tr('בית עסק')}>
                       <span className="truncate">{t.merchant}</span>
                     </td>
-                    <td data-label="קטגוריה">
+                    <td data-label={tr('קטגוריה')}>
                       {cats.byId(t.category).emoji} {cats.byId(t.category).name}
                     </td>
-                    <td data-label="נחיצות">
-                      <span className={`pill ${t.necessity}`}>{NECESSITY_LABEL[t.necessity]}</span>
+                    <td data-label={tr('נחיצות')}>
+                      <span className={`pill ${t.necessity}`}>{tr(NECESSITY_LABEL[t.necessity])}</span>
                     </td>
-                    <td className="num" data-label="חיוב החודש">{ils(t.amount)}</td>
-                    <td className="num strong" data-label="בשנה">{ils(t.amount * 12)}</td>
+                    <td className="num" data-label={tr('חיוב החודש')}>{ils(t.amount)}</td>
+                    <td className="num strong" data-label={tr('בשנה')}>{ils(t.amount * 12)}</td>
                     <td data-label="">
                       <button
                         className="icon-btn sm danger"
-                        title="זה לא מנוי — סימון כחד-פעמי"
+                        title={tr('זה לא מנוי — סימון כחד-פעמי')}
                         aria-label={`סימון ${t.merchant} כחד-פעמי`}
                         onClick={() => markOneOff(t.merchantKey, t.merchant)}
                       >
@@ -144,24 +140,24 @@ export default function RecurringPanel({
 
       <div className="grid cols-3">
         <div className="card">
-          <div className="stat-label">חיובים קבועים בחודש</div>
+          <div className="stat-label">{tr('חיובים קבועים בחודש')}</div>
           <div className="stat-value">{ils(stableTotal)}</div>
-          <div className="mini-label">מנורמל — חיוב דו-חודשי נספר כמחצית</div>
+          <div className="mini-label">{tr('מנורמל — חיוב דו-חודשי נספר כמחצית')}</div>
           <div className="stat-note">
             {plural(recurring.filter((r) => r.stable).length, 'הוראת קבע', 'חיובים בסכום יציב')}
           </div>
         </div>
         <div className="card">
-          <div className="stat-label">מנויים שאפשר לבטל</div>
+          <div className="stat-label">{tr('מנויים שאפשר לבטל')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--viz-optional)' }}>
             {ils(cancellableYearly)}
           </div>
           <div className="stat-note">
-            בשנה — {plural(cancellable.length, 'הוצאה מסווגת', 'הוצאות מסווגות')} כמותרות
+            {tr('בשנה —')} {plural(cancellable.length, 'הוצאה מסווגת', 'הוצאות מסווגות')} {tr('כמותרות')}
           </div>
         </div>
         <div className="card">
-          <div className="stat-label">התחייבויות בתשלומים</div>
+          <div className="stat-label">{tr('התחייבויות בתשלומים')}</div>
           <div className="stat-value">{ils(commitmentTotal)}</div>
           <div className="stat-note">{ils(commitmentMonthly)} בחודש שכבר "תפוסים"</div>
         </div>
@@ -170,55 +166,49 @@ export default function RecurringPanel({
       <div className="card">
         <div className="toolbar">
           <div>
-            <div className="card-title">🔁 חיובים חוזרים</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>
-              בית עסק שחייב אתכם בשני חודשים או יותר. "יציב" = הסכום כמעט זהה בכל מחזור — כמעט תמיד
-              מנוי או הוראת קבע. חיוב שסימנתם כלא-חודשי (חשמל, מים, ארנונה) נכנס לרשימה כבר מהופעה
-              ראשונה, ו"עלות לחודש" מחלקת אותו על פני התקופה.
-            </div>
+            <div className="card-title">{tr('🔁 חיובים חוזרים')}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('בית עסק שחייב אתכם בשני חודשים או יותר. "יציב" = הסכום כמעט זהה בכל מחזור — כמעט תמיד מנוי או הוראת קבע. חיוב שסימנתם כלא-חודשי (חשמל, מים, ארנונה) נכנס לרשימה כבר מהופעה ראשונה, ו"עלות לחודש" מחלקת אותו על פני התקופה.')}</div>
           </div>
           <label className="spacer" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <input
               type="checkbox"
               checked={onlyStable}
               onChange={(e) => setOnlyStable(e.target.checked)}
-            />
-            רק חיובים יציבים
-          </label>
+            />{tr('רק חיובים יציבים')}</label>
         </div>
 
         {shown.length === 0 ? (
-          <p className="dim">לא נמצאו חיובים חוזרים בנתונים שיובאו.</p>
+          <p className="dim">{tr('לא נמצאו חיובים חוזרים בנתונים שיובאו.')}</p>
         ) : (
           <div className="table-wrap">
             <table className="responsive">
               <thead>
                 <tr>
-                  <th>בית עסק</th>
-                  <th>קטגוריה</th>
-                  <th>נחיצות</th>
-                  <th>תדירות</th>
-                  <th className="num">סכום החיוב</th>
-                  <th className="num">עלות לחודש</th>
-                  <th className="num">עלות שנתית</th>
-                  <th>החיוב הבא</th>
+                  <th>{tr('בית עסק')}</th>
+                  <th>{tr('קטגוריה')}</th>
+                  <th>{tr('נחיצות')}</th>
+                  <th>{tr('תדירות')}</th>
+                  <th className="num">{tr('סכום החיוב')}</th>
+                  <th className="num">{tr('עלות לחודש')}</th>
+                  <th className="num">{tr('עלות שנתית')}</th>
+                  <th>{tr('החיוב הבא')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {shown.map((r) => (
                   <tr key={r.merchantKey}>
-                    <td className="strong" data-label="בית עסק">
+                    <td className="strong" data-label={tr('בית עסק')}>
                       <span className="truncate">{r.merchant}</span>
-                      {r.stable && <span className="chip active" style={{ marginInlineStart: 6 }}>יציב</span>}
+                      {r.stable && <span className="chip active" style={{ marginInlineStart: 6 }}>{tr('יציב')}</span>}
                     </td>
-                    <td data-label="קטגוריה">
+                    <td data-label={tr('קטגוריה')}>
                       {cats.byId(r.category).emoji} {cats.byId(r.category).name}
                     </td>
-                    <td data-label="נחיצות">
-                      <span className={`pill ${r.necessity}`}>{NECESSITY_LABEL[r.necessity]}</span>
+                    <td data-label={tr('נחיצות')}>
+                      <span className={`pill ${r.necessity}`}>{tr(NECESSITY_LABEL[r.necessity])}</span>
                     </td>
-                    <td data-label="תדירות">
+                    <td data-label={tr('תדירות')}>
                       <select
                         value={r.frequency}
                         onChange={(e) =>
@@ -229,18 +219,18 @@ export default function RecurringPanel({
                       >
                         {FREQUENCIES.map((f) => (
                           <option key={f} value={f}>
-                            {FREQUENCY_SHORT[f]}
+                            {tr(FREQUENCY_SHORT[f])}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td className="num" data-label="סכום החיוב">
+                    <td className="num" data-label={tr('סכום החיוב')}>
                       {ils(r.average)}
                       <div className="mini-label">{r.months.map(monthLabelShort).join(' · ')}</div>
                     </td>
-                    <td className="num strong" data-label="עלות לחודש">{ils(r.monthlyCost)}</td>
-                    <td className="num" data-label="עלות שנתית">{ils(r.yearly)}</td>
-                    <td className="dim" data-label="החיוב הבא" style={{ fontSize: 12.5 }}>
+                    <td className="num strong" data-label={tr('עלות לחודש')}>{ils(r.monthlyCost)}</td>
+                    <td className="num" data-label={tr('עלות שנתית')}>{ils(r.yearly)}</td>
+                    <td className="dim" data-label={tr('החיוב הבא')} style={{ fontSize: 12.5 }}>
                       {nextChargeMonth(r.lastMonth, r.frequency)
                         ? monthLabel(nextChargeMonth(r.lastMonth, r.frequency)!)
                         : '—'}
@@ -248,7 +238,7 @@ export default function RecurringPanel({
                     <td data-label="">
                       <button
                         className="icon-btn sm danger"
-                        title="סימון כחד-פעמי — החיוב יוסר מרשימת החיובים הקבועים"
+                        title={tr('סימון כחד-פעמי — החיוב יוסר מרשימת החיובים הקבועים')}
                         aria-label={`הסרת ${r.merchant} מהחיובים הקבועים`}
                         onClick={() => markOneOff(r.merchantKey, r.merchant)}
                       >
@@ -264,38 +254,36 @@ export default function RecurringPanel({
       </div>
 
       <div className="card">
-        <div className="card-title">💳 תשלומים פתוחים</div>
-        <div className="card-sub">
-          עסקאות שנפרסו לתשלומים וממשיכות לחייב אתכם בחודשים הבאים. זה כסף שכבר "הוצאתם" אבל עוד לא שילמתם.
-        </div>
+        <div className="card-title">{tr('💳 תשלומים פתוחים')}</div>
+        <div className="card-sub">{tr('עסקאות שנפרסו לתשלומים וממשיכות לחייב אתכם בחודשים הבאים. זה כסף שכבר "הוצאתם" אבל עוד לא שילמתם.')}</div>
 
         {commitments.length === 0 ? (
-          <p className="dim">אין עסקאות בתשלומים פתוחות.</p>
+          <p className="dim">{tr('אין עסקאות בתשלומים פתוחות.')}</p>
         ) : (
           <div className="table-wrap">
             <table className="responsive">
               <thead>
                 <tr>
-                  <th>בית עסק</th>
-                  <th>קטגוריה</th>
-                  <th className="num">תשלום חודשי</th>
-                  <th>התקדמות</th>
-                  <th className="num">נותרו</th>
-                  <th className="num">יתרה לתשלום</th>
+                  <th>{tr('בית עסק')}</th>
+                  <th>{tr('קטגוריה')}</th>
+                  <th className="num">{tr('תשלום חודשי')}</th>
+                  <th>{tr('התקדמות')}</th>
+                  <th className="num">{tr('נותרו')}</th>
+                  <th className="num">{tr('יתרה לתשלום')}</th>
                 </tr>
               </thead>
               <tbody>
                 {commitments.map((c, i) => (
                   <tr key={`${c.merchant}-${i}`}>
-                    <td className="strong" data-label="בית עסק">
+                    <td className="strong" data-label={tr('בית עסק')}>
                       <span className="truncate">{c.merchant}</span>
                       <div className="mini-label">חיוב אחרון: {monthLabel(c.lastChargeMonth)}</div>
                     </td>
-                    <td data-label="קטגוריה">
+                    <td data-label={tr('קטגוריה')}>
                       {cats.byId(c.category).emoji} {cats.byId(c.category).name}
                     </td>
-                    <td className="num" data-label="תשלום חודשי">{ils(c.monthly)}</td>
-                    <td data-label="התקדמות" style={{ minWidth: 140 }}>
+                    <td className="num" data-label={tr('תשלום חודשי')}>{ils(c.monthly)}</td>
+                    <td data-label={tr('התקדמות')} style={{ minWidth: 140 }}>
                       <div className="bar">
                         <span style={{ width: `${(c.paid / c.total) * 100}%`, background: 'var(--viz-bar)' }} />
                       </div>
@@ -303,8 +291,8 @@ export default function RecurringPanel({
                         תשלום {c.paid} מתוך {c.total}
                       </div>
                     </td>
-                    <td className="num" data-label="נותרו">{c.remaining}</td>
-                    <td className="num strong" data-label="יתרה לתשלום">{ils(c.remainingAmount)}</td>
+                    <td className="num" data-label={tr('נותרו')}>{c.remaining}</td>
+                    <td className="num strong" data-label={tr('יתרה לתשלום')}>{ils(c.remainingAmount)}</td>
                   </tr>
                 ))}
               </tbody>

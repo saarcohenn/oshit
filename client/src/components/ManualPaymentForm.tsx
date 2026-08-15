@@ -4,6 +4,7 @@ import { guessCategory, NECESSITY_LABEL } from '../lib/categories'
 import { useCategories } from '../lib/categoryContext'
 import { FREQUENCIES, FREQUENCY_LABEL, monthlyEquivalent } from '../lib/frequency'
 import { ils } from '../lib/format'
+import { tr } from '../lib/i18n'
 
 interface Props {
   /** ערכי פתיחה לעריכת תשלום קיים; ריק = הוספה חדשה */
@@ -65,35 +66,32 @@ export default function ManualPaymentForm({ editing, defaultDate, onSave, onCanc
       <div className="card-title">
         {editing ? '✏️ עריכת תשלום ידני' : '➕ הוספת תשלום שלא מופיע בכרטיס'}
       </div>
-      <div className="card-sub">
-        לתשלומים שיוצאים מהחשבון אבל לא דרך כרטיס האשראי — העברה לאמא על החשמל, מזומן,
-        הוראת קבע בבנק, או צ׳ק.
-      </div>
+      <div className="card-sub">{tr('לתשלומים שיוצאים מהחשבון אבל לא דרך כרטיס האשראי — העברה לאמא על החשמל, מזומן, הוראת קבע בבנק, או צ׳ק.')}</div>
 
       <div className="grid cols-2" style={{ gap: 12 }}>
         <label className="form-field">
-          <span>על מה שילמתם</span>
+          <span>{tr('על מה שילמתם')}</span>
           <input
             type="text"
             autoFocus
             value={merchant}
-            placeholder="למשל: חשמל"
+            placeholder={tr('למשל: חשמל')}
             onChange={(e) => setMerchant(e.target.value)}
           />
         </label>
 
         <label className="form-field">
-          <span>דרך מי שולם</span>
+          <span>{tr('דרך מי שולם')}</span>
           <input
             type="text"
             value={paidVia}
-            placeholder="למשל: אמא (העברתי לה)"
+            placeholder={tr('למשל: אמא (העברתי לה)')}
             onChange={(e) => setPaidVia(e.target.value)}
           />
         </label>
 
         <label className="form-field">
-          <span>סכום</span>
+          <span>{tr('סכום')}</span>
           <input
             type="number"
             min={0}
@@ -105,12 +103,12 @@ export default function ManualPaymentForm({ editing, defaultDate, onSave, onCanc
         </label>
 
         <label className="form-field">
-          <span>תאריך</span>
+          <span>{tr('תאריך')}</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
 
         <label className="form-field">
-          <span>קטגוריה</span>
+          <span>{tr('קטגוריה')}</span>
           <select
             value={category || effectiveCategory}
             onChange={(e) => setCategory(e.target.value as CategoryId)}
@@ -124,21 +122,21 @@ export default function ManualPaymentForm({ editing, defaultDate, onSave, onCanc
         </label>
 
         <label className="form-field">
-          <span>נחיצות</span>
+          <span>{tr('נחיצות')}</span>
           <select
             value={necessity || effectiveNecessity}
             onChange={(e) => setNecessity(e.target.value as Necessity)}
           >
             {(['mandatory', 'semi', 'optional'] as Necessity[]).map((n) => (
               <option key={n} value={n}>
-                {NECESSITY_LABEL[n]}
+                {tr(NECESSITY_LABEL[n])}
               </option>
             ))}
           </select>
         </label>
 
         <label className="form-field">
-          <span>כל כמה זמן מחייבים</span>
+          <span>{tr('כל כמה זמן מחייבים')}</span>
           <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}>
             {FREQUENCIES.map((f) => (
               <option key={f} value={f}>
@@ -149,11 +147,11 @@ export default function ManualPaymentForm({ editing, defaultDate, onSave, onCanc
         </label>
 
         <label className="form-field">
-          <span>הערה</span>
+          <span>{tr('הערה')}</span>
           <input
             type="text"
             value={note}
-            placeholder="לא חובה"
+            placeholder={tr('לא חובה')}
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
@@ -171,14 +169,12 @@ export default function ManualPaymentForm({ editing, defaultDate, onSave, onCanc
         <button className="btn" disabled={!valid} onClick={submit}>
           {editing ? 'שמירת השינויים' : 'הוספת התשלום'}
         </button>
-        <button className="btn ghost" onClick={onCancel}>
-          ביטול
-        </button>
-        {!valid && <span className="dim">צריך שם, סכום ותאריך</span>}
+        <button className="btn ghost" onClick={onCancel}>{tr('ביטול')}</button>
+        {!valid && <span className="dim">{tr('צריך שם, סכום ותאריך')}</span>}
         {valid && !editing && (
           <span className="dim spacer">
             ייווסף כ{cats.byId(effectiveCategory).emoji}{' '}
-            {cats.byId(effectiveCategory).name} · {NECESSITY_LABEL[effectiveNecessity]}
+            {cats.byId(effectiveCategory).name} · {tr(NECESSITY_LABEL[effectiveNecessity])}
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@ import type { AppState, Transaction } from '../types'
 import type { ImportSummary } from '../App'
 import { monthCoverage } from '../lib/coverage'
 import { ils, monthLabel, monthLabelShort, txCount } from '../lib/format'
+import { tr, trf } from '../lib/i18n'
 
 interface Props {
   state: AppState
@@ -17,7 +18,14 @@ interface ImportLog {
   summary?: ImportSummary
   read: number
   skipped: number
+  /** הפורמט שזוהה — מוצג כדי שיהיה ברור מה נקרא, במיוחד כשמייבאים שני מקורות */
+  format?: 'bank' | 'cal' | 'unknown'
   error?: string
+}
+
+const FORMAT_LABEL: Record<string, string> = {
+  bank: 'קובץ הבנק',
+  cal: 'קובץ כאל',
 }
 
 export default function ImportPanel({ state, onImport, onExport, onReset, onDone }: Props) {
@@ -47,24 +55,30 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
       for (const file of selected) {
         try {
           const buffer = await file.arrayBuffer()
-          const { transactions, skipped } = parseCreditCardXlsx(buffer, file.name, state.categories)
+          const { transactions, skipped, format } = parseCreditCardXlsx(
+            buffer,
+            file.name,
+            state.categories,
+          )
           if (!transactions.length) {
             results.push({
               fileName: file.name,
               read: 0,
               skipped,
-              error: 'לא נמצאו עסקאות בקובץ. ודאו שזה קובץ פירוט כרטיסי אשראי מהבנק.',
+              format,
+              error:
+                tr('לא נמצאו עסקאות בקובץ. ודאו שזה "פירוט עסקאות — כרטיסי אשראי" מאתר הבנק, או "פירוט עסקאות וזיכויים" מאתר כאל.'),
             })
             continue
           }
           const summary = onImport(transactions, file.name)
-          results.push({ fileName: file.name, read: transactions.length, skipped, summary })
+          results.push({ fileName: file.name, read: transactions.length, skipped, format, summary })
         } catch (err) {
           results.push({
             fileName: file.name,
             read: 0,
             skipped: 0,
-            error: `שגיאה בקריאת הקובץ: ${(err as Error).message}`,
+            error: trf('שגיאה בקריאת הקובץ: {msg}', { msg: (err as Error).message }),
           })
         }
       }
@@ -74,7 +88,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
         fileName: selected.map((f) => f.name).join(', '),
         read: 0,
         skipped: 0,
-        error: `טעינת מנוע קריאת האקסל נכשלה: ${(err as Error).message}`,
+        error: trf('טעינת מנוע קריאת האקסל נכשלה: {msg}', { msg: (err as Error).message }),
       })
     } finally {
       setBusy(false)
@@ -101,23 +115,15 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
           if (!busy) void handleFiles(e.dataTransfer.files)
         }}
       >
-        <h3>📥 גררו לכאן את קובץ האקסל מהבנק</h3>
-        <p>
-          הקובץ הוא "פירוט עסקאות — כרטיסי אשראי" שמורידים מאתר הבנק (xlsx).
-          <br />
-          אפשר לגרור כמה קבצים יחד — חודש אחורה בכל פעם — כדי לראות מגמה.
-          <br />
-          <strong>אפשר לייבא את אותו חודש שוב בעוד כמה ימים</strong> — המערכת תזהה ותוסיף רק את
-          העסקאות שהתווספו מאז, בלי לשכפל דבר.
-        </p>
+        <h3>{tr('📥 גררו לכאן את קובץ האקסל')}</h3>
+        <p>{tr('נתמכים שני קבצים: "פירוט עסקאות — כרטיסי אשראי" מאתר הבנק, ו"פירוט עסקאות וזיכויים" מאתר כאל (xlsx). קובץ כאל מגיע עם היסטוריה ארוכה בבת אחת.')}<br />{tr('לכל כרטיס יש קובץ משלו — הורידו קובץ לכל בעל כרטיס וגררו את שניהם יחד.')}<br />{tr('אפשר לגרור כמה קבצים יחד — חודש אחורה בכל פעם — כדי לראות מגמה.')}<br />
+          <strong>{tr('אפשר לייבא את אותו חודש שוב בעוד כמה ימים')}</strong>{tr('— המערכת תזהה ותוסיף רק את העסקאות שהתווספו מאז, בלי לשכפל דבר.')}</p>
         <button className="btn" onClick={() => inputRef.current?.click()} disabled={busy}>
-          {busy ? 'קורא את הקובץ…' : 'בחירת קבצים'}
+          {busy ? tr('קורא את הקובץ…') : tr('בחירת קבצים')}
         </button>
         {busy && (
           <div className="import-busy" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden />
-            קורא ומנתח את הקובץ…
-          </div>
+            <span className="spinner" aria-hidden />{tr('קורא ומנתח את הקובץ…')}</div>
         )}
         <input
           ref={inputRef}
@@ -134,7 +140,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
 
       {logs.length > 0 && (
         <div className="card">
-          <div className="card-title">תוצאות הייבוא</div>
+          <div className="card-title">{tr('תוצאות הייבוא')}</div>
           {logs.map((log) => (
             <div key={log.fileName} className={`notice ${log.error ? 'warn' : ''}`}>
               <strong>{log.fileName}</strong>
@@ -142,21 +148,23 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
                 ` — ${log.error}`
               ) : (
                 <>
-                  {' '}— נקראו {txCount(log.read)} מהקובץ.
+                  {' '}— {log.format && FORMAT_LABEL[log.format] ? `${tr(FORMAT_LABEL[log.format])}, ` : ''}
+                  {trf('נקראו {n} מהקובץ.', { n: txCount(log.read) })}
                   <ul className="import-summary">
                     <li>
-                      ✅ <strong>{log.summary!.added}</strong> עסקאות חדשות נוספו
+                      ✅ <strong>{log.summary!.added}</strong> {tr('עסקאות חדשות נוספו')}
                       {log.summary!.added > 0 && <> · {ils(log.summary!.newTotal)}</>}
                     </li>
                     <li>
-                      🔄 <strong>{log.summary!.updated}</strong> עסקאות קיימות עודכנו (סכום או תאריך
-                      חיוב סופי)
+                      🔄 <strong>{log.summary!.updated}</strong>{' '}
+                      {tr('עסקאות קיימות עודכנו (סכום או תאריך חיוב סופי)')}
                     </li>
                     <li>
-                      ⏭️ <strong>{log.summary!.unchanged}</strong> כבר היו במערכת ולא שונו
+                      ⏭️ <strong>{log.summary!.unchanged}</strong>{' '}
+                      {tr('כבר היו במערכת ולא שונו')}
                     </li>
                     <li className="dim">
-                      {log.skipped} שורות דולגו — שורות סיכום וחיובי 0
+                      {trf('{n} שורות דולגו — שורות סיכום וחיובי 0', { n: log.skipped })}
                     </li>
                   </ul>
                 </>
@@ -164,19 +172,18 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
             </div>
           ))}
           {logs.some((l) => (l.summary?.added ?? 0) > 0 || (l.summary?.updated ?? 0) > 0) && (
-            <button className="btn" onClick={onDone}>
-              לצפייה בסקירה ←
-            </button>
+            <button className="btn" onClick={onDone}>{tr('לצפייה בסקירה ←')}</button>
           )}
         </div>
       )}
 
       {coverage.months.length > 0 && (
         <div className="card">
-          <div className="card-title">📅 אילו חודשים כבר נטענו</div>
+          <div className="card-title">{tr('📅 אילו חודשים כבר נטענו')}</div>
           <div className="card-sub">
-            החודש המוקדם ביותר שיש עליו נתונים הוא <strong>{monthLabel(coverage.earliest!)}</strong>.
-            כל מה שקדם לו פשוט לא יובא עדיין — הורידו מהבנק קובץ לכל חודש חסר וגררו אותם לכאן יחד.
+            {tr('החודש המוקדם ביותר שיש עליו נתונים הוא')}{' '}
+            <strong>{monthLabel(coverage.earliest!)}</strong>
+            {tr('. כל מה שקדם לו פשוט לא יובא עדיין — הורידו מהבנק קובץ לכל חודש חסר וגררו אותם לכאן יחד.')}
           </div>
 
           <div className="coverage">
@@ -186,13 +193,13 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
                 className={`cov-month ${m.status}`}
                 title={
                   m.status === 'missing'
-                    ? 'לא יובא'
-                    : `${txCount(m.count)} · ${ils(m.total)}${m.status === 'partial' ? ' — חודש חלקי' : ''}`
+                    ? tr('לא יובא')
+                    : `${txCount(m.count)} · ${ils(m.total)}${m.status === 'partial' ? tr(' — חודש חלקי') : ''}`
                 }
               >
                 <div className="m">{monthLabelShort(m.month)}</div>
                 <div className="v">
-                  {m.status === 'missing' ? 'חסר' : m.status === 'partial' ? 'חלקי' : ils(m.total)}
+                  {m.status === 'missing' ? tr('חסר') : m.status === 'partial' ? tr('חלקי') : ils(m.total)}
                 </div>
               </div>
             ))}
@@ -202,16 +209,18 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
             <div className="notice warn" style={{ marginTop: 14 }}>
               {coverage.missing.length > 0 && (
                 <>
-                  אין נתונים כלל עבור: <strong>{coverage.missing.map(monthLabel).join(', ')}</strong>.{' '}
+                  {tr('אין נתונים כלל עבור:')}{' '}
+                  <strong>{coverage.missing.map(monthLabel).join(', ')}</strong>.{' '}
                 </>
               )}
               {coverage.partial.length > 0 && (
                 <>
-                  מסומנים כחלקיים: <strong>{coverage.partial.map(monthLabel).join(', ')}</strong> —
-                  יש בהם רק עסקאות בודדות שחויבו מיידית, ולא את החודש המלא.{' '}
+                  {tr('מסומנים כחלקיים:')}{' '}
+                  <strong>{coverage.partial.map(monthLabel).join(', ')}</strong> —{' '}
+                  {tr('יש בהם רק עסקאות בודדות שחויבו מיידית, ולא את החודש המלא.')}{' '}
                 </>
               )}
-              חודשים אלה אינם נכנסים לחישובי ממוצע ולהשוואות, כדי שלא יעוותו את התמונה.
+              {tr('חודשים אלה אינם נכנסים לחישובי ממוצע ולהשוואות, כדי שלא יעוותו את התמונה.')}
             </div>
           )}
         </div>
@@ -219,41 +228,36 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
 
       <div className="grid cols-3">
         <div className="card">
-          <div className="stat-label">עסקאות שמורות</div>
-          <div className="stat-value">{state.transactions.length.toLocaleString('he-IL')}</div>
-          <div className="stat-note">מ-{state.importedFiles.length} קבצים</div>
+          <div className="stat-label">{tr('עסקאות שמורות')}</div>
+          <div className="stat-value">{state.transactions.length.toLocaleString()}</div>
+          <div className="stat-note">
+            {trf('מ-{n} קבצים', { n: state.importedFiles.length })}
+          </div>
         </div>
         <div className="card">
-          <div className="stat-label">סך הכל נקלט</div>
+          <div className="stat-label">{tr('סך הכל נקלט')}</div>
           <div className="stat-value">{ils(total)}</div>
-          <div className="stat-note">כל החודשים יחד</div>
+          <div className="stat-note">{tr('כל החודשים יחד')}</div>
         </div>
         <div className="card">
-          <div className="stat-label">שיוכים ידניים</div>
+          <div className="stat-label">{tr('שיוכים ידניים')}</div>
           <div className="stat-value">{state.merchantRules.length}</div>
-          <div className="stat-note">בתי עסק שסיווגתם בעצמכם</div>
+          <div className="stat-note">{tr('בתי עסק שסיווגתם בעצמכם')}</div>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-title">🔒 הנתונים נשארים אצלכם</div>
-        <div className="card-sub">
-          הכול נשמר מקומית בדפדפן הזה בלבד. שום נתון פיננסי לא נשלח לשום שרת.
-          מומלץ לייצא גיבוי מדי פעם — ניקוי היסטוריית הדפדפן ימחק את הנתונים.
-        </div>
+        <div className="card-title">{tr('🔒 הנתונים נשארים אצלכם')}</div>
+        <div className="card-sub">{tr('הכול נשמר מקומית בדפדפן הזה בלבד. שום נתון פיננסי לא נשלח לשום שרת. מומלץ לייצא גיבוי מדי פעם — ניקוי היסטוריית הדפדפן ימחק את הנתונים.')}</div>
         <div className="toolbar" style={{ marginBottom: 0 }}>
-          <button className="btn ghost" onClick={onExport}>
-            ייצוא גיבוי (JSON)
-          </button>
-          <button className="btn danger" onClick={onReset}>
-            מחיקת כל הנתונים
-          </button>
+          <button className="btn ghost" onClick={onExport}>{tr('ייצוא גיבוי (JSON)')}</button>
+          <button className="btn danger" onClick={onReset}>{tr('מחיקת כל הנתונים')}</button>
         </div>
       </div>
 
       {state.importedFiles.length > 0 && (
         <div className="card">
-          <div className="card-title">קבצים שיובאו</div>
+          <div className="card-title">{tr('קבצים שיובאו')}</div>
           <div className="chip-row">
             {state.importedFiles.map((f) => (
               <span key={f} className="chip">

@@ -4,6 +4,7 @@ import { NECESSITY_LABEL } from '../lib/categories'
 import { useCategories } from '../lib/categoryContext'
 import { availableMonths, partialMonths, summarize } from '../lib/analytics'
 import { ils, monthLabel, pct, plural } from '../lib/format'
+import { tr } from '../lib/i18n'
 
 interface Props {
   transactions: Transaction[]
@@ -58,12 +59,12 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
     <div className="grid">
       <div className="grid cols-3">
         <div className="card">
-          <div className="stat-label">סך התקציב שהוגדר</div>
+          <div className="stat-label">{tr('סך התקציב שהוגדר')}</div>
           <div className="stat-value">{totalBudget ? ils(totalBudget) : '—'}</div>
           <div className="stat-note">{plural(budgets.length, 'קטגוריה', 'קטגוריות')} מתוקצבות</div>
         </div>
         <div className="card">
-          <div className="stat-label">נוצל מתוך התקציב</div>
+          <div className="stat-label">{tr('נוצל מתוך התקציב')}</div>
           <div
             className="stat-value tinted"
             style={{ color: budgetedSpend > totalBudget ? 'var(--danger)' : 'var(--ok)' }}
@@ -73,7 +74,7 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
           <div className="stat-note">{ils(budgetedSpend)} מתוך {ils(totalBudget)}</div>
         </div>
         <div className="card">
-          <div className="stat-label">חריגות</div>
+          <div className="stat-label">{tr('חריגות')}</div>
           <div className="stat-value tinted" style={{ color: over.length ? 'var(--danger)' : 'var(--ok)' }}>
             {over.length}
           </div>
@@ -87,27 +88,22 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
         <div className="toolbar">
           <div>
             <div className="card-title">תקציב חודשי — {monthLabel(month)}</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>
-              קבעו תקרה לכל קטגוריה. הפס מראה כמה כבר נוצל בחודש הנבחר.
-              "ממוצע חודשי" מחושב מהחודשים המלאים שיובאו בלבד.
-            </div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('קבעו תקרה לכל קטגוריה. הפס מראה כמה כבר נוצל בחודש הנבחר. "ממוצע חודשי" מחושב מהחודשים המלאים שיובאו בלבד.')}</div>
           </div>
-          <button className="btn ghost spacer" onClick={suggestAll}>
-            ✨ הצעה לפי הממוצע שלכם
-          </button>
+          <button className="btn ghost spacer" onClick={suggestAll}>{tr('✨ הצעה לפי הממוצע שלכם')}</button>
         </div>
 
         <div className="table-wrap">
           <table className="responsive">
             <thead>
               <tr>
-                <th>קטגוריה</th>
-                <th>נחיצות</th>
-                <th className="num">ממוצע חודשי</th>
-                <th className="num">הוצאה בפועל</th>
-                <th style={{ minWidth: 150 }}>ניצול</th>
-                <th className="num">תקציב</th>
-                <th className="num">נשאר</th>
+                <th>{tr('קטגוריה')}</th>
+                <th>{tr('נחיצות')}</th>
+                <th className="num">{tr('ממוצע חודשי')}</th>
+                <th className="num">{tr('הוצאה בפועל')}</th>
+                <th style={{ minWidth: 150 }}>{tr('ניצול')}</th>
+                <th className="num">{tr('תקציב')}</th>
+                <th className="num">{tr('נשאר')}</th>
               </tr>
             </thead>
             <tbody>
@@ -121,15 +117,15 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
 
                 return (
                   <tr key={cat.id}>
-                    <td data-label="קטגוריה">
+                    <td data-label={tr('קטגוריה')}>
                       <span aria-hidden>{cat.emoji}</span> {cat.name}
                     </td>
-                    <td data-label="נחיצות">
-                      <span className={`pill ${cat.necessity}`}>{NECESSITY_LABEL[cat.necessity]}</span>
+                    <td data-label={tr('נחיצות')}>
+                      <span className={`pill ${cat.necessity}`}>{tr(NECESSITY_LABEL[cat.necessity])}</span>
                     </td>
-                    <td className="num dim" data-label="ממוצע חודשי">{avg.has(cat.id) ? ils(avg.get(cat.id)!) : '—'}</td>
-                    <td className="num strong" data-label="הוצאה בפועל">{used ? ils(used) : '—'}</td>
-                    <td data-label="ניצול">
+                    <td className="num dim" data-label={tr('ממוצע חודשי')}>{avg.has(cat.id) ? ils(avg.get(cat.id)!) : '—'}</td>
+                    <td className="num strong" data-label={tr('הוצאה בפועל')}>{used ? ils(used) : '—'}</td>
+                    <td data-label={tr('ניצול')}>
                       {limit ? (
                         <>
                           <div className="bar">
@@ -140,10 +136,10 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                           <div className="mini-label">{Math.round(ratio * 100)}%</div>
                         </>
                       ) : (
-                        <span className="dim">לא הוגדר</span>
+                        <span className="dim">{tr('לא הוגדר')}</span>
                       )}
                     </td>
-                    <td className="num" data-label="תקציב">
+                    <td className="num" data-label={tr('תקציב')}>
                       <input
                         type="number"
                         min={0}
@@ -154,7 +150,7 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                         onChange={(e) => onSetBudget(cat.id, Number(e.target.value) || 0)}
                       />
                     </td>
-                    <td className="num strong" data-label="נשאר" style={{ color: limit && remaining < 0 ? 'var(--danger)' : undefined }}>
+                    <td className="num strong" data-label={tr('נשאר')} style={{ color: limit && remaining < 0 ? 'var(--danger)' : undefined }}>
                       {limit ? ils(remaining) : '—'}
                     </td>
                   </tr>

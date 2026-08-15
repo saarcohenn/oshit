@@ -3,6 +3,7 @@ import type { Frequency, Transaction } from '../types'
 import { savingIdeas, summarize } from '../lib/analytics'
 import { useCategories } from '../lib/categoryContext'
 import { ils, monthLabel } from '../lib/format'
+import { tr, trf } from '../lib/i18n'
 
 const SEVERITY_LABEL: Record<'high' | 'medium' | 'low', string> = {
   high: 'השפעה גדולה',
@@ -34,38 +35,33 @@ export default function SavingsPanel({
     <div className="grid">
       <div className="grid cols-3">
         <div className="card">
-          <div className="stat-label">חיסכון אפשרי בחודש</div>
+          <div className="stat-label">{tr('חיסכון אפשרי בחודש')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
             {ils(monthlyTotal)}
           </div>
-          <div className="stat-note">אם תיישמו את כל ההצעות למטה</div>
+          <div className="stat-note">{tr('אם תיישמו את כל ההצעות למטה')}</div>
         </div>
         <div className="card">
-          <div className="stat-label">חיסכון אפשרי בשנה</div>
+          <div className="stat-label">{tr('חיסכון אפשרי בשנה')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
             {ils(yearlyTotal)}
           </div>
-          <div className="stat-note">אותו קצב, שנים עשר חודשים</div>
+          <div className="stat-note">{tr('אותו קצב, שנים עשר חודשים')}</div>
         </div>
         <div className="card">
-          <div className="stat-label">מתוך ההוצאה החודשית</div>
+          <div className="stat-label">{tr('מתוך ההוצאה החודשית')}</div>
           <div className="stat-value">
             {summary.total ? Math.round((monthlyTotal / summary.total) * 100) : 0}%
           </div>
-          <div className="stat-note">{ils(summary.total)} ב{monthLabel(month)}</div>
+          <div className="stat-note">{trf("{sum} ב{month}", { sum: ils(summary.total), month: monthLabel(month) })}</div>
         </div>
       </div>
 
-      <div className="notice">
-        ההצעות מבוססות על ההוצאות שלכם בפועל, ואף אחת מהן לא נוגעת בהוצאות שסומנו כ"חובה".
-        אם משהו כאן מסווג לא נכון — שנו את הסיווג בלשונית "עסקאות" והרשימה תתעדכן.
-      </div>
+      <div className="notice">{tr('ההצעות מבוססות על ההוצאות שלכם בפועל, ואף אחת מהן לא נוגעת בהוצאות שסומנו כ"חובה". אם משהו כאן מסווג לא נכון — שנו את הסיווג בלשונית "עסקאות" והרשימה תתעדכן.')}</div>
 
       {ideas.length === 0 ? (
         <div className="card">
-          <p className="dim">
-            לא נמצאו הצעות חיסכון מובהקות בחודש הזה. נסו לייבא עוד חודשים כדי לזהות מנויים וחיובים חוזרים.
-          </p>
+          <p className="dim">{tr('לא נמצאו הצעות חיסכון מובהקות בחודש הזה. נסו לייבא עוד חודשים כדי לזהות מנויים וחיובים חוזרים.')}</p>
         </div>
       ) : (
         <div className="grid cols-2">
@@ -73,9 +69,9 @@ export default function SavingsPanel({
             <div className="card saving-card" key={i}>
               <div className="saving-amount">
                 <div className="big">{ils(idea.monthlySaving)}</div>
-                <div className="small">בחודש</div>
+                <div className="small">{tr('בחודש')}</div>
                 <div className="small" style={{ marginTop: 6 }}>
-                  {ils(idea.yearlySaving)} בשנה
+                  {trf("{sum} בשנה", { sum: ils(idea.yearlySaving) })}
                 </div>
               </div>
               <div>
@@ -87,7 +83,7 @@ export default function SavingsPanel({
                   <span className="chip">{SEVERITY_LABEL.low}</span>
                 ) : (
                   <span className={`pill ${idea.severity === 'high' ? 'mandatory' : 'semi'}`}>
-                    {SEVERITY_LABEL[idea.severity]}
+                    {tr(SEVERITY_LABEL[idea.severity])}
                   </span>
                 )}
               </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { tr, useLang } from '../lib/i18n'
 
 export interface NavTab<T extends string> {
   id: T
@@ -29,6 +30,8 @@ export default function TopNav<T extends string>({ tabs, activeTab, onSelect, on
   const wrapRef = useRef<HTMLDivElement>(null)
   const ghostRef = useRef<HTMLDivElement>(null)
   const [visibleCount, setVisibleCount] = useState(tabs.length)
+  // התוויות מתחלפות עם השפה, והרוחב שלהן איתן — המדידה חייבת לרוץ שוב
+  const lang = useLang()
 
   // ההודעה להורה נשלחת מתוך אפקט, ולכן הפונקציה נשמרת ב-ref
   // כדי שהורה שמעביר פונקציה חדשה בכל רינדור לא יריץ אותו שוב ושוב
@@ -68,19 +71,19 @@ export default function TopNav<T extends string>({ tabs, activeTab, onSelect, on
     ro.observe(wrap)
     ro.observe(ghost)
     return () => ro.disconnect()
-  }, [measure, tabs])
+  }, [measure, tabs, lang])
 
   useEffect(() => {
     notify.current(tabs.slice(visibleCount).map((t) => t.id))
   }, [tabs, visibleCount])
 
   return (
-    <nav className="topnav" ref={wrapRef} aria-label="ניווט ראשי">
+    <nav className="topnav" ref={wrapRef} aria-label={tr('ניווט ראשי')}>
       <div className="topnav-ghost" ref={ghostRef} aria-hidden>
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} className="topnav-btn" tabIndex={-1}>
             <Icon size={16} />
-            <span>{label}</span>
+            <span>{tr(label)}</span>
           </button>
         ))}
       </div>
@@ -94,7 +97,7 @@ export default function TopNav<T extends string>({ tabs, activeTab, onSelect, on
             onClick={() => onSelect(id)}
           >
             <Icon size={16} />
-            <span>{label}</span>
+            <span>{tr(label)}</span>
           </button>
         ))}
       </div>

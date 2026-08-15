@@ -1,3 +1,4 @@
+import { tr } from './i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppState } from '../types'
 import { api, ConflictError, type Household } from './api'
@@ -109,7 +110,7 @@ export function useHouseholdState() {
              * זה בדיוק התרחיש של מחשב וטלפון פתוחים במקביל: קודם לכן
              * הלשונית הישנה הייתה מנצחת ומוחקת את מה שנעשה בשנייה.
              */
-            setError('הנתונים עודכנו ממכשיר אחר — נטען מחדש')
+            setError(tr('הנתונים עודכנו ממכשיר אחר — נטען מחדש'))
             void loadHousehold(activeId)
             return
           }
