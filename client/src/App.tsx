@@ -9,12 +9,14 @@ import type {
 } from './types'
 import type { ManualPaymentDraft } from './components/ManualPaymentForm'
 import { normalizeMerchant } from './lib/merchant'
+import { betterMerchantName, mergeSightings } from './lib/identity'
 import { exportState } from './lib/storage'
 import { useHouseholdState } from './lib/useHouseholdState'
 import { CategoryProvider } from './lib/categoryContext'
 import { setCycleStartDay } from './lib/cycle'
+import { addMonths } from './lib/plan'
 import { api, type AuthUser } from './lib/api'
-import { availableMonths } from './lib/analytics'
+import { availableMonths, transactionMonth } from './lib/analytics'
 import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
 import { tr, trf, useLang } from './lib/i18n'
@@ -91,6 +93,8 @@ export interface ImportSummary {
   added: number
   updated: number
   unchanged: number
+  /** כבר היו במערכת, אך הגיעו הפעם ממקור אחר — נמנעה ספירה כפולה */
+  alsoSeen: number
   /** סכום העסקאות החדשות בלבד */
   newTotal: number
 }
@@ -215,7 +219,25 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     return map
   }, [state.merchantRules])
 
-  const months = useMemo(() => availableMonths(transactions), [transactions])
+  const dataMonths = useMemo(() => availableMonths(transactions), [transactions])
+
+  /*
+   * בורר החודשים מציג רצף מלא ולא רק חודשים שיש בהם נתונים.
+   *
+   * קודם אפשר היה לבחור אך ורק חודש שכבר יובא, ולכן לא הייתה דרך לפתוח
+   * חודש חדש — להזין בו הכנסה או להסתכל עליו לפני שהגיע קובץ. חודש ריק
+   * הוא מצב לגיטימי, והרשימה נמשכת עד החודש הנוכחי גם אם טרם יובא.
+   */
+  const months = useMemo(() => {
+    const thisMonth = new Date().toISOString().slice(0, 7)
+    if (!dataMonths.length) return [thisMonth]
+    const first = dataMonths[dataMonths.length - 1]
+    const last = dataMonths[0] > thisMonth ? dataMonths[0] : thisMonth
+    const list: string[] = []
+    for (let m = first; m <= last; m = addMonths(m, 1)) list.push(m)
+    return list.reverse()
+  }, [dataMonths])
+
   const activeMonth = month && months.includes(month) ? month : months[0] ?? ''
 
   /**
@@ -225,7 +247,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
    */
   function importTransactions(incoming: Transaction[], fileName: string): ImportSummary {
     const existing = new Map(stateRef.current.transactions.map((t) => [t.id, t]))
-    const summary: ImportSummary = { added: 0, updated: 0, unchanged: 0, newTotal: 0 }
+    const summary: ImportSummary = { added: 0, updated: 0, unchanged: 0, alsoSeen: 0, newTotal: 0 }
 
     for (const t of incoming) {
       const prev = existing.get(t.id)
@@ -240,12 +262,42 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
         summary.updated++
       } else {
         summary.unchanged++
+        // כבר הייתה, אבל מקובץ אחר — זה מה שמונע ספירה כפולה בין מקורות
+        const from = t.sightings?.[0]?.file
+        if (from && !(prev.sightings ?? []).some((s) => s.file === from)) summary.alsoSeen++
       }
     }
 
+    /*
+     * קופצים לחודש החדש ביותר שהקובץ הביא.
+     *
+     * החודש הנבחר נשמר ב-state, ולכן ייבוא של ספטמבר בזמן שאוגוסט פתוח
+     * השאיר את המסך על אוגוסט — הנתונים אכן נכנסו, אבל נראה כאילו הייבוא
+     * לא עשה כלום. זה בדיוק מה שנראה כמו "הקובץ לא נקלט".
+     */
+    const newest = incoming.reduce((max, t) => {
+      const m = transactionMonth(t)
+      return m > max ? m : max
+    }, '')
+    if (newest) setMonth(newest)
+
     setState((prev) => {
       const byId = new Map(prev.transactions.map((t) => [t.id, t]))
-      for (const t of incoming) byId.set(t.id, t)
+      for (const t of incoming) {
+        const existing = byId.get(t.id)
+        // עסקה שכבר קיימת אינה נדרסת: המקורות נצברים, והשם הארוך יותר מנצח
+        // (הבנק מקצר ל-14 תווים, ולכן מקור אחר כמעט תמיד מדויק יותר)
+        byId.set(
+          t.id,
+          existing
+            ? {
+                ...t,
+                merchant: betterMerchantName(existing.merchant, t.merchant),
+                sightings: mergeSightings(existing.sightings, t.sightings),
+              }
+            : t,
+        )
+      }
       return {
         ...prev,
         transactions: [...byId.values()],

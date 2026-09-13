@@ -163,6 +163,12 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
                       ⏭️ <strong>{log.summary!.unchanged}</strong>{' '}
                       {tr('כבר היו במערכת ולא שונו')}
                     </li>
+                    {log.summary!.alsoSeen > 0 && (
+                      <li>
+                        🔗 <strong>{log.summary!.alsoSeen}</strong>{' '}
+                        {tr('נראו כאן גם ממקור אחר — לא נספרו פעמיים')}
+                      </li>
+                    )}
                     <li className="dim">
                       {trf('{n} שורות דולגו — שורות סיכום וחיובי 0', { n: log.skipped })}
                     </li>

@@ -1,3 +1,5 @@
+import type { Sighting } from './lib/identity'
+
 /** רמת נחיצות של הוצאה — הלב של האפליקציה: מה באמת חובה ומה אפשר לקצץ */
 export type Necessity = 'mandatory' | 'semi' | 'optional'
 
@@ -66,6 +68,12 @@ export interface Transaction {
   category: CategoryId
   necessity: Necessity
   source: string
+  /**
+   * מאיפה העסקה הגיעה, ובכמה מקורות היא נראתה.
+   * נצבר ואינו נדרס: אותה קנייה מופיעה גם בקובץ הבנק וגם בקובץ כאל,
+   * וכדאי שיהיה אפשר לדעת את זה במקום לנחש.
+   */
+  sightings?: Sighting[]
   /** עסקה שהוזנה ידנית ואינה מגיעה מקובץ הבנק — ניתנת לעריכה ולמחיקה */
   manual?: boolean
   /** מי שילם בפועל כשהכסף עובר דרך מישהו אחר, למשל "אמא" */

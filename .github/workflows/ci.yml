@@ -27,6 +27,10 @@ jobs:
       - name: התקנת תלויות הלקוח
         run: npm --prefix client ci || npm --prefix client install
 
+      # הפרסר הוא נתיב הכסף, והבאג בו שקט: מספר סביר שאיש לא יבחין בו
+      - name: בדיקות — לקוח
+        run: npm --prefix client test
+
       - name: בדיקת טיפוסים ובנייה — לקוח
         run: npm --prefix client run build
 

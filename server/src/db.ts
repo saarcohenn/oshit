@@ -213,6 +213,8 @@ function addColumnIfMissing(table: string, column: string, definition: string) {
 
 addColumnIfMissing('households', 'version', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('goals', 'target_date', 'TEXT')
+// מאיפה הגיעה עסקה. JSON, כי זו רשימה שגדלה עם כל מקור נוסף
+addColumnIfMissing('transactions', 'sightings', 'TEXT')
 
 /**
  * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.

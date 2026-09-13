@@ -35,6 +35,22 @@ export function readVersion(householdId: string): number {
   return row?.version ?? 0
 }
 
+/**
+ * ההופעות נשמרות כ-JSON בעמודה אחת. שורות שנכתבו לפני שהעמודה נוספה
+ * מחזירות null, ואז המקור היחיד שידוע עליהן הוא שם הקובץ שממנו יובאו.
+ */
+function parseSightings(raw: unknown, source: unknown): unknown[] {
+  if (typeof raw === 'string' && raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // JSON פגום — עדיף ליפול למקור הישן מאשר להפיל את הקריאה כולה
+    }
+  }
+  return source ? [{ file: String(source), format: 'unknown', importedAt: '' }] : []
+}
+
 export function readState(householdId: string): HouseholdState {
   const q = (sql: string) => db.prepare(sql).all(householdId) as Row[]
 
@@ -57,7 +73,7 @@ export function readState(householdId: string): HouseholdState {
     `SELECT id, card, merchant, merchant_key AS merchantKey, date, charge_date AS chargeDate,
             amount, original_amount AS originalAmount, currency, kind,
             installment_current AS ic, installment_total AS it,
-            category, necessity, source, manual, paid_via AS paidVia
+            category, necessity, source, sightings, manual, paid_via AS paidVia
      FROM transactions WHERE household_id = ?`,
   ).map((t) => ({
     id: t.id,
@@ -74,6 +90,9 @@ export function readState(householdId: string): HouseholdState {
     category: t.category,
     necessity: t.necessity,
     source: t.source,
+    // עמודה שנוספה בדיעבד: שורות ישנות עדיין ריקות, ולכן נופלים למקור היחיד
+    // שהיה ידוע עליהן. JSON פגום לא יפיל את הקריאה של כל משק הבית
+    sightings: parseSightings(t.sightings, t.source),
     ...(t.manual ? { manual: true } : {}),
     ...(t.paidVia ? { paidVia: t.paidVia } : {}),
   }))
@@ -220,10 +239,10 @@ export const writeState = db.transaction((
     const ins = db.prepare(`
       INSERT INTO transactions (id, household_id, card, merchant, merchant_key, date, charge_date,
         amount, original_amount, currency, kind, installment_current, installment_total,
-        category, necessity, source, manual, paid_via)
+        category, necessity, source, sightings, manual, paid_via)
       VALUES (@id, @householdId, @card, @merchant, @merchantKey, @date, @chargeDate,
         @amount, @originalAmount, @currency, @kind, @ic, @it,
-        @category, @necessity, @source, @manual, @paidVia)`)
+        @category, @necessity, @source, @sightings, @manual, @paidVia)`)
     for (const t of state.transactions as Row[]) {
       ins.run({
         id: t.id,
@@ -242,6 +261,7 @@ export const writeState = db.transaction((
         category: t.category ?? 'other',
         necessity: t.necessity ?? 'semi',
         source: t.source ?? '',
+        sightings: t.sightings ? JSON.stringify(t.sightings) : null,
         manual: bool(t.manual),
         paidVia: nullIfEmpty(t.paidVia),
       })

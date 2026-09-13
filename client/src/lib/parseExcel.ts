@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import type { Category, Installment, Transaction } from '../types'
 import { buildCategoryIndex, guessCategory } from './categories'
 import { normalizeMerchant } from './merchant'
+import { OccurrenceCounter, makeTransactionId, type Sighting } from './identity'
 
 /** כותרות העמודות בקובץ "כרטיסי אשראי" של הבנק */
 const COL = {
@@ -67,7 +68,9 @@ function toIso(value: unknown): string {
     return `${parsed.y}-${pad(parsed.m)}-${pad(parsed.d)}`
   }
   const text = String(value).trim()
-  const dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})/)
+  // ארבע ספרות נבדקות ראשונות: החלופה הדו-ספרתית הייתה בולעת את שתי הספרות
+  // הראשונות של שנה מלאה, ו-"21/07/2026" הפך ל-2020
+  const dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})(?!\d)/)
   if (dmy) {
     const [, d, m, rawYear] = dmy
     const year = rawYear.length === 4 ? rawYear : String(Number(rawYear) + (Number(rawYear) >= 70 ? 1900 : 2000))
@@ -93,6 +96,33 @@ function toNumber(value: unknown): number {
   const cleaned = String(value ?? '').replace(/[^\d.-]/g, '')
   const n = Number.parseFloat(cleaned)
   return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * סימני מטבע כפי שהבנק כותב אותם בתוך הסכום: "₪500.00", "$784.49",
+ * "€27.35", "JP120,560.00". הבדיקה לפי סדר, כי סימן אחד בלבד מופיע בשורה.
+ */
+const MONEY_PREFIX: Array<[string, string]> = [
+  ['₪', 'ILS'],
+  ['$', 'USD'],
+  ['€', 'EUR'],
+  ['£', 'GBP'],
+  ['JP', 'JPY'],
+]
+
+/**
+ * מפריד סכום למספר ולמטבע.
+ *
+ * הערך הגולמי נושא את המספר, והטקסט המעוצב נושא את הסימן — לכן שניהם
+ * נדרשים. מטבע שלא זוהה מוחזר כ-null, כדי שהקורא יוכל ליפול למקור אחר.
+ */
+function parseMoney(value: unknown, formatted = ''): { value: number; currency: string | null } {
+  const text = String(value ?? '').trim()
+  const display = String(formatted ?? '').trim()
+  const source = display || text
+  const hit = MONEY_PREFIX.find(([symbol]) => source.includes(symbol))
+  const numeric = typeof value === 'number' ? value : toNumber(text || display)
+  return { value: numeric, currency: hit ? hit[1] : null }
 }
 
 /** "3/10" => { current: 3, total: 10 } */
@@ -141,16 +171,6 @@ function parseCalCard(rows: Row[]): string {
   return ''
 }
 
-function makeId(parts: (string | number)[]): string {
-  const raw = parts.join('|')
-  let hash = 0
-  for (let i = 0; i < raw.length; i++) {
-    hash = (hash << 5) - hash + raw.charCodeAt(i)
-    hash |= 0
-  }
-  return `t${(hash >>> 0).toString(36)}_${Math.abs(hash % 9973)}`
-}
-
 export interface ParseResult {
   transactions: Transaction[]
   /** עסקאות שנקראו אך נזרקו (סכום 0, שורות סיכום) */
@@ -178,17 +198,28 @@ export function parseCreditCardXlsx(
   let format: ParseResult['format'] = 'unknown'
   // שתי עסקאות זהות לחלוטין באותו יום הן אפשרות אמיתית (שתי קניות באותו סכום),
   // ולכן מונה החזרות מבדיל ביניהן מבלי לפגוע בזיהוי כפילויות בין קבצים
-  const occurrences = new Map<string, number>()
+  const occurrences = new OccurrenceCounter()
+  const importedAt = new Date().toISOString()
 
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName]
     const rows = XLSX.utils.sheet_to_json<Row>(sheet, { header: 1, raw: true, defval: null })
+    /*
+     * אותו גיליון גם כטקסט מעוצב.
+     *
+     * בקובץ של הבנק עמודת "מטבע העסקה" ריקה בכל השורות, והמטבע מקודד
+     * בעיצוב התא ולא בערכו: הערך הגולמי של "$784.49" הוא המספר 784.49
+     * בלבד. הקריאה המעוצבת היא המקום היחיד שבו הסימן שורד.
+     */
+    const textRows = XLSX.utils.sheet_to_json<Row>(sheet, { header: 1, raw: false, defval: '' })
     const calCard = parseCalCard(rows)
 
     let header: string[] | null = null
     let sheetFormat: 'bank' | 'cal' | null = null
 
-    for (const row of rows) {
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r]
+      const textRow = textRows[r] ?? []
       if (!row || row.every((c) => c == null || String(c).trim() === '')) continue
 
       if (isBankHeaderRow(row)) {
@@ -208,6 +239,11 @@ export function parseCreditCardXlsx(
       const get = (col: string): unknown => {
         const idx = header!.indexOf(col)
         return idx === -1 ? null : row[idx]
+      }
+      /** אותו תא כפי שהוא מוצג — נחוץ רק כדי לקרוא את סימן המטבע */
+      const getText = (col: string): string => {
+        const idx = header!.indexOf(col)
+        return idx === -1 ? '' : String(textRow[idx] ?? '')
       }
 
       const merchant = String(get(sheetFormat === 'cal' ? CAL_COL.merchant : COL.merchant) ?? '').trim()
@@ -232,56 +268,96 @@ export function parseCreditCardXlsx(
       const notes = sheetFormat === 'cal' ? String(get(CAL_COL.notes) ?? '') : ''
       const parsedNotes = parseCalNotes(notes)
 
-      const amount = toNumber(get(sheetFormat === 'cal' ? CAL_COL.amount : COL.amount))
-      // עסקה במטבע זר בחיוב מיידי מגיעה מכאל בלי סכום בשקלים כלל —
-      // שער ההמרה אינו בקובץ, והמצאת סכום גרועה מדילוג עליו
-      if (amount === 0) {
-        skipped++
-        continue
-      }
-
       const merchantKey = normalizeMerchant(merchant)
       const category = guessCategory(merchant, categories)
       const kind = String(get(sheetFormat === 'cal' ? CAL_COL.kind : COL.kind) ?? '').trim()
 
+      let amount: number
       let originalAmount: number
       let currency: string
       let installment: Installment | null
       let chargeDate: string
 
       if (sheetFormat === 'cal') {
+        amount = toNumber(get(CAL_COL.amount))
         originalAmount = parsedNotes.originalAmount ?? amount
         currency = parsedNotes.currency ?? 'ILS'
         chargeDate = toIso(get(CAL_COL.chargeDate))
         installment = null
       } else {
-        originalAmount = toNumber(get(COL.originalAmount))
-        currency = String(get(COL.currency) ?? 'ILS').trim() || 'ILS'
+        /*
+         * בקובץ של הבנק המטבע אינו בעמודה משלו — עמודת "מטבע העסקה" ריקה
+         * בכל השורות, והסימן יושב בתוך הסכום עצמו: ‎₪500.00 לצד ‎$784.49.
+         * בלי לקרוא אותו משם, חיוב של 784 דולר נרשם כ-784 שקלים.
+         */
+        const charge = parseMoney(get(COL.amount), getText(COL.amount))
+        const original = parseMoney(get(COL.originalAmount), getText(COL.originalAmount))
+
+        /*
+         * הוראת קבע שטרם חויבה מגיעה בלי סכום חיוב ובלי תאריך חיוב, אבל
+         * סכום העסקה שלה כן ידוע. עד עכשיו היא נזרקה בשקט — בקובץ הזה
+         * תשעה חיובים קבועים (פרי טיוי, מים, קרן מכבי) פשוט לא נכנסו.
+         */
+        const posted = charge.value !== 0
+        amount = posted ? charge.value : original.value
+        originalAmount = original.value || amount
+        // המטבע מתאר את הסכום שנרשם. עדיפות למטבע של סכום העסקה, שהוא מה
+        // ששני המקורות מסכימים עליו ולכן מייצב את הזהות בין קבצים
+        currency =
+          original.currency ||
+          charge.currency ||
+          String(get(COL.currency) ?? '').trim() ||
+          'ILS'
         chargeDate = toIso(get(COL.chargeDate))
         installment = parseInstallment(get(COL.details))
       }
 
-      const identity = [
-        card,
-        merchantKey,
-        date,
-        currency,
-        currency === 'ILS' ? amount : originalAmount,
-        installment ? installment.current : '',
-      ].join('|')
-      const seen = occurrences.get(identity) ?? 0
-      occurrences.set(identity, seen + 1)
-
-      if (sheetFormat === 'cal' && parsedNotes.installmentTotal) {
-        // כאל מדפיסה שורה זהה לכל תשלום שכבר חויב, בלי מספר תשלום ובלי מועד חיוב.
-        // מונה החזרות הוא לכן מספר התשלום, והחיוב מתפרס חודש לכל תשלום —
-        // אחרת כל עשרת התשלומים היו נופלים על חודש הרכישה ומנפחים אותו פי עשרה.
-        installment = { current: seen + 1, total: parsedNotes.installmentTotal }
-        if (!chargeDate) chargeDate = addMonths(date, seen)
+      // חיוב אפס מופיע כשהעסקה מיוחסת לכרטיס משנה ואינה נגבית בפועל,
+      // וכן כשעסקה במטבע זר בחיוב מיידי מגיעה בלי סכום כלל
+      if (!amount) {
+        skipped++
+        continue
       }
 
+      /*
+       * הזהות נגזרת מהכרטיס, התאריך, המטבע והסכום בלבד — לא משם בית העסק.
+       * הבנק מקצר שמות ל-14 תווים וכאל לא, וכל עוד השם היה חלק מהזהות אותה
+       * קנייה קיבלה שני מזהים שונים משני המקורות ונספרה פעמיים.
+       */
+      const parts = {
+        card,
+        date,
+        currency,
+        amount,
+        originalAmount: originalAmount || amount,
+      }
+
+      /*
+       * מה שמבדיל בין שורות זהות באותה קבוצה.
+       *
+       * שני המקורות מתארים תשלומים אחרת: הבנק כותב "3/10" במפורש, וכאל
+       * מדפיסה שורה זהה לכל תשלום שכבר חויב — בלי מספר ובלי מועד חיוב.
+       * לכן מספר התשלום הוא המדד המשותף: אצל כאל הוא מיקום השורה בקבוצה,
+       * ואצל הבנק הוא נקרא מהעמודה. בלי האיחוד הזה תשלום 4 שהגיע בקובץ של
+       * החודש הבא היה מקבל את המזהה של תשלום 3 ונבלע כאילו כבר קיים.
+       */
+      let index: number
+      if (sheetFormat === 'cal' && parsedNotes.installmentTotal) {
+        index = occurrences.next(parts).occurrence
+        installment = { current: index + 1, total: parsedNotes.installmentTotal }
+        // החיוב מתפרס חודש לכל תשלום, אחרת כל עשרת התשלומים נופלים על חודש
+        // הרכישה ומנפחים אותו פי עשרה
+        if (!chargeDate) chargeDate = addMonths(date, index)
+      } else if (installment) {
+        index = installment.current - 1
+      } else {
+        index = occurrences.next(parts).occurrence
+      }
+
+      const id = makeTransactionId(parts, index)
+
       transactions.push({
-        id: makeId([identity, seen]),
+        id,
         card,
         merchant: merchant.replace(/\s+/g, ' ').trim(),
         merchantKey,
@@ -295,6 +371,7 @@ export function parseCreditCardXlsx(
         category,
         necessity: cats.byId(category).necessity,
         source: fileName,
+        sightings: [{ file: fileName, format: sheetFormat, importedAt } satisfies Sighting],
       })
     }
   }

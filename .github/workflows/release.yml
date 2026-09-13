@@ -37,6 +37,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # הפרסר הוא נתיב הכסף, והבאג בו שקט — מספר סביר שאיש לא יבחין בו.
+      # תמונה לא נדחפת אם הבדיקות נופלות
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: בדיקות — לקוח
+        run: |
+          npm --prefix client ci || npm --prefix client install
+          npm --prefix client test
+
       - uses: docker/setup-buildx-action@v3
 
       - name: התחברות ל-GHCR

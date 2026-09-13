@@ -555,6 +555,8 @@ export const EN: Record<string, string> = {
     'The name replaces the bank’s name across every transaction from this merchant.',
   'למחוק את התשלום "{name}" על {sum}?': 'Delete the payment "{name}" for {sum}?',
   'מ-{n} קבצים': 'from {n} files',
+  'נראו כאן גם ממקור אחר — לא נספרו פעמיים':
+    'also seen here from another source — not counted twice',
   'יש בהם רק עסקאות בודדות שחויבו מיידית, ולא את החודש המלא.':
     'They hold only a few immediately-charged transactions, not the full month.',
   'חודשים אלה אינם נכנסים לחישובי ממוצע ולהשוואות, כדי שלא יעוותו את התמונה.':
