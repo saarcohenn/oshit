@@ -218,6 +218,60 @@ export interface TrendPoint {
 }
 
 /** מגמה חודשית — כל עמודה מפוצלת לפי נחיצות כדי לראות מה באמת גדל */
+/**
+ * הכנסה מול הוצאה לאורך חודשים, כשהחודש הפעיל מסומן.
+ *
+ * שתי סדרות זו לצד זו ולא מוערמות: השאלה היא מי גדול ממי, וערימה
+ * מסתירה בדיוק את זה.
+ */
+export function IncomeExpenseChart({
+  points,
+  current,
+}: {
+  points: Array<{ month: string; income: number; expense: number }>
+  current: string
+}) {
+  const top = Math.max(...points.flatMap((p) => [p.income, p.expense]), 1)
+  return (
+    <div>
+      <div className="trend">
+        {points.map((p) => {
+          const net = p.income - p.expense
+          return (
+            <div className={`trend-col ${p.month === current ? 'current' : ''}`} key={p.month}>
+              <div className="ie-pair">
+                <div
+                  className="ie-bar income"
+                  style={{ height: `${(p.income / top) * 100}%` }}
+                  title={`${monthLabelShort(p.month)} · ${tr('הכנסות')}: ${ils(p.income)}`}
+                />
+                <div
+                  className="ie-bar expense"
+                  style={{ height: `${(p.expense / top) * 100}%` }}
+                  title={`${monthLabelShort(p.month)} · ${tr('הוצאות')}: ${ils(p.expense)}`}
+                />
+              </div>
+              <div className={`trend-label ${net < 0 ? 'negative' : ''}`}>
+                {monthLabelShort(p.month)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="legend">
+        <div className="legend-item">
+          <span className="dot" style={{ background: 'var(--ok)' }} />
+          <span>{tr('הכנסות')}</span>
+        </div>
+        <div className="legend-item">
+          <span className="dot" style={{ background: 'var(--danger)' }} />
+          <span>{tr('הוצאות')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function TrendChart({ points, current }: { points: TrendPoint[]; current: string }) {
   const top = Math.max(...points.map((p) => p.total), 1)
 

@@ -216,3 +216,37 @@ describe('makeTransactionId', () => {
     expect(makeTransactionId(a, 0)).toBe(makeTransactionId(b, 0))
   })
 })
+
+describe('הכנסה קבועה מוגבלת בזמן', () => {
+  it('הכנסה קבועה בלי גבולות חלה על כל חודש — התנהגות קיימת', async () => {
+    const { incomeForMonth } = await import('./plan')
+    const inc = [{ id: '1', name: 'x', amount: 100, kind: 'recurring' as const }]
+    expect(incomeForMonth(inc, '2020-01')).toBe(100)
+    expect(incomeForMonth(inc, '2026-09')).toBe(100)
+  })
+
+  it('הכנסה קבועה עם חודש התחלה אינה נספרת לפניו', async () => {
+    const { incomeForMonth } = await import('./plan')
+    // בלי זה משכורת שהתחילה ב-2026 הופיעה גם בכל גרף היסטורי של 2025
+    const inc = [{ id: '1', name: 'x', amount: 100, kind: 'recurring' as const, fromMonth: '2026-01' }]
+    expect(incomeForMonth(inc, '2025-12')).toBe(0)
+    expect(incomeForMonth(inc, '2026-01')).toBe(100)
+    expect(incomeForMonth(inc, '2026-09')).toBe(100)
+  })
+
+  it('חודש סיום מפסיק את הספירה', async () => {
+    const { incomeForMonth } = await import('./plan')
+    const inc = [
+      { id: '1', name: 'x', amount: 100, kind: 'recurring' as const, fromMonth: '2026-01', toMonth: '2026-03' },
+    ]
+    expect(incomeForMonth(inc, '2026-03')).toBe(100)
+    expect(incomeForMonth(inc, '2026-04')).toBe(0)
+  })
+
+  it('הכנסה חד-פעמית נספרת רק בחודש שלה', async () => {
+    const { incomeForMonth } = await import('./plan')
+    const inc = [{ id: '1', name: 'x', amount: 100, kind: 'oneoff' as const, month: '2026-08' }]
+    expect(incomeForMonth(inc, '2026-08')).toBe(100)
+    expect(incomeForMonth(inc, '2026-09')).toBe(0)
+  })
+})

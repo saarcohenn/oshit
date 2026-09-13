@@ -12,12 +12,15 @@ import { useCategories } from '../lib/categoryContext'
 import { ils, monthLabel, shortDate } from '../lib/format'
 import { cycleRangeLabel } from '../lib/cycle'
 import { IconArchive, IconChevron, IconClose, IconPlus } from './Icons'
+import { IncomeExpenseChart } from './charts'
+import { transactionMonth } from '../lib/analytics'
 import { tr } from '../lib/i18n'
 import {
   addMonths,
   changeSaving,
   goalDueMonth,
   goalProgress,
+  activeInMonth,
   incomeForMonth,
   monthlyPicture,
   recurringIncome,
@@ -61,6 +64,16 @@ export default function PlanPanel({
       else next.add(id)
       return next
     })
+
+  /*
+   * ההכנסות שייכות לחודש. הרשימה הציגה קודם את כולן בכל מצב, כך שבספטמבר
+   * נראו גם שורות של אוגוסט — הסכומים תמיד היו נכונים, רק הרשימה לא.
+   */
+  const [allMonthsIncome, setAllMonthsIncome] = useState(false)
+  const visibleIncomes = useMemo(
+    () => (allMonthsIncome ? state.incomes : state.incomes.filter((i) => activeInMonth(i, month))),
+    [state.incomes, month, allMonthsIncome],
+  )
 
   const goalIdByTx = useMemo(() => {
     const map: Record<string, string | undefined> = {}
@@ -165,6 +178,24 @@ export default function PlanPanel({
   function removeChange(id: string) {
     onSetChanges(state.plannedChanges.filter((c) => c.id !== id))
   }
+
+  /*
+   * חלון של שנה לאחור וחצי שנה קדימה סביב החודש הפעיל, כך שהוא יושב
+   * בערך במרכז ואפשר לראות גם מה כבר מתוכנן קדימה.
+   */
+  const incomeExpensePoints = useMemo(() => {
+    const months: string[] = []
+    for (let i = -11; i <= 6; i++) months.push(addMonths(month, i))
+    const spend = new Map<string, number>()
+    for (const t of transactions) {
+      if (t.currency && t.currency !== 'ILS') continue
+      const m = transactionMonth(t)
+      spend.set(m, (spend.get(m) ?? 0) + t.amount)
+    }
+    return months
+      .map((m) => ({ month: m, income: incomeForMonth(state.incomes, m), expense: spend.get(m) ?? 0 }))
+      .filter((p) => p.income > 0 || p.expense > 0)
+  }, [state.incomes, transactions, month])
 
   const monthOptions = useMemo(() => {
     // חלון של שנתיים קדימה ושנה אחורה — מספיק לכל תכנון סביר
@@ -492,6 +523,15 @@ export default function PlanPanel({
         </div>
       </div>
 
+      {/* ---------- הכנסה מול הוצאה לאורך זמן ---------- */}
+      {incomeExpensePoints.length > 1 && (
+        <div className="card">
+          <div className="card-title">{tr('📊 הכנסות מול הוצאות')}</div>
+          <div className="card-sub">{tr('החודש הפעיל מסומן. חודש שההוצאה בו עלתה על ההכנסה מסומן באדום.')}</div>
+          <IncomeExpenseChart points={incomeExpensePoints} current={month} />
+        </div>
+      )}
+
       {/* ---------- הכנסות ---------- */}
       <div className="card">
         <div className="toolbar">
@@ -499,13 +539,25 @@ export default function PlanPanel({
             <div className="card-title">{tr('💼 הכנסות')}</div>
             <div className="card-sub" style={{ marginBottom: 0 }}>{tr('קובץ האשראי מכיל רק הוצאות, ולכן את ההכנסות מזינים כאן. בלעדיהן אי אפשר לדעת כמה באמת נשאר בסוף החודש.')}</div>
           </div>
+          <label className="spacer" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <input
+              type="checkbox"
+              checked={allMonthsIncome}
+              onChange={(e) => setAllMonthsIncome(e.target.checked)}
+            />
+            {tr('כל החודשים')}
+          </label>
           <button className="add-btn spacer" onClick={addIncome} title={tr('הוספת הכנסה')} aria-label={tr('הוספת הכנסה')}>
             <IconPlus size={19} />
           </button>
         </div>
 
-        {state.incomes.length === 0 ? (
-          <p className="dim">{tr('עוד לא הוזנו הכנסות.')}</p>
+        {visibleIncomes.length === 0 ? (
+          <p className="dim">
+            {state.incomes.length
+              ? tr('אין הכנסות בחודש הזה. הוסיפו אחת, או הציגו את כל החודשים.')
+              : tr('עוד לא הוזנו הכנסות.')}
+          </p>
         ) : (
           <div className="table-wrap">
             <table className="responsive income-table">
@@ -520,7 +572,7 @@ export default function PlanPanel({
                 </tr>
               </thead>
               <tbody>
-                {state.incomes.map((income) => (
+                {visibleIncomes.map((income) => (
                   <tr key={income.id}>
                     <td className="c-name" data-label={tr('מקור')}>
                       <input

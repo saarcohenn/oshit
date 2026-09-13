@@ -118,6 +118,13 @@ export interface Income {
   kind: 'recurring' | 'oneoff'
   /** רלוונטי רק להכנסה חד-פעמית */
   month?: string
+  /**
+   * מאיזה חודש ההכנסה הקבועה קיימת, ועד מתי.
+   * בלי זה משכורת שהתחילה השנה נספרה גם בכל חודש היסטורי, וכל גרף
+   * לאחור הראה הכנסה שלא הייתה.
+   */
+  fromMonth?: string
+  toMonth?: string
   owner?: string
 }
 

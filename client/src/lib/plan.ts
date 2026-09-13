@@ -2,11 +2,22 @@ import type { Goal, Income, PlannedChange, Transaction } from '../types'
 import { transactionMonth } from './analytics'
 
 /** הכנסה צפויה בחודש נתון: כל הקבועות + החד-פעמיות שמשויכות לאותו חודש */
+export function activeInMonth(i: Income, month: string): boolean {
+  if (i.kind !== 'recurring') return i.month === month
+  // הכנסה קבועה חלה מהחודש שהוגדר ואילך. בלי גבולות היא חלה תמיד,
+  // וזו ההתנהגות שהייתה קודם — נשמרת כברירת מחדל לנתונים ישנים
+  if (i.fromMonth && month < i.fromMonth) return false
+  if (i.toMonth && month > i.toMonth) return false
+  return true
+}
+
 export function incomeForMonth(incomes: Income[], month: string): number {
-  return incomes.reduce((sum, i) => {
-    if (i.kind === 'recurring') return sum + i.amount
-    return i.month === month ? sum + i.amount : sum
-  }, 0)
+  return incomes.reduce((sum, i) => (activeInMonth(i, month) ? sum + i.amount : sum), 0)
+}
+
+/** סדרת ההכנסה לאורך חודשים — הבסיס לגרף */
+export function incomeSeries(incomes: Income[], months: string[]) {
+  return months.map((month) => ({ month, total: incomeForMonth(incomes, month) }))
 }
 
 export function recurringIncome(incomes: Income[]): number {

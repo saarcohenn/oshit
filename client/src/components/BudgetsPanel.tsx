@@ -52,8 +52,12 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
     }
   }
 
-  // הקטגוריות שיש בהן פעילות כלשהי — אין טעם להציג תקציב לקטגוריה ריקה
-  const active = cats.list.filter((c) => spent.has(c.id) || budgetMap.has(c.id) || avg.has(c.id))
+  /*
+   * כל הקטגוריות מוצגות, ולא רק אלה שכבר הוצא בהן.
+   * קודם אפשר היה לקבוע תקציב רק לקטגוריה עם היסטוריה, ולכן לא הייתה
+   * דרך לתקצב מראש משהו שטרם הוצא בו — וזה בדיוק מה שתקציב אמור לעשות.
+   */
+  const active = cats.list
 
   return (
     <div className="grid">
