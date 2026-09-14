@@ -141,6 +141,8 @@ export interface RankItem {
   emoji?: string
   value: number
   meta?: string
+  /** צבע הקטגוריה — בית עסק נצבע לפי מה שהוא, לא לפי מקומו בדירוג */
+  color?: string
 }
 
 /**
@@ -160,7 +162,7 @@ export function RankedBars({ items, max }: { items: RankItem[]; max?: number }) 
             <span>{item.label}</span>
           </div>
           <div className="rank-track">
-            <div className="rank-fill" style={{ width: `${Math.max(1, (item.value / top) * 100)}%` }} />
+            <div className="rank-fill" style={{ background: item.color, width: `${Math.max(1, (item.value / top) * 100)}%` }} />
           </div>
           <div className="rank-value">
             {ils(item.value)}
@@ -315,6 +317,110 @@ export function TrendChart({ points, current }: { points: TrendPoint[]; current:
             <span>{tr(NECESSITY_LABEL[n])}</span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+export const TREND_WINDOWS = [3, 6, 12, 24] as const
+export type TrendWindow = (typeof TREND_WINDOWS)[number]
+
+const WINDOW_LABEL: Record<TrendWindow, string> = {
+  3: '3 חודשים',
+  6: '6 חודשים',
+  12: 'שנה',
+  24: '2 שנים',
+}
+
+/**
+ * מגמת נחיצות — שלוש העמודות של כל חודש זו לצד זו ולא מוערמות.
+ *
+ * בערימה רואים סכום, אבל לא רואים מי מהשלוש גדלה: הפס העליון זז גם כשרק
+ * התחתון השתנה. זו לצד זו כל רמה נמדדת מאותו בסיס, וההשוואה בין חודשים ישירה.
+ * החלון נגמר בחודש הפעיל, כך שבורר החודשים בכותרת מזיז גם את הגרף.
+ */
+export function NecessityTrendChart({
+  points,
+  current,
+  window,
+  onWindow,
+}: {
+  points: TrendPoint[]
+  current: string
+  window: TrendWindow
+  onWindow: (w: TrendWindow) => void
+}) {
+  const upto = points.filter((p) => p.month <= current)
+  const slice = upto.slice(-window)
+  const top = Math.max(...slice.flatMap((p) => NECESSITY_ORDER.map((n) => p.byNecessity[n])), 1)
+  const sums = NECESSITY_ORDER.map((n) => slice.reduce((s, p) => s + p.byNecessity[n], 0))
+  const size = window <= 3 ? 'w3' : window <= 6 ? 'w6' : window <= 12 ? 'w12' : 'w24'
+
+  return (
+    <div>
+      <div className="card-head">
+        <div>
+          <div className="card-title">{tr('מגמה חודשית')}</div>
+          <div className="card-sub">
+            {tr('שלוש רמות הנחיצות זו לצד זו, לא מוערמות — כך רואים מי גדל. חודשים חלקיים מסומנים ⚠.')}
+          </div>
+        </div>
+        <div className="seg" role="group" aria-label={tr('טווח הגרף')}>
+          {TREND_WINDOWS.map((w) => (
+            <button key={w} className={w === window ? 'on' : ''} aria-pressed={w === window} onClick={() => onWindow(w)}>
+              {tr(WINDOW_LABEL[w])}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`ntrend ${size}`}>
+        {slice.map((p) => {
+          const isCurrent = p.month === current
+          return (
+            <div
+              key={p.month}
+              className={`ntrend-col ${isCurrent ? 'current' : ''} ${p.partial ? 'partial' : ''}`}
+              title={`${monthLabelShort(p.month)} · ${ils(p.total)}${p.partial ? ` · ${tr('חודש חלקי — לא יובא קובץ מלא עבורו')}` : ''}`}
+            >
+              <div className="ntrend-bars">
+                {NECESSITY_ORDER.map((n, i) => (
+                  <div
+                    key={n}
+                    className="ntrend-bar"
+                    style={{
+                      height: `${(p.byNecessity[n] / top) * 100}%`,
+                      background: NECESSITY_VAR[n],
+                      animationDelay: `${i * 60}ms`,
+                    }}
+                    title={`${monthLabelShort(p.month)} · ${tr(NECESSITY_LABEL[n])}: ${ils(p.byNecessity[n])}`}
+                  >
+                    {i === 0 && (
+                      <span className="ntrend-total">
+                        {window <= 6 ? ils(p.total) : ''}
+                        {p.partial ? ' ⚠' : ''}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="ntrend-label">{monthLabelShort(p.month)}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="legend legend-rule">
+        {NECESSITY_ORDER.map((n, i) => (
+          <div className="legend-item" key={n}>
+            <span className="dot" style={{ background: NECESSITY_VAR[n] }} />
+            <span>{tr(NECESSITY_LABEL[n])}</span>
+            <span className="dim">{ils(sums[i])}</span>
+          </div>
+        ))}
+        <div className="legend-item spacer dim">
+          {trf('{n} חודשים אחרונים · לפי תאריך החיוב', { n: slice.length })}
+        </div>
       </div>
     </div>
   )

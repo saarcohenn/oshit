@@ -8,7 +8,7 @@
  * שום בקשה אינה נשלחת לשרת חיצוני ושום נתון פיננסי אינו נשמר כאן —
  * הנתונים חיים ב-localStorage בלבד.
  */
-const VERSION = 'oshit-v3'
+const VERSION = 'oshit-v4'
 const PRECACHE = [
   '/',
   '/index.html',

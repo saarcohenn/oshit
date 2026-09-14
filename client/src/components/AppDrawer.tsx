@@ -141,7 +141,7 @@ export default function AppDrawer<T extends string>({
       >
         <div className="drawer-head">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={20} />
+            <IconBrand size={32} />
           </span>
           <div className="logo-text">
             <b>

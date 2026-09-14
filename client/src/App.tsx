@@ -16,7 +16,7 @@ import { CategoryProvider } from './lib/categoryContext'
 import { setCycleStartDay } from './lib/cycle'
 import { addMonths } from './lib/plan'
 import { api, type AuthUser } from './lib/api'
-import { availableMonths, transactionMonth } from './lib/analytics'
+import { availableMonths, summarize, transactionMonth } from './lib/analytics'
 import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
 import { tr, trf, useLang } from './lib/i18n'
@@ -29,7 +29,7 @@ import RecurringPanel from './components/RecurringPanel'
 import SavingsPanel from './components/SavingsPanel'
 import PlanPanel from './components/PlanPanel'
 import AppDrawer from './components/AppDrawer'
-import TopNav from './components/TopNav'
+import Sidebar, { type SidebarTab } from './components/Sidebar'
 import AuthScreen from './components/AuthScreen'
 import ShareDialog from './components/ShareDialog'
 import { useAuth } from './lib/useAuth'
@@ -42,6 +42,9 @@ import {
   IconMerchants,
   IconOverview,
   IconMenu,
+  IconMoon,
+  IconSearch,
+  IconSun,
   IconRecurring,
   IconSavings,
   IconTransactions,
@@ -59,7 +62,7 @@ type Tab =
   | 'categories'
   | 'import'
 
-type TabDef = { id: Tab; label: string; Icon: (p: { size?: number }) => JSX.Element }
+type TabDef = SidebarTab<Tab>
 
 /**
  * הניווט מחולק לשתי קבוצות: מסכים שמסתכלים בהם יום-יום, ומסכים שמסדרים בהם
@@ -81,11 +84,6 @@ const SETUP_TABS: TabDef[] = [
   { id: 'import', label: 'ייבוא', Icon: IconImport },
 ]
 
-/**
- * הסדר כאן הוא סדר הוויתור: שורת הניווט מציגה כמה שנכנס מההתחלה,
- * והשאר עובר לתפריט. לכן מסכי ההגדרות באים אחרונים — הם אלה שאפשר
- * לוותר על נראותם הקבועה כשהחלון צר.
- */
 const ALL_TABS: TabDef[] = [...VIEW_TABS, ...SETUP_TABS]
 
 /** תוצאת מיזוג של קובץ אחד לתוך הנתונים הקיימים */
@@ -180,8 +178,8 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   /** יעד שנבחר במסך התכנון — מסנן את מסך העסקאות */
   const [goalFilter, setGoalFilter] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  /** הלשוניות שלא נכנסו לשורת הניווט ולכן מוצגות במגירה */
-  const [overflowTabs, setOverflowTabs] = useState<Tab[]>(() => ALL_TABS.map((t) => t.id))
+  /** החיפוש בכותרת — מוביל למסך העסקאות ומסנן אותו */
+  const [query, setQuery] = useState('')
   /** משק הבית שפתוח כרגע בחלון השיתוף */
   const [shareId, setShareId] = useState<string | null>(null)
 
@@ -463,20 +461,35 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   const shareHousehold = households.find((h) => h.id === shareId) ?? null
 
   /*
-   * המגירה מקבלת רק את מה שלא נכנס לשורה. כשהחלון רחב היא מכילה משקי בית
-   * ותצוגה בלבד, ואין שני מקומות שמובילים לאותו מסך.
+   * מספרים קטנים בסרגל: חריגות תקציב באדום — זה מה שדורש תשומת לב —
+   * ומספר העסקאות בחודש בשקט, כהקשר.
    */
-  const hiddenTabs = new Set(overflowTabs)
-  const drawerGroups = [
-    { title: 'מסכים', tabs: VIEW_TABS.filter((t) => hiddenTabs.has(t.id)) },
-    { title: 'הגדרות ונתונים', tabs: SETUP_TABS.filter((t) => hiddenTabs.has(t.id)) },
-  ].filter((g) => g.tabs.length > 0)
+  const monthSummary = useMemo(() => summarize(transactions, activeMonth), [transactions, activeMonth])
+  const budgetOverruns = state.budgets.filter((b) => {
+    const spent = monthSummary.byCategory.find((c) => c.category === b.category)?.total ?? 0
+    return spent > b.limit
+  }).length
+  const badges: Partial<Record<Tab, TabDef['badge']>> = {
+    budgets: { value: budgetOverruns, tone: 'alert' },
+    transactions: { value: monthSummary.count, tone: 'quiet' },
+  }
+  const withBadges = (tabs: TabDef[]) => tabs.map((t) => ({ ...t, badge: badges[t.id] }))
+  const navGroups = [
+    { title: 'מסכים', tabs: withBadges(VIEW_TABS) },
+    { title: 'הגדרות ונתונים', tabs: withBadges(SETUP_TABS) },
+  ]
 
-  // כשהמסך הפעיל מסומן בשורה אין צורך לחזור על שמו, והכותרת חוזרת לסלוגן
-  const activeHidden = hiddenTabs.has(tab)
-  const subtitle = activeHidden
-    ? tr(ALL_TABS.find((x) => x.id === tab)?.label ?? '')
-    : tr('לאן הלך העו״ש')
+  // בטלפון אין סרגל צד, ולכן הכותרת אומרת באיזה מסך אנחנו
+  const subtitle = tr(ALL_TABS.find((x) => x.id === tab)?.label ?? '')
+
+  /*
+   * המתג בכותרת הוא בהיר/כהה בלבד, כמו בעיצוב. במצב "לפי המערכת" מסומן
+   * המצב שנראה כרגע בפועל; "לפי המערכת" עצמו נשאר זמין במגירה.
+   */
+  const systemDark = typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  const effectiveDark = theme === 'dark' || (theme === 'auto' && systemDark)
+  const monthIndex = months.indexOf(activeMonth)
+  const activeHousehold = households.find((h) => h.id === activeId) ?? null
 
   if (status === 'loading' && !households.length) {
     return (
@@ -512,7 +525,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     <AppDrawer
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
-      groups={drawerGroups}
+      groups={navGroups}
       activeTab={tab}
       onSelectTab={setTab}
       households={households}
@@ -539,10 +552,21 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       />
     )}
 
+    <div className="shell">
+    <Sidebar
+      groups={navGroups}
+      activeTab={tab}
+      onSelectTab={setTab}
+      household={activeHousehold}
+      user={user}
+      onOpenSettings={() => setDrawerOpen(true)}
+      onLogout={onLogout}
+    />
+
     <div className="app">
       <header className="topbar">
         <button
-          className={`icon-btn ${activeHidden ? 'on' : ''}`}
+          className="icon-btn mobile-only"
           onClick={() => setDrawerOpen(true)}
           aria-label={tr('פתיחת התפריט')}
           aria-expanded={drawerOpen}
@@ -551,34 +575,86 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
           <IconMenu />
         </button>
 
-        <div className="logo">
+        <div className="logo mobile-only">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={20} />
+            <IconBrand size={30} />
           </span>
           <div className="logo-text">
-            <b>Osh<span className="dot">.</span>it</b>
+            <b>Osh.it</b>
             <small>{subtitle}</small>
           </div>
         </div>
 
-        <TopNav tabs={ALL_TABS} activeTab={tab} onSelect={setTab} onOverflow={setOverflowTabs} />
-
         {hasData && months.length > 0 && (
-          <select
-            value={activeMonth}
-            onChange={(e) => setMonth(e.target.value)}
-            aria-label={tr('בחירת חודש')}
-            className="month-select"
-          >
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
+          <div className="month-stepper">
+            {/* ב-RTL הזמן זורם שמאלה: החץ הימני הוא אחורה, השמאלי קדימה */}
+            <button
+              className="month-step"
+              onClick={() => setMonth(months[monthIndex + 1])}
+              disabled={monthIndex >= months.length - 1}
+              aria-label={tr('חודש קודם')}
+            >
+              <span aria-hidden>›</span>
+            </button>
+            <label className="month-label">
+              <span>{monthLabel(activeMonth)}</span>
+              <select
+                value={activeMonth}
+                onChange={(e) => setMonth(e.target.value)}
+                aria-label={tr('בחירת חודש')}
+              >
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {monthLabel(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="month-step"
+              onClick={() => setMonth(months[monthIndex - 1])}
+              disabled={monthIndex <= 0}
+              aria-label={tr('חודש הבא')}
+            >
+              <span aria-hidden>‹</span>
+            </button>
+          </div>
         )}
 
-        <SyncBadge status={status} error={error} liveAt={liveAt} />
+        {hasData && (
+          <label className="top-search">
+            <IconSearch size={16} />
+            <input
+              type="search"
+              value={query}
+              placeholder={tr('חיפוש בית עסק, אסמכתא או הערה')}
+              aria-label={tr('חיפוש')}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                if (e.target.value && tab !== 'transactions') setTab('transactions')
+              }}
+            />
+          </label>
+        )}
+
+        <div className="top-actions">
+          <SyncBadge status={status} error={error} liveAt={liveAt} />
+
+          <div className="seg theme-seg" role="group" aria-label={tr('מצב תצוגה')}>
+            <button className={!effectiveDark ? 'on' : ''} aria-pressed={!effectiveDark} onClick={() => setTheme('light')}>
+              <IconSun size={15} />
+              <span>{tr('בהיר')}</span>
+            </button>
+            <button className={effectiveDark ? 'on' : ''} aria-pressed={effectiveDark} onClick={() => setTheme('dark')}>
+              <IconMoon size={15} />
+              <span>{tr('כהה')}</span>
+            </button>
+          </div>
+
+          <button className="btn import-btn" onClick={() => setTab('import')}>
+            {tr('ייבוא דוח')}
+          </button>
+        </div>
       </header>
 
       <main className="main">
@@ -617,6 +693,8 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                 transactions={transactions}
                 month={activeMonth}
                 incomes={state.incomes}
+                goals={state.goals}
+                annotations={state.annotations}
                 onGoToPlan={() => setTab('plan')}
               />
             )}
@@ -665,6 +743,8 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                 goals={state.goals}
                 frequencies={frequencies}
                 goalFilter={goalFilter}
+                query={query}
+                onQueryChange={setQuery}
                 onClearGoalFilter={() => setGoalFilter(null)}
                 onSetMerchantRule={setMerchantRule}
                 onSetAnnotation={setAnnotation}
@@ -699,6 +779,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
           </>
         )}
       </main>
+    </div>
     </div>
     </CategoryProvider>
   )

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Osh.it">
+  <g transform="rotate(-90 256 256)" fill="none" stroke-linecap="butt" stroke-width="58">
+    <circle cx="256" cy="256" r="140" stroke="#0C3B3A" stroke-dasharray="469 410.6" stroke-dashoffset="0"/>
+    <circle cx="256" cy="256" r="140" stroke="#00857E" stroke-dasharray="268 611.6" stroke-dashoffset="-483"/>
+    <circle cx="256" cy="256" r="140" stroke="#35C4B5" stroke-dasharray="100 779.6" stroke-dashoffset="-765"/>
+  </g>
+  <circle cx="256" cy="256" r="34" fill="#0C3B3A"/>
+</svg>

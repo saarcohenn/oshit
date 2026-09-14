@@ -445,8 +445,21 @@ export default function PlanPanel({
 
   return (
     <div className="grid">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{tr('הכנסות ויעדים')}</h1>
+          <div className="page-sub">
+            {activeGoals.length} {tr('יעדים פעילים')}
+            {archivedGoals.length > 0 && <> · {archivedGoals.length} {tr('בארכיון')}</>}
+          </div>
+        </div>
+        <button className="btn" onClick={addIncome}>
+          {tr('הוספת הכנסה')}
+        </button>
+      </div>
+
       {/* ---------- תמונת החודש ---------- */}
-      <div className="grid cols-4">
+      <div className="kpis">
         <div className="card">
           <div className="stat-label">{tr('הכנסות בחודש')}</div>
           <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
@@ -488,49 +501,76 @@ export default function PlanPanel({
       </div>
 
       {picture.income > 0 && picture.free < 0 && (
-        <div className="notice warn">{tr('בקצב הנוכחי חסרים')}<strong>{ils(Math.abs(picture.free))}</strong>{tr('בחודש כדי לעמוד בכל היעדים בזמן. אפשר לדחות חודש יעד, להוריד סכום יעד, או לקצץ בהוצאות — ראו "איפה לחסוך".')}</div>
+        <div className="notice warn">{tr('בקצב הנוכחי חסרים')}{' '}<strong>{ils(Math.abs(picture.free))}</strong>{' '}{tr('בחודש כדי לעמוד בכל היעדים בזמן. אפשר לדחות חודש יעד, להוריד סכום יעד, או לקצץ בהוצאות — ראו "איפה לחסוך".')}</div>
       )}
 
-      {/* ---------- מחזור החיוב ---------- */}
+      {/* ---------- יעדים / הוצאות גדולות ---------- */}
       <div className="card">
-        <div className="card-title">{tr('🗓️ מחזור החיוב')}</div>
-        <div className="card-sub">{tr('אם המשכורות נכנסות בתחילת החודש והאשראי נגבה ב-10, חודש קלנדרי חותך את התקופה באמצע. כאן קובעים באיזה יום נפתח מחזור חדש, וכל החישובים — סיכומים, תקציבים, מגמה והשוואות — עוברים לפיו.')}</div>
-        <div className="cycle-row">
-          <label className="form-field" style={{ maxWidth: 220 }}>
-            <span>{tr('המחזור מתחיל ביום')}</span>
-            <select
-              value={state.settings?.cycleStartDay ?? 1}
-              onChange={(e) => onSetSettings({ cycleStartDay: Number(e.target.value) })}
-            >
-              <option value={1}>{tr('1 — חודש קלנדרי רגיל')}</option>
-              {Array.from({ length: 27 }, (_, i) => i + 2).map((d) => (
-                <option key={d} value={d}>
-                  {d} בחודש
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="cycle-hint">
-            {(state.settings?.cycleStartDay ?? 1) > 1 ? (
-              <>
-                המחזור הנוכחי: <strong>{cycleRangeLabel(month)}</strong>
-                <div className="mini-label">{tr('חיוב שמתבצע לפני היום הזה נספר עדיין למחזור הקודם.')}</div>
-              </>
-            ) : (
-              <span className="dim">{tr('כרגע החישוב לפי חודשים קלנדריים.')}</span>
-            )}
+        <div className="toolbar">
+          <div>
+            <div className="card-title">{tr('🏔️ הוצאות גדולות שבדרך')}</div>
+            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('לכל יעד: כמה הוא עולה, כמה כבר שולם, ומתי הוא. האפליקציה מחשבת כמה צריך להפריש כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית לפי הקטגוריה המקושרת.')}</div>
+          </div>
+          <button className="add-btn spacer" onClick={addGoal} title={tr('הוספת יעד')} aria-label={tr('הוספת יעד')}>
+            <IconPlus size={19} />
+          </button>
+        </div>
+
+        <div className="kpis three inset" style={{ marginBottom: 16 }}>
+          <div className="card">
+            <div className="stat-label">{tr('סך היעדים')}</div>
+            {/* הארכיון אינו נספר: יעד סגור אינו התחייבות שצריך לתכנן מולה */}
+            <div className="stat-value">
+              {ils(activeGoals.reduce((s, p) => s + p.goal.targetAmount, 0))}
+            </div>
+            <div className="stat-note">
+              {activeGoals.length} יעדים פעילים
+              {archivedGoals.length > 0 && ` · ${archivedGoals.length} בארכיון`}
+            </div>
+          </div>
+          <div className="card">
+            <div className="stat-label">{tr('עוד צריך לשלם')}</div>
+            <div className="stat-value tinted" style={{ color: 'var(--warn)' }}>
+              {ils(totalRemaining)}
+            </div>
+            <div className="stat-note">{tr('אחרי מה שכבר שולם')}</div>
+          </div>
+          <div className="card">
+            <div className="stat-label">{tr('הפרשה חודשית נדרשת')}</div>
+            <div className="stat-value">{ils(goalsMonthly)}</div>
+            <div className="stat-note">{tr('כדי לעמוד בכל חודשי היעד')}</div>
           </div>
         </div>
-      </div>
 
-      {/* ---------- הכנסה מול הוצאה לאורך זמן ---------- */}
-      {incomeExpensePoints.length > 1 && (
-        <div className="card">
-          <div className="card-title">{tr('📊 הכנסות מול הוצאות')}</div>
-          <div className="card-sub">{tr('החודש הפעיל מסומן. חודש שההוצאה בו עלתה על ההכנסה מסומן באדום.')}</div>
-          <IncomeExpenseChart points={incomeExpensePoints} current={month} />
-        </div>
-      )}
+        {state.goals.length === 0 ? (
+          <p className="dim">{tr('עוד לא הוגדרו הוצאות גדולות.')}</p>
+        ) : activeGoals.length === 0 ? (
+          <p className="dim">{tr('כל היעדים הושלמו ועברו לארכיון.')}</p>
+        ) : (
+          <div className="grid cols-2">{activeGoals.map(renderGoal)}</div>
+        )}
+
+        {archivedGoals.length > 0 && (
+          <div className="archive">
+            <button
+              className="archive-head"
+              onClick={() => setArchiveOpen((v) => !v)}
+              aria-expanded={archiveOpen}
+            >
+              <IconArchive size={17} />
+              <span className="grow">{tr('ארכיון — יעדים שהושלמו')}</span>
+              <span className="chip">{archivedGoals.length}</span>
+              <IconChevron size={16} className={`chev ${archiveOpen ? 'open' : ''}`} />
+            </button>
+            {archiveOpen && (
+              <div className="archive-body">
+                <p className="dim tiny">{tr('היעדים האלה אינם נספרים בהפרשה החודשית, אבל הנתונים שלהם נשמרים במלואם. ביטול הסימון מחזיר יעד לרשימה הפעילה.')}</p>
+                <div className="grid cols-2">{archivedGoals.map(renderGoal)}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ---------- הכנסות ---------- */}
       <div className="card">
@@ -651,73 +691,14 @@ export default function PlanPanel({
         )}
       </div>
 
-      {/* ---------- יעדים / הוצאות גדולות ---------- */}
-      <div className="card">
-        <div className="toolbar">
-          <div>
-            <div className="card-title">{tr('🏔️ הוצאות גדולות שבדרך')}</div>
-            <div className="card-sub" style={{ marginBottom: 0 }}>{tr('לכל יעד: כמה הוא עולה, כמה כבר שולם, ומתי הוא. האפליקציה מחשבת כמה צריך להפריש כל חודש. תשלומים שכבר בוצעו בכרטיס נספרים אוטומטית לפי הקטגוריה המקושרת.')}</div>
-          </div>
-          <button className="add-btn spacer" onClick={addGoal} title={tr('הוספת יעד')} aria-label={tr('הוספת יעד')}>
-            <IconPlus size={19} />
-          </button>
+      {/* ---------- הכנסה מול הוצאה לאורך זמן ---------- */}
+      {incomeExpensePoints.length > 1 && (
+        <div className="card">
+          <div className="card-title">{tr('📊 הכנסות מול הוצאות')}</div>
+          <div className="card-sub">{tr('החודש הפעיל מסומן. חודש שההוצאה בו עלתה על ההכנסה מסומן באדום.')}</div>
+          <IncomeExpenseChart points={incomeExpensePoints} current={month} />
         </div>
-
-        <div className="grid cols-3" style={{ marginBottom: 14 }}>
-          <div className="card">
-            <div className="stat-label">{tr('סך היעדים')}</div>
-            {/* הארכיון אינו נספר: יעד סגור אינו התחייבות שצריך לתכנן מולה */}
-            <div className="stat-value">
-              {ils(activeGoals.reduce((s, p) => s + p.goal.targetAmount, 0))}
-            </div>
-            <div className="stat-note">
-              {activeGoals.length} יעדים פעילים
-              {archivedGoals.length > 0 && ` · ${archivedGoals.length} בארכיון`}
-            </div>
-          </div>
-          <div className="card">
-            <div className="stat-label">{tr('עוד צריך לשלם')}</div>
-            <div className="stat-value tinted" style={{ color: 'var(--warn)' }}>
-              {ils(totalRemaining)}
-            </div>
-            <div className="stat-note">{tr('אחרי מה שכבר שולם')}</div>
-          </div>
-          <div className="card">
-            <div className="stat-label">{tr('הפרשה חודשית נדרשת')}</div>
-            <div className="stat-value">{ils(goalsMonthly)}</div>
-            <div className="stat-note">{tr('כדי לעמוד בכל חודשי היעד')}</div>
-          </div>
-        </div>
-
-        {state.goals.length === 0 ? (
-          <p className="dim">{tr('עוד לא הוגדרו הוצאות גדולות.')}</p>
-        ) : activeGoals.length === 0 ? (
-          <p className="dim">{tr('כל היעדים הושלמו ועברו לארכיון.')}</p>
-        ) : (
-          <div className="grid cols-2">{activeGoals.map(renderGoal)}</div>
-        )}
-
-        {archivedGoals.length > 0 && (
-          <div className="archive">
-            <button
-              className="archive-head"
-              onClick={() => setArchiveOpen((v) => !v)}
-              aria-expanded={archiveOpen}
-            >
-              <IconArchive size={17} />
-              <span className="grow">{tr('ארכיון — יעדים שהושלמו')}</span>
-              <span className="chip">{archivedGoals.length}</span>
-              <IconChevron size={16} className={`chev ${archiveOpen ? 'open' : ''}`} />
-            </button>
-            {archiveOpen && (
-              <div className="archive-body">
-                <p className="dim tiny">{tr('היעדים האלה אינם נספרים בהפרשה החודשית, אבל הנתונים שלהם נשמרים במלואם. ביטול הסימון מחזיר יעד לרשימה הפעילה.')}</p>
-                <div className="grid cols-2">{archivedGoals.map(renderGoal)}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ---------- שינויים מתוכננים ---------- */}
       <div className="card">
@@ -872,6 +853,38 @@ export default function PlanPanel({
           </div>
         </div>
       )}
+      {/* ---------- מחזור החיוב ---------- */}
+      <div className="card">
+        <div className="card-title">{tr('🗓️ מחזור החיוב')}</div>
+        <div className="card-sub">{tr('אם המשכורות נכנסות בתחילת החודש והאשראי נגבה ב-10, חודש קלנדרי חותך את התקופה באמצע. כאן קובעים באיזה יום נפתח מחזור חדש, וכל החישובים — סיכומים, תקציבים, מגמה והשוואות — עוברים לפיו.')}</div>
+        <div className="cycle-row">
+          <label className="form-field" style={{ maxWidth: 220 }}>
+            <span>{tr('המחזור מתחיל ביום')}</span>
+            <select
+              value={state.settings?.cycleStartDay ?? 1}
+              onChange={(e) => onSetSettings({ cycleStartDay: Number(e.target.value) })}
+            >
+              <option value={1}>{tr('1 — חודש קלנדרי רגיל')}</option>
+              {Array.from({ length: 27 }, (_, i) => i + 2).map((d) => (
+                <option key={d} value={d}>
+                  {d} בחודש
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="cycle-hint">
+            {(state.settings?.cycleStartDay ?? 1) > 1 ? (
+              <>
+                המחזור הנוכחי: <strong>{cycleRangeLabel(month)}</strong>
+                <div className="mini-label">{tr('חיוב שמתבצע לפני היום הזה נספר עדיין למחזור הקודם.')}</div>
+              </>
+            ) : (
+              <span className="dim">{tr('כרגע החישוב לפי חודשים קלנדריים.')}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
     </div>
   )
 }

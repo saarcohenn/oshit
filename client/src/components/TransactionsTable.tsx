@@ -25,6 +25,9 @@ interface Props {
   frequencies: Record<string, Frequency>
   /** סינון לפי יעד — מגיע ממסך "הכנסות ויעדים" בלחיצה על "הצגת ההוצאות" */
   goalFilter: string | null
+  /** החיפוש חי בכותרת האפליקציה, כדי שאפשר יהיה לחפש מכל מסך */
+  query: string
+  onQueryChange: (q: string) => void
   onClearGoalFilter: () => void
   onSetMerchantRule: (merchantKey: string, patch: Partial<Omit<MerchantRule, 'merchantKey'>>) => void
   onSetAnnotation: (transactionId: string, patch: Partial<TxAnnotation>) => void
@@ -41,6 +44,8 @@ export default function TransactionsTable({
   goals,
   frequencies,
   goalFilter,
+  query,
+  onQueryChange,
   onClearGoalFilter,
   onSetMerchantRule,
   onSetAnnotation,
@@ -48,7 +53,6 @@ export default function TransactionsTable({
   onDeleteManual,
 }: Props) {
   const cats = useCategories()
-  const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | 'all'>('all')
   const [necessityFilter, setNecessityFilter] = useState<Necessity | 'all'>('all')
   const [allMonths, setAllMonths] = useState(false)
@@ -153,98 +157,100 @@ export default function TransactionsTable({
 
       {activeGoal && (
         <div className="notice goal-filter">
-          <span>{tr('מוצגות ההוצאות המשויכות ל')}<strong>{activeGoal.emoji} {activeGoal.name}</strong>{tr('— כל החודשים, מכל הקטגוריות. סך הכול')}<strong>{ils(total)}</strong> ב-{txCount(rows.length)}.
+          <span>{tr('מוצגות ההוצאות המשויכות ל')}<strong>{activeGoal.emoji} {activeGoal.name}</strong>{' '}{tr('— כל החודשים, מכל הקטגוריות. סך הכול')}{' '}<strong>{ils(total)}</strong> ב-{txCount(rows.length)}.
           </span>
           <button className="btn ghost sm" onClick={onClearGoalFilter}>{tr('ניקוי הסינון')}</button>
         </div>
       )}
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            type="search"
-            placeholder={tr('חיפוש בית עסק, אסמכתא או הערה…')}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ minWidth: 230 }}
-          />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as CategoryId | 'all')}
-          >
-            <option value="all">{tr('כל הקטגוריות')}</option>
-            {cats.list.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.emoji} {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={necessityFilter}
-            onChange={(e) => setNecessityFilter(e.target.value as Necessity | 'all')}
-          >
-            <option value="all">{tr('כל רמות הנחיצות')}</option>
-            <option value="mandatory">{tr('חובה')}</option>
-            <option value="semi">{tr('חצי-חובה')}</option>
-            <option value="optional">{tr('מותרות')}</option>
-          </select>
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="amount">{tr('מיון: סכום')}</option>
-            <option value="date">{tr('מיון: תאריך')}</option>
-            <option value="merchant">{tr('מיון: שם בית עסק')}</option>
-          </select>
-          {!activeGoal && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <input
-                type="checkbox"
-                checked={allMonths}
-                onChange={(e) => setAllMonths(e.target.checked)}
-              />{tr('כל החודשים')}</label>
-          )}
-          <button
-            className="btn spacer"
-            onClick={() => {
-              setEditingManual(null)
-              setFormOpen(true)
-            }}
-          >{tr('+ תשלום שלא בכרטיס')}</button>
-        </div>
-
-        <div className="toolbar" style={{ marginBottom: 10 }}>
-          <div className="strong">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{tr('עסקאות')}</h1>
+          <div className="page-sub">
             {txCount(rows.length)} · {ilsExact(total)}
+            {!showAllMonths && <> · {monthLabel(month)}</>}
             {manualCount > 0 && (
-              <span className="dim">
+              <>
                 {' '}
                 · {manualCount === 1 ? tr('תשלום ידני אחד') : trf('{n} תשלומים ידניים', { n: manualCount })}
-              </span>
+              </>
             )}
           </div>
-          <button
-            className="link-btn spacer"
-            onClick={() =>
-              setExpanded(expanded.size === rows.length ? new Set() : new Set(rows.map((t) => t.id)))
-            }
-          >
-            {expanded.size === rows.length && rows.length > 0 ? tr('סגירת הכול') : tr('פתיחת הכול')}
+        </div>
+        <button
+          className="btn"
+          onClick={() => {
+            setEditingManual(null)
+            setFormOpen(true)
+          }}
+        >{tr('+ תשלום שלא בכרטיס')}</button>
+      </div>
+
+      <div className="filter-row">
+        {query && (
+          <button className="chip active" onClick={() => onQueryChange('')} title={tr('ניקוי החיפוש')}>
+            🔎 {query} ✕
           </button>
-        </div>
-
-        {nonMonthly.length > 0 && (
-          <div className="notice warn">
-            {tr('ברשימה יש')}{' '}
-            {nonMonthly.length === 1
-              ? tr('חיוב אחד שאינו חודשי')
-              : trf('{n} חיובים שאינם חודשיים', { n: nonMonthly.length })}{' '}
-            {tr('(חשמל, מים, ארנונה וכדומה). מנורמל לחודש, הסכום המוצג שווה ל-')}
-            <strong>{ils(normalizedTotal)}</strong>{' '}
-            {trf('בחודש במקום {sum} — זה המספר להשוואה מול תקציב חודשי.', { sum: ils(total) })}
-          </div>
         )}
+        <select
+          className="filter"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as CategoryId | 'all')}
+        >
+          <option value="all">{tr('כל הקטגוריות')}</option>
+          {cats.list.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.emoji} {c.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="filter"
+          value={necessityFilter}
+          onChange={(e) => setNecessityFilter(e.target.value as Necessity | 'all')}
+        >
+          <option value="all">{tr('כל רמות הנחיצות')}</option>
+          <option value="mandatory">{tr('חובה')}</option>
+          <option value="semi">{tr('חצי-חובה')}</option>
+          <option value="optional">{tr('מותרות')}</option>
+        </select>
+        <select className="filter" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+          <option value="amount">{tr('מיון: סכום')}</option>
+          <option value="date">{tr('מיון: תאריך')}</option>
+          <option value="merchant">{tr('מיון: שם בית עסק')}</option>
+        </select>
+        {!activeGoal && (
+          <button
+            className={`filter-toggle ${allMonths ? 'on' : ''}`}
+            aria-pressed={allMonths}
+            onClick={() => setAllMonths((v) => !v)}
+          >
+            {tr('כל החודשים')}
+          </button>
+        )}
+        <button
+          className="link-btn strong-link spacer"
+          onClick={() =>
+            setExpanded(expanded.size === rows.length ? new Set() : new Set(rows.map((t) => t.id)))
+          }
+        >
+          {expanded.size === rows.length && rows.length > 0 ? tr('סגירת הכול') : tr('פתיחת הכול')}
+        </button>
+      </div>
 
-        <div className="notice">{tr('לחיצה על שורה פותחת אותה: אסמכתא, הערה חופשית, שיוך ליעד ופרטי החיוב המלאים. ✏️ ליד שם בית העסק משנה את השם')}<strong>{tr('בכל העסקאות שלו')}</strong>{tr(', ואילו האסמכתא וההערה שייכות')}<strong>{tr('לעסקה הבודדת')}</strong>.
+      {nonMonthly.length > 0 && (
+        <div className="notice warn">
+          {tr('ברשימה יש')}{' '}
+          {nonMonthly.length === 1
+            ? tr('חיוב אחד שאינו חודשי')
+            : trf('{n} חיובים שאינם חודשיים', { n: nonMonthly.length })}{' '}
+          {tr('(חשמל, מים, ארנונה וכדומה). מנורמל לחודש, הסכום המוצג שווה ל-')}
+          <strong>{ils(normalizedTotal)}</strong>{' '}
+          {trf('בחודש במקום {sum} — זה המספר להשוואה מול תקציב חודשי.', { sum: ils(total) })}
         </div>
+      )}
 
+      <div className="card flush">
         <div className="table-wrap">
           <table className="tx-table responsive">
             <thead>
@@ -318,6 +324,7 @@ export default function TransactionsTable({
                     </td>
                     <td data-label={tr('קטגוריה')} onClick={(e) => e.stopPropagation()}>
                       <select
+                        className="cat-select"
                         value={t.category}
                         onChange={(e) =>
                           onSetMerchantRule(t.merchantKey, { category: e.target.value as CategoryId })
@@ -332,6 +339,7 @@ export default function TransactionsTable({
                     </td>
                     <td data-label={tr('נחיצות')} onClick={(e) => e.stopPropagation()}>
                       <select
+                        className={`need-select ${t.necessity}`}
                         value={t.necessity}
                         onChange={(e) =>
                           onSetMerchantRule(t.merchantKey, { necessity: e.target.value as Necessity })
@@ -346,6 +354,7 @@ export default function TransactionsTable({
                     </td>
                     <td data-label={tr('תדירות')} onClick={(e) => e.stopPropagation()}>
                       <select
+                        className="freq-select"
                         value={freq}
                         onChange={(e) =>
                           onSetMerchantRule(t.merchantKey, { frequency: e.target.value as Frequency })
@@ -408,6 +417,8 @@ export default function TransactionsTable({
                                 <span className="mini-label">{tr('הגדירו יעדים בלשונית "הכנסות ויעדים"')}</span>
                               )}
                             </label>
+
+                            <div className="insight">{txInsight(t, freq, cats.byId(t.category).name, cats.byId(t.category).isFallback)}</div>
                           </div>
 
                           <div className="tx-details-side">
@@ -534,8 +545,47 @@ export default function TransactionsTable({
           </table>
         </div>
 
-        {rows.length === 0 && <p className="dim">{tr('לא נמצאו עסקאות מתאימות לסינון.')}</p>}
+        {rows.length === 0 && <p className="dim table-hint">{tr('לא נמצאו עסקאות מתאימות לסינון.')}</p>}
+        <p className="table-hint">{tr('לחיצה על שורה פותחת אותה: אסמכתא, הערה חופשית, שיוך ליעד ופרטי החיוב המלאים. ✏️ ליד שם בית העסק משנה את השם')}{' '}<strong>{tr('בכל העסקאות שלו')}</strong>{tr(', ואילו האסמכתא וההערה שייכות')}{' '}<strong>{tr('לעסקה הבודדת')}</strong>.</p>
       </div>
     </div>
   )
+}
+
+/**
+ * משפט אחד שמסביר מה מעניין בעסקה — מה שהעין הייתה צריכה לחפש לבד בשורות הפרטים.
+ * הסדר הוא סדר העדיפות: כסף שעוד מחויב קודם, סיווג חסר אחריו, ורק אז הקשר כללי.
+ */
+function txInsight(t: Transaction, freq: Frequency, categoryName: string, isFallback?: boolean): string {
+  if (t.installment && t.installment.total > t.installment.current) {
+    const left = t.installment.total - t.installment.current
+    return trf('תשלום {cur} מתוך {total} — עוד {sum} מחויבים ולא שולמו. מופיע גם בלשונית חיובים קבועים.', {
+      cur: t.installment.current,
+      total: t.installment.total,
+      sum: ils(left * t.amount),
+    })
+  }
+  if (isFallback) {
+    return trf('עדיין ב״{cat}״. שינוי הקטגוריה יחול על כל העסקאות של בית העסק הזה, כולל ייבוא עתידי.', {
+      cat: categoryName,
+    })
+  }
+  if (!t.bankName && t.merchant.length >= 14 && !t.manual) {
+    return tr('ייתכן שזה שם מקוצר מהבנק. תנו לו שם שאתם מזהים — הוא יוחלף בכל החודשים ובכל ייבוא עתידי.')
+  }
+  if (t.currency !== 'ILS') {
+    return trf('עסקה במטבע חוץ: {amount} {cur}, חויבה בשקלים לפי השער ביום החיוב.', {
+      amount: t.originalAmount.toLocaleString('en-US'),
+      cur: t.currency,
+    })
+  }
+  if (freq !== 'monthly' && freq !== 'oneoff') {
+    return trf('חיוב {freq}. במקביל לחודש זה שווה ל-{sum} — המספר שמשווים מול תקציב.', {
+      freq: tr(FREQUENCY_LABEL[freq]),
+      sum: ils(monthlyEquivalent(t.amount, freq)),
+    })
+  }
+  return freq === 'oneoff'
+    ? tr('הוצאה חד־פעמית — לא נספרת בזיהוי חיובים קבועים.')
+    : tr('סימון תדירות נכון מונע מחודש עם חיוב גדול להיראות כמו חריגה.')
 }

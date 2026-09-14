@@ -86,6 +86,13 @@ export default function RecurringPanel({
 
   return (
     <div className="grid">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{tr('חיובים קבועים')}</h1>
+          <div className="page-sub">{tr('מנויים והוראות קבע שזוהו אוטומטית, והתשלומים שעוד פתוחים')}</div>
+        </div>
+      </div>
+
       {singleMonth && (
         <div className="notice warn">{tr('יובא חודש מלא אחד בלבד. זיהוי חיובים חוזרים נהיה הרבה יותר מדויק אחרי ייבוא של 2–3 חודשים נוספים — בינתיים מוצגים החיובים שנראים כמו מנוי לפי הקטגוריה שלהם.')}</div>
       )}
@@ -138,7 +145,7 @@ export default function RecurringPanel({
         </div>
       )}
 
-      <div className="grid cols-3">
+      <div className="kpis three">
         <div className="card">
           <div className="stat-label">{tr('חיובים קבועים בחודש')}</div>
           <div className="stat-value">{ils(stableTotal)}</div>
@@ -158,7 +165,7 @@ export default function RecurringPanel({
         </div>
         <div className="card">
           <div className="stat-label">{tr('התחייבויות בתשלומים')}</div>
-          <div className="stat-value">{ils(commitmentTotal)}</div>
+          <div className="stat-value" style={{ color: 'var(--warn)' }}>{ils(commitmentTotal)}</div>
           <div className="stat-note">{ils(commitmentMonthly)} בחודש שכבר "תפוסים"</div>
         </div>
       </div>
@@ -285,7 +292,7 @@ export default function RecurringPanel({
                     <td className="num" data-label={tr('תשלום חודשי')}>{ils(c.monthly)}</td>
                     <td data-label={tr('התקדמות')} style={{ minWidth: 140 }}>
                       <div className="bar">
-                        <span style={{ width: `${(c.paid / c.total) * 100}%`, background: 'var(--viz-bar)' }} />
+                        <span style={{ width: `${(c.paid / c.total) * 100}%`, background: 'var(--accent)' }} />
                       </div>
                       <div className="mini-label">
                         תשלום {c.paid} מתוך {c.total}

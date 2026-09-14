@@ -80,7 +80,7 @@ export default function AuthScreen({
       <form className="auth-card" onSubmit={submit}>
         <div className="auth-brand">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={22} />
+            <IconBrand size={36} />
           </span>
           <b>
             Osh<span className="dot">.</span>it

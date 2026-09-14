@@ -113,19 +113,29 @@ export const IconImport = ({ size = 19, className }: IconProps) => (
   </svg>
 )
 
-/** סמל האפליקציה — אותה צורה כמו אייקון ה-PWA */
-export const IconBrand = ({ size = 22, className }: IconProps) => (
+/**
+ * סמל האפליקציה — אותו ציור כמו אייקון ה-PWA.
+ *
+ * ה-O של Osh.it היא טבעת של שלוש רמות הנחיצות, באותם צבעים של הגרפים,
+ * והנקודה במרכז היא הנקודה של ‎.it‎. הצבעים קבועים ולא נגזרים מהערכה:
+ * זה סימן מסחרי, והוא צריך להיראות אותו דבר על כל רקע.
+ */
+export const IconBrand = ({ size = 32, className }: IconProps) => (
   <svg
     width={size}
     height={size}
-    viewBox="0 0 24 24"
-    fill="none"
+    viewBox="0 0 512 512"
     aria-hidden
     focusable="false"
     className={className}
   >
-    <circle cx="12" cy="10.5" r="6.2" stroke="currentColor" strokeWidth="1.9" />
-    <circle cx="12" cy="20" r="1.5" fill="currentColor" />
+    <rect width="512" height="512" rx="118" fill="#0C3B3A" />
+    <g transform="rotate(-90 256 256)" fill="none" strokeWidth="58">
+      <circle cx="256" cy="256" r="140" stroke="#16A96F" strokeDasharray="469 410.6" />
+      <circle cx="256" cy="256" r="140" stroke="#E0A21A" strokeDasharray="268 611.6" strokeDashoffset="-483" />
+      <circle cx="256" cy="256" r="140" stroke="#E4568F" strokeDasharray="100 779.6" strokeDashoffset="-765" />
+    </g>
+    <circle cx="256" cy="256" r="34" fill="#F2FBFA" />
   </svg>
 )
 
@@ -234,5 +244,21 @@ export const IconArchive = ({ size = 17, className }: IconProps) => (
     <rect x="3.5" y="4.5" width="17" height="4" rx="1.2" />
     <path d="M5 8.5v10a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-10" />
     <path d="M10 12.5h4" />
+  </svg>
+)
+
+/** הגדרות — גלגל שיניים */
+export const IconSettings = ({ size = 17, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+  </svg>
+)
+
+/** חיפוש — זכוכית מגדלת */
+export const IconSearch = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m20 20-4.2-4.2" />
   </svg>
 )

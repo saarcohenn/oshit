@@ -1,11 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Osh.it">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Osh.it">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4d9dff"/>
-      <stop offset="1" stop-color="#a97dff"/>
+    <linearGradient id="oshBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#11474A"/>
+      <stop offset="1" stop-color="#0A3130"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#0a0d14"/>
-  <circle cx="256" cy="236" r="132" fill="none" stroke="url(#g)" stroke-width="40"/>
-  <circle cx="256" cy="418" r="30" fill="url(#g)"/>
+  <rect x="0" y="0" width="512" height="512" rx="118" fill="url(#oshBg)"/>
+  <g transform="rotate(-90 256 256)" fill="none" stroke-linecap="butt" stroke-width="58">
+    <circle cx="256" cy="256" r="140" stroke="#16A96F" stroke-dasharray="469 410.6" stroke-dashoffset="0"/>
+    <circle cx="256" cy="256" r="140" stroke="#E0A21A" stroke-dasharray="268 611.6" stroke-dashoffset="-483"/>
+    <circle cx="256" cy="256" r="140" stroke="#E4568F" stroke-dasharray="100 779.6" stroke-dashoffset="-765"/>
+  </g>
+  <circle cx="256" cy="256" r="34" fill="#F2FBFA"/>
 </svg>

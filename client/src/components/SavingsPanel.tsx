@@ -33,27 +33,33 @@ export default function SavingsPanel({
 
   return (
     <div className="grid">
-      <div className="grid cols-3">
-        <div className="card">
-          <div className="stat-label">{tr('חיסכון אפשרי בחודש')}</div>
-          <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
-            {ils(monthlyTotal)}
-          </div>
-          <div className="stat-note">{tr('אם תיישמו את כל ההצעות למטה')}</div>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{tr('איפה לחסוך')}</h1>
+          <div className="page-sub">{tr('הצעות נוגעות רק במה שלא סומן כחובה')}</div>
         </div>
-        <div className="card">
-          <div className="stat-label">{tr('חיסכון אפשרי בשנה')}</div>
-          <div className="stat-value tinted" style={{ color: 'var(--ok)' }}>
-            {ils(yearlyTotal)}
-          </div>
-          <div className="stat-note">{tr('אותו קצב, שנים עשר חודשים')}</div>
+      </div>
+
+      <div className="hero-card savings-hero">
+        <div className="hero-eyebrow">{tr('חיסכון אפשרי בשנה')}</div>
+        <div className="hero-big">{ils(yearlyTotal)}</div>
+        <div className="hero-text">
+          {ideas.length === 1 ? tr('הצעה אחת') : trf('{n} הצעות', { n: ideas.length })} ·{' '}
+          {tr('ללא נגיעה בהוצאות החובה')}
         </div>
-        <div className="card">
-          <div className="stat-label">{tr('מתוך ההוצאה החודשית')}</div>
-          <div className="stat-value">
-            {summary.total ? Math.round((monthlyTotal / summary.total) * 100) : 0}%
+        <div className="hero-stats">
+          <div>
+            <span>{tr('בחודש')}</span>
+            <b>{ils(monthlyTotal)}</b>
           </div>
-          <div className="stat-note">{trf("{sum} ב{month}", { sum: ils(summary.total), month: monthLabel(month) })}</div>
+          <div>
+            <span>{tr('מתוך ההוצאה החודשית')}</span>
+            <b>{summary.total ? Math.round((monthlyTotal / summary.total) * 100) : 0}%</b>
+          </div>
+          <div>
+            <span>{trf('הוצאות {month}', { month: monthLabel(month) })}</span>
+            <b>{ils(summary.total)}</b>
+          </div>
         </div>
       </div>
 
@@ -64,28 +70,17 @@ export default function SavingsPanel({
           <p className="dim">{tr('לא נמצאו הצעות חיסכון מובהקות בחודש הזה. נסו לייבא עוד חודשים כדי לזהות מנויים וחיובים חוזרים.')}</p>
         </div>
       ) : (
-        <div className="grid cols-2">
+        <div className="grid">
           {ideas.map((idea, i) => (
-            <div className="card saving-card" key={i}>
+            <div className="card saving-card lift" key={i}>
+              <span className={`severity ${idea.severity}`}>{tr(SEVERITY_LABEL[idea.severity])}</span>
+              <div className="saving-body">
+                <div className="saving-title">{idea.title}</div>
+                <div className="saving-detail">{idea.detail}</div>
+              </div>
               <div className="saving-amount">
                 <div className="big">{ils(idea.monthlySaving)}</div>
-                <div className="small">{tr('בחודש')}</div>
-                <div className="small" style={{ marginTop: 6 }}>
-                  {trf("{sum} בשנה", { sum: ils(idea.yearlySaving) })}
-                </div>
-              </div>
-              <div>
-                <div className="card-title">{idea.title}</div>
-                <div className="card-sub" style={{ marginBottom: 8 }}>
-                  {idea.detail}
-                </div>
-                {idea.severity === 'low' ? (
-                  <span className="chip">{SEVERITY_LABEL.low}</span>
-                ) : (
-                  <span className={`pill ${idea.severity === 'high' ? 'mandatory' : 'semi'}`}>
-                    {tr(SEVERITY_LABEL[idea.severity])}
-                  </span>
-                )}
+                <div className="small">{trf('{sum} בשנה', { sum: ils(idea.yearlySaving) })}</div>
               </div>
             </div>
           ))}

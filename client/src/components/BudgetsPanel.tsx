@@ -4,7 +4,7 @@ import { NECESSITY_LABEL } from '../lib/categories'
 import { useCategories } from '../lib/categoryContext'
 import { availableMonths, partialMonths, summarize } from '../lib/analytics'
 import { ils, monthLabel, pct, plural } from '../lib/format'
-import { tr } from '../lib/i18n'
+import { tr, trf } from '../lib/i18n'
 
 interface Props {
   transactions: Transaction[]
@@ -61,7 +61,16 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
 
   return (
     <div className="grid">
-      <div className="grid cols-3">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{tr('תקציבים')}</h1>
+          <div className="page-sub">
+            {monthLabel(month)} · {plural(budgets.length, 'קטגוריה מתוקצבת', 'קטגוריות מתוקצבות')}
+          </div>
+        </div>
+      </div>
+
+      <div className="kpis three">
         <div className="card">
           <div className="stat-label">{tr('סך התקציב שהוגדר')}</div>
           <div className="stat-value">{totalBudget ? ils(totalBudget) : '—'}</div>
@@ -83,13 +92,15 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
             {over.length}
           </div>
           <div className="stat-note">
-            {over.length ? over.map((b) => cats.byId(b.category).name).join(', ') : 'הכול בתוך התקציב'}
+            {over.length
+              ? over.map((b) => `${cats.byId(b.category).emoji} ${cats.byId(b.category).name}`).join(', ')
+              : tr('הכול בתוך התקציב')}
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="toolbar">
+      <div className="card flush">
+        <div className="toolbar card-pad">
           <div>
             <div className="card-title">תקציב חודשי — {monthLabel(month)}</div>
             <div className="card-sub" style={{ marginBottom: 0 }}>{tr('קבעו תקרה לכל קטגוריה. הפס מראה כמה כבר נוצל בחודש הנבחר. "ממוצע חודשי" מחושב מהחודשים המלאים שיובאו בלבד.')}</div>
@@ -116,8 +127,9 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                 const limit = budgetMap.get(cat.id) ?? 0
                 const ratio = limit ? used / limit : 0
                 const remaining = limit - used
+                // מעל התקרה אדום, קרוב אליה צהוב; אחרת צבע הקטגוריה — כך הפס מזוהה גם בלי לקרוא
                 const barColor =
-                  ratio > 1 ? 'var(--danger)' : ratio > 0.85 ? 'var(--warn)' : 'var(--ok)'
+                  ratio > 1 ? 'var(--danger-fill)' : ratio > 0.85 ? 'var(--viz-semi)' : cat.color
 
                 return (
                   <tr key={cat.id}>
@@ -137,7 +149,9 @@ export default function BudgetsPanel({ transactions, month, budgets, onSetBudget
                               style={{ width: `${Math.min(100, ratio * 100)}%`, background: barColor }}
                             />
                           </div>
-                          <div className="mini-label">{Math.round(ratio * 100)}%</div>
+                          <div className="mini-label" style={{ color: ratio > 1 ? 'var(--danger)' : undefined, fontWeight: 500 }}>
+                            {trf('{p}% מהתקציב', { p: Math.round(ratio * 100) })}
+                          </div>
                         </>
                       ) : (
                         <span className="dim">{tr('לא הוגדר')}</span>
