@@ -4,7 +4,7 @@ import { THEME_LABEL, type Theme } from '../lib/theme'
 import { LANGS, setLang, tr, trf, useLang } from '../lib/i18n'
 import {
   IconAuto,
-  IconBrand,
+  IconBrandOutline,
   IconClose,
   IconLogout,
   IconMoon,
@@ -141,7 +141,7 @@ export default function AppDrawer<T extends string>({
       >
         <div className="drawer-head">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={32} />
+            <IconBrandOutline size={32} />
           </span>
           <div className="logo-text">
             <b>

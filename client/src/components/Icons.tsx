@@ -139,6 +139,29 @@ export const IconBrand = ({ size = 32, className }: IconProps) => (
   </svg>
 )
 
+/**
+ * הגרסה החד-צבעית של הסימן — טבעת בלי ריבוע רקע, לכותרת בנייד ולמגירה.
+ * שם הריבוע הירוק כבד מדי ליד כפתור התפריט. הצבעים נגזרים מהערכה כדי
+ * שהטבעת תישאר קריאה גם על רקע כהה.
+ */
+export const IconBrandOutline = ({ size = 32, className }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 512 512"
+    aria-hidden
+    focusable="false"
+    className={className}
+  >
+    <g transform="rotate(-90 256 256)" fill="none" strokeWidth="58">
+      <circle cx="256" cy="256" r="140" stroke="var(--brand-ring-1)" strokeDasharray="469 410.6" />
+      <circle cx="256" cy="256" r="140" stroke="var(--brand-ring-2)" strokeDasharray="268 611.6" strokeDashoffset="-483" />
+      <circle cx="256" cy="256" r="140" stroke="var(--brand-ring-3)" strokeDasharray="100 779.6" strokeDashoffset="-765" />
+    </g>
+    <circle cx="256" cy="256" r="34" fill="var(--brand-ring-1)" />
+  </svg>
+)
+
 /** מצב תצוגה בהיר — שמש */
 export const IconSun = ({ size = 17, className }: IconProps) => (
   <svg {...base(size, className)}>

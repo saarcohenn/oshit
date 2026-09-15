@@ -40,6 +40,9 @@
   /* כרטיס ההדגשה — יעד קרוב, חיסכון שנתי */
   --hero: #0c3b3a;
   --hero-ink: #f2fbfa;
+  --brand-ring-1: #0c3b3a;
+  --brand-ring-2: #00857e;
+  --brand-ring-3: #35c4b5;
 
   --radius: 16px;
   --radius-lg: 18px;
@@ -93,6 +96,9 @@
     --warn-soft: rgba(224, 162, 26, 0.14);
     --hero: #10474a;
     --hero-ink: #eafbf9;
+    --brand-ring-1: #e6efee;
+    --brand-ring-2: #35c4b5;
+    --brand-ring-3: #7fe3d8;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 34px -22px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 40px -26px rgba(0, 0, 0, 0.75);
     --shadow-hero: 0 18px 40px -26px rgba(0, 0, 0, 0.8);
@@ -133,6 +139,9 @@
   --warn-soft: rgba(224, 162, 26, 0.14);
   --hero: #10474a;
   --hero-ink: #eafbf9;
+  --brand-ring-1: #e6efee;
+  --brand-ring-2: #35c4b5;
+  --brand-ring-3: #7fe3d8;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 34px -22px rgba(0, 0, 0, 0.7);
   --shadow-lift: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 40px -26px rgba(0, 0, 0, 0.75);
   --shadow-hero: 0 18px 40px -26px rgba(0, 0, 0, 0.8);
@@ -1358,7 +1367,7 @@ select.filter, .filter-toggle {
 .cell-merchant .strong { font-size: 14px; font-weight: 600; }
 
 /* ---------- מגירה ---------- */
-.drawer-head svg { border-radius: 10px; }
+.drawer-head .logo-mark svg, .topbar .logo-mark svg { border-radius: 0; }
 .drawer-item.active { background: var(--accent); color: var(--on-accent); }
 
 /* ---------- רוחב ---------- */

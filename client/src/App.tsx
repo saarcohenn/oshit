@@ -34,7 +34,7 @@ import AuthScreen from './components/AuthScreen'
 import ShareDialog from './components/ShareDialog'
 import { useAuth } from './lib/useAuth'
 import {
-  IconBrand,
+  IconBrandOutline,
   IconBudget,
   IconCategories,
   IconGoals,
@@ -577,7 +577,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
 
         <div className="logo mobile-only">
           <span className="logo-mark" aria-hidden>
-            <IconBrand size={30} />
+            <IconBrandOutline size={30} />
           </span>
           <div className="logo-text">
             <b>Osh.it</b>
