@@ -1256,8 +1256,7 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
 
 /* ---------- מגמת נחיצות ---------- */
 .ntrend {
-  display: flex; align-items: flex-end; justify-content: center;
-  height: 236px; margin-top: 24px; padding-top: 26px;
+  display: flex; align-items: stretch; justify-content: center; margin-top: 24px; padding-top: 26px;
   --bar-w: 16px; gap: 8px;
 }
 .ntrend.w3 { --bar-w: 38px; gap: 40px; }
@@ -1277,7 +1276,14 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   text-align: center; font-size: 10px; color: var(--text-dim); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.ntrend-label { font-size: 10.5px; color: var(--text-dim); white-space: nowrap; }
+/*
+ * לתווית גובה קבוע. בלעדיו תווית ארוכה ("ספט׳ 26" מול "מאי 26", ובמיוחד כשהיא
+ * עומדת לאורך בטלפון) דחפה את העמודות שלה למעלה, והן לא יצאו מאותו קו בסיס.
+ */
+.ntrend-label {
+  height: 16px; display: flex; align-items: flex-start; justify-content: center;
+  font-size: 10.5px; color: var(--text-dim); white-space: nowrap; line-height: 16px;
+}
 .ntrend-col.current .ntrend-label, .ntrend-col.current .ntrend-total { color: var(--text); font-weight: 700; }
 .legend-rule { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); gap: 10px 20px; font-size: 12.5px; }
 
@@ -1399,13 +1405,14 @@ select.filter, .filter-toggle {
   .page-title { font-size: 22px; }
   .hero-figure b { font-size: 30px; }
   .hero-big { font-size: 34px; }
-  .ntrend { height: 190px; }
   .ntrend-bars { height: 130px; }
   .ntrend.w3 { gap: 18px; }
   .ntrend.w6 { gap: 8px; --bar-w: 14px; }
   .ntrend.w12 { gap: 3px; --bar-w: 7px; }
   .ntrend.w24 { gap: 1px; --bar-w: 4px; }
-  .ntrend.w12 .ntrend-label, .ntrend.w24 .ntrend-label { font-size: 9px; writing-mode: vertical-rl; transform: rotate(180deg); }
+  .ntrend.w12 .ntrend-label, .ntrend.w24 .ntrend-label { height: 44px; font-size: 9px; line-height: 1; }
+  /* התיבה נשארת בגודל קבוע; רק הטקסט שבתוכה עומד לאורך, צמוד לבסיס העמודות */
+  .ntrend.w12 .ntrend-label span, .ntrend.w24 .ntrend-label span { writing-mode: vertical-rl; transform: rotate(180deg); }
   .saving-card .saving-amount { text-align: start; }
   .card.flush th:first-child, .card.flush td:first-child { padding-inline-start: 12px; }
 }

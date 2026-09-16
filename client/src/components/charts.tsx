@@ -404,7 +404,9 @@ export function NecessityTrendChart({
                   </div>
                 ))}
               </div>
-              <div className="ntrend-label">{monthLabelShort(p.month)}</div>
+              <div className="ntrend-label">
+                <span>{monthLabelShort(p.month)}</span>
+              </div>
             </div>
           )
         })}
