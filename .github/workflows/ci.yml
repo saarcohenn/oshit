@@ -27,6 +27,10 @@ jobs:
       - name: התקנת תלויות הלקוח
         run: npm --prefix client ci || npm --prefix client install
 
+      # חולשה ברמה high ומעלה בתלות שנשלחת למשתמש מפילה את ה-PR
+      - name: בדיקת חולשות — לקוח
+        run: npm --prefix client audit --omit=dev --audit-level=high
+
       # הפרסר הוא נתיב הכסף, והבאג בו שקט: מספר סביר שאיש לא יבחין בו
       - name: בדיקות — לקוח
         run: npm --prefix client test
@@ -36,6 +40,9 @@ jobs:
 
       - name: התקנת תלויות השרת
         run: npm --prefix server ci || npm --prefix server install
+
+      - name: בדיקת חולשות — שרת
+        run: npm --prefix server audit --omit=dev --audit-level=high
 
       - name: בדיקת טיפוסים ובנייה — שרת
         run: npm --prefix server run build

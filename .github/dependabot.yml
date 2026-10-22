@@ -1,0 +1,29 @@
+# עדכוני אבטחה ותחזוקה אוטומטיים כ-Pull Request.
+# שום דבר לא נכנס ל-main בלי מיזוג ידני, וה-CI (כולל npm audit) רץ על כל הצעה.
+#
+# הערה: xlsx מגיע מה-CDN הרשמי של SheetJS (לא מ-npm), ולכן Dependabot לא יעדכן
+# אותו. לבדוק גרסה חדשה ידנית ב-https://cdn.sheetjs.com/
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      client-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      server-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
