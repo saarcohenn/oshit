@@ -78,6 +78,108 @@ export interface Transaction {
   manual?: boolean
   /** מי שילם בפועל כשהכסף עובר דרך מישהו אחר, למשל "אמא" */
   paidVia?: string
+  /**
+   * אירוע חד-פעמי שאינו מייצג התנהלות שוטפת.
+   *
+   * חייב להתקיים גם כאן ולא רק על תנועת חשבון: חתונה משולמת מהחשבון,
+   * אבל טיסות ומלונות עוברים בכרטיס. העסקה קרתה והכסף יצא — היא פשוט
+   * אינה נספרת בממוצעים ובמגמה.
+   */
+  oneOff?: boolean
+  /** בן הבית שההוצאה או ההכנסה שייכת לו */
+  person?: string
+}
+
+/**
+ * סוג תנועה בחשבון העו"ש.
+ *
+ * הסיווג אינו קוסמטי: שלושה מהסוגים מתארים כסף שכבר נספר במקום אחר, או
+ * כסף שלא יצא מהכיס בכלל, ולכן אסור שייכנסו לסך ההוצאות.
+ */
+export type MovementKind =
+  /**
+   * ההתחשבנות החודשית מול חברת האשראי ("חיוב לכרטיס ויזה 9687").
+   *
+   * זו השורה הנפוצה ביותר בקובץ, ואותו כסף כבר קיים כעסקאות פרטניות
+   * מקובץ הכרטיס. ספירה שלה כהוצאה מכפילה כל שקל שהוצא בכרטיס.
+   */
+  | 'card_settlement'
+  | 'salary'
+  /** העברה בין חשבונות של אותו משק בית — הכסף זז, לא נעלם */
+  | 'transfer'
+  /** הפקדה לברוקר או קנייה ומכירה של ניירות ערך — זה חיסכון, לא הוצאה */
+  | 'investment'
+  | 'fee'
+  /** משיכת מזומן. נספרת כהוצאה, כי לאן שהמזומן הלך אין לנו רישום */
+  | 'cash'
+  | 'cheque'
+  | 'income'
+  | 'expense'
+
+/**
+ * תנועה בחשבון העו"ש.
+ *
+ * ישות נפרדת מ-Transaction במתכוון: לתנועת בנק אין כרטיס, בית עסק,
+ * תאריך חיוב או תשלומים, ו-analytics מתייחס לכל Transaction כהוצאה.
+ */
+export interface AccountMovement {
+  id: string
+  /** תאריך התנועה (ISO) */
+  date: string
+  /** יום ערך (ISO) — התאריך שלפיו הבנק מחשב ריבית, ולעיתים שונה מהתאריך */
+  valueDate: string
+  description: string
+  /** חתום: שלילי הוא חובה, חיובי הוא זכות */
+  amount: number
+  /** היתרה אחרי התנועה. ריקה בשורה האחרונה של המקטע העתידי */
+  balance: number | null
+  /** אסמכתה — ייחודית בקובץ, ולכן הבסיס לזהות */
+  reference: string
+  channel: string
+  kind: MovementKind
+  /** תנועה עתידית שטרם בוצעה, מתוך מקטע "תנועות עתידיות" */
+  pending: boolean
+  /**
+   * אירוע חד-פעמי שאינו מייצג התנהלות שוטפת — חתונה, ירח דבש, חל"ת.
+   *
+   * הסימון אינו טוען שהתנועה לא קרתה, ולכן הוא נפרד מ-countsAsExpense:
+   * הכסף יצא, הוא פשוט אינו נספר בממוצעים ובמגמה. בלי זה חודש אחד
+   * בסדר גודל אחר בולע את כל השאר בכל גרף.
+   */
+  oneOff?: boolean
+  /** בן הבית שההוצאה או ההכנסה שייכת לו */
+  person?: string
+  importedAt: string
+  sourceFile: string
+}
+
+/**
+ * האם התנועה נספרת כהוצאה בפועל.
+ *
+ * תנועה עתידית אינה נספרת כי הכסף עוד לא יצא, והסוגים שמוחרגים מתארים
+ * כסף שכבר נספר כעסקאות כרטיס, או שרק עבר בין חשבונות.
+ */
+export function countsAsExpense(m: AccountMovement): boolean {
+  if (m.pending || m.amount >= 0) return false
+  return !['card_settlement', 'transfer', 'investment'].includes(m.kind)
+}
+
+/** האם התנועה נספרת כהכנסה בפועל */
+export function countsAsIncome(m: AccountMovement): boolean {
+  if (m.pending || m.amount <= 0) return false
+  return !['card_settlement', 'transfer', 'investment'].includes(m.kind)
+}
+
+/**
+ * האם התנועה נכנסת למגמה ולממוצעים.
+ *
+ * נפרד מ-countsAsExpense במתכוון: הוצאה חד-פעמית היא כסף שבאמת יצא,
+ * והיא חייבת להופיע בסיכום של אותו חודש. היא רק לא אמורה לקבוע את
+ * הממוצע שלפיו מתכננים את החודש הבא.
+ */
+export function countsInTrend(m: AccountMovement): boolean {
+  if (m.oneOff) return false
+  return countsAsExpense(m) || countsAsIncome(m)
 }
 
 export interface Budget {
@@ -179,4 +281,6 @@ export interface AppState {
   incomes: Income[]
   goals: Goal[]
   plannedChanges: PlannedChange[]
+  /** תנועות עובר ושב — ישות נפרדת מעסקאות הכרטיס */
+  accountMovements: AccountMovement[]
 }

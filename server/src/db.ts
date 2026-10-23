@@ -195,6 +195,34 @@ CREATE TABLE IF NOT EXISTS settings (
   value         TEXT NOT NULL,
   PRIMARY KEY (household_id, key)
 );
+
+/*
+ * תנועות עובר ושב. טבלה נפרדת מ-transactions במתכוון: לתנועת בנק אין
+ * כרטיס, בית עסק או תשלומים, והחישובים מתייחסים לכל שורה ב-transactions
+ * כהוצאה — ערבוב היה מעוות כל חישוב קיים.
+ *
+ * kind הוא הסיווג שקובע אם התנועה נספרת כהוצאה, ו-one_off מוציא אותה
+ * מהמגמה בלי לטעון שהיא לא קרתה.
+ */
+CREATE TABLE IF NOT EXISTS account_movements (
+  id            TEXT NOT NULL,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  date          TEXT NOT NULL,
+  value_date    TEXT NOT NULL DEFAULT '',
+  description   TEXT NOT NULL,
+  amount        REAL NOT NULL,
+  balance       REAL,
+  reference     TEXT NOT NULL DEFAULT '',
+  channel       TEXT NOT NULL DEFAULT '',
+  kind          TEXT NOT NULL DEFAULT 'expense',
+  pending       INTEGER NOT NULL DEFAULT 0,
+  one_off       INTEGER NOT NULL DEFAULT 0,
+  person        TEXT,
+  imported_at   TEXT NOT NULL DEFAULT '',
+  source_file   TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (household_id, id)
+);
+CREATE INDEX IF NOT EXISTS idx_mv_household_date ON account_movements(household_id, date);
 `
 
 db.exec(SCHEMA)
@@ -215,6 +243,15 @@ addColumnIfMissing('households', 'version', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('goals', 'target_date', 'TEXT')
 // מאיפה הגיעה עסקה. JSON, כי זו רשימה שגדלה עם כל מקור נוסף
 addColumnIfMissing('transactions', 'sightings', 'TEXT')
+/*
+ * אירוע חד-פעמי, ומי מבני הבית שייך לו.
+ *
+ * הסימון חייב לחול גם על עסקאות כרטיס ולא רק על תנועות חשבון: חתונה
+ * משולמת מהחשבון, אבל טיסות ומלונות עוברים בכרטיס. סימון בצד אחד בלבד
+ * היה מותיר מחצית מהאירוע בתוך המגמה.
+ */
+addColumnIfMissing('transactions', 'one_off', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('transactions', 'person', 'TEXT')
 
 /**
  * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.

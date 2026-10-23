@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import type { AppState, Transaction } from '../types'
-import type { ImportSummary } from '../App'
+import type { AccountMovement, AppState, Transaction } from '../types'
+import type { ImportSummary, MovementImportSummary } from '../App'
 import { monthCoverage } from '../lib/coverage'
 import { ils, monthLabel, monthLabelShort, txCount } from '../lib/format'
 import { tr, trf } from '../lib/i18n'
@@ -8,6 +8,7 @@ import { tr, trf } from '../lib/i18n'
 interface Props {
   state: AppState
   onImport: (transactions: Transaction[], fileName: string) => ImportSummary
+  onImportMovements: (movements: AccountMovement[], fileName: string) => MovementImportSummary
   onExport: () => void
   onReset: () => void
   onDone: () => void
@@ -16,19 +17,28 @@ interface Props {
 interface ImportLog {
   fileName: string
   summary?: ImportSummary
+  movements?: MovementImportSummary
   read: number
   skipped: number
   /** הפורמט שזוהה — מוצג כדי שיהיה ברור מה נקרא, במיוחד כשמייבאים שני מקורות */
-  format?: 'bank' | 'cal' | 'unknown'
+  format?: 'bank' | 'cal' | 'account' | 'unknown'
   error?: string
 }
 
 const FORMAT_LABEL: Record<string, string> = {
   bank: 'קובץ הבנק',
   cal: 'קובץ כאל',
+  account: 'עובר ושב',
 }
 
-export default function ImportPanel({ state, onImport, onExport, onReset, onDone }: Props) {
+export default function ImportPanel({
+  state,
+  onImport,
+  onImportMovements,
+  onExport,
+  onReset,
+  onDone,
+}: Props) {
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [logs, setLogs] = useState<ImportLog[]>([])
@@ -51,6 +61,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
     try {
       // ספריית קריאת האקסל כבדה ונחוצה רק כאן — נטענת רק כשבאמת מייבאים קובץ
       const { parseCreditCardXlsx } = await import('../lib/parseExcel')
+      const { parseAccountXlsx } = await import('../lib/parseAccount')
 
       for (const file of selected) {
         try {
@@ -60,6 +71,27 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
             file.name,
             state.categories,
           )
+
+          /*
+           * קובץ שאינו פירוט כרטיס נבדק מול פורמט העו"ש.
+           * הזיהוי לפי התוכן ולא לפי שם הקובץ, כמו בפרסר הכרטיסים —
+           * המשתמש משנה שמות קבצים.
+           */
+          if (!transactions.length) {
+            const account = parseAccountXlsx(buffer, file.name)
+            if (account.movements.length) {
+              const movements = onImportMovements(account.movements, file.name)
+              results.push({
+                fileName: file.name,
+                read: account.movements.length,
+                skipped: account.skipped,
+                format: 'account',
+                movements,
+              })
+              continue
+            }
+          }
+
           if (!transactions.length) {
             results.push({
               fileName: file.name,
@@ -67,7 +99,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
               skipped,
               format,
               error:
-                tr('לא נמצאו עסקאות בקובץ. ודאו שזה "פירוט עסקאות — כרטיסי אשראי" מאתר הבנק, או "פירוט עסקאות וזיכויים" מאתר כאל.'),
+                tr('לא נמצאו עסקאות בקובץ. ודאו שזה "פירוט עסקאות — כרטיסי אשראי" מאתר הבנק, "פירוט עסקאות וזיכויים" מאתר כאל, או "עובר ושב" מאתר הבנק.'),
             })
             continue
           }
@@ -150,6 +182,32 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
                 <>
                   {' '}— {log.format && FORMAT_LABEL[log.format] ? `${tr(FORMAT_LABEL[log.format])}, ` : ''}
                   {trf('נקראו {n} מהקובץ.', { n: txCount(log.read) })}
+                  {log.movements ? (
+                    <ul className="import-summary">
+                      <li>
+                        ✅ <strong>{log.movements.added}</strong> {tr('תנועות חדשות נוספו')}
+                      </li>
+                      <li>
+                        ⏭️ <strong>{log.movements.unchanged}</strong>{' '}
+                        {tr('כבר היו במערכת ולא שונו')}
+                      </li>
+                      {log.movements.settlements > 0 && (
+                        <li>
+                          💳 <strong>{log.movements.settlements}</strong>{' '}
+                          {tr('חיובי כרטיס זוהו — לא ייספרו כהוצאה, כדי לא לספור פעמיים את מה שכבר יובא מקובץ הכרטיס')}
+                        </li>
+                      )}
+                      {log.movements.pending > 0 && (
+                        <li>
+                          🕓 <strong>{log.movements.pending}</strong>{' '}
+                          {tr('תנועות עתידיות — נשמרו אך אינן נספרות')}
+                        </li>
+                      )}
+                      <li className="dim">
+                        {trf('{n} שורות דולגו — שורות סיכום ושורות בלי סכום', { n: log.skipped })}
+                      </li>
+                    </ul>
+                  ) : (
                   <ul className="import-summary">
                     <li>
                       ✅ <strong>{log.summary!.added}</strong> {tr('עסקאות חדשות נוספו')}
@@ -173,6 +231,7 @@ export default function ImportPanel({ state, onImport, onExport, onReset, onDone
                       {trf('{n} שורות דולגו — שורות סיכום וחיובי 0', { n: log.skipped })}
                     </li>
                   </ul>
+                  )}
                 </>
               )}
             </div>
