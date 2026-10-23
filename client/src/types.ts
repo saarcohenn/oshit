@@ -80,6 +80,76 @@ export interface Transaction {
   paidVia?: string
 }
 
+/**
+ * סוג תנועה בחשבון העו"ש.
+ *
+ * הסיווג אינו קוסמטי: שלושה מהסוגים מתארים כסף שכבר נספר במקום אחר, או
+ * כסף שלא יצא מהכיס בכלל, ולכן אסור שייכנסו לסך ההוצאות.
+ */
+export type MovementKind =
+  /**
+   * ההתחשבנות החודשית מול חברת האשראי ("חיוב לכרטיס ויזה 9687").
+   *
+   * זו השורה הנפוצה ביותר בקובץ, ואותו כסף כבר קיים כעסקאות פרטניות
+   * מקובץ הכרטיס. ספירה שלה כהוצאה מכפילה כל שקל שהוצא בכרטיס.
+   */
+  | 'card_settlement'
+  | 'salary'
+  /** העברה בין חשבונות של אותו משק בית — הכסף זז, לא נעלם */
+  | 'transfer'
+  /** הפקדה לברוקר או קנייה ומכירה של ניירות ערך — זה חיסכון, לא הוצאה */
+  | 'investment'
+  | 'fee'
+  /** משיכת מזומן. נספרת כהוצאה, כי לאן שהמזומן הלך אין לנו רישום */
+  | 'cash'
+  | 'cheque'
+  | 'income'
+  | 'expense'
+
+/**
+ * תנועה בחשבון העו"ש.
+ *
+ * ישות נפרדת מ-Transaction במתכוון: לתנועת בנק אין כרטיס, בית עסק,
+ * תאריך חיוב או תשלומים, ו-analytics מתייחס לכל Transaction כהוצאה.
+ */
+export interface AccountMovement {
+  id: string
+  /** תאריך התנועה (ISO) */
+  date: string
+  /** יום ערך (ISO) — התאריך שלפיו הבנק מחשב ריבית, ולעיתים שונה מהתאריך */
+  valueDate: string
+  description: string
+  /** חתום: שלילי הוא חובה, חיובי הוא זכות */
+  amount: number
+  /** היתרה אחרי התנועה. ריקה בשורה האחרונה של המקטע העתידי */
+  balance: number | null
+  /** אסמכתה — ייחודית בקובץ, ולכן הבסיס לזהות */
+  reference: string
+  channel: string
+  kind: MovementKind
+  /** תנועה עתידית שטרם בוצעה, מתוך מקטע "תנועות עתידיות" */
+  pending: boolean
+  importedAt: string
+  sourceFile: string
+}
+
+/**
+ * האם התנועה נספרת כהוצאה בפועל.
+ *
+ * תנועה עתידית אינה נספרת כי הכסף עוד לא יצא, והסוגים שמוחרגים מתארים
+ * כסף שכבר נספר כעסקאות כרטיס, או שרק עבר בין חשבונות.
+ */
+export function countsAsExpense(m: AccountMovement): boolean {
+  if (m.pending || m.amount >= 0) return false
+  return !['card_settlement', 'transfer', 'investment'].includes(m.kind)
+}
+
+/** האם התנועה נספרת כהכנסה בפועל */
+export function countsAsIncome(m: AccountMovement): boolean {
+  if (m.pending || m.amount <= 0) return false
+  return !['card_settlement', 'transfer', 'investment'].includes(m.kind)
+}
+
 export interface Budget {
   category: CategoryId
   /** תקציב חודשי בשקלים */
