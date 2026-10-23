@@ -6,8 +6,8 @@ dist
 server/data
 data
 # בסיס נתונים של סביבת פיתוח מקומית
-.devdata
-server/.devdata
+.devdata*
+server/.devdata*
 
 # קבצי בנק וגיבויים — לעולם לא נכנסים לגיט
 *.xlsx
