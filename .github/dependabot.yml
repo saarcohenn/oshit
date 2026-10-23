@@ -11,6 +11,13 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # vite ו-@vitejs/plugin-react כבולים זה לזה ב-peer dependency: plugin-react 6
+      # דורש vite 8, ו-vite 8 נדחה על ידי plugin-react 4. שדרוג major של אחד בלי
+      # השני נופל ב-ERESOLVE ואינו ניתן למיזוג כלל, ולכן הם נעים תמיד יחד.
+      vite-toolchain:
+        patterns:
+          - vite
+          - "@vitejs/*"
       client-minor-and-patch:
         update-types: [minor, patch]
 
