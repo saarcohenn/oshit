@@ -35,7 +35,7 @@ jobs:
     # ריצה רק במאגר המקורי — fork שמריץ את הקובץ הזה אצלו לא ידחוף לכאן
     if: github.repository_owner == 'saarcohenn'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # הפרסר הוא נתיב הכסף, והבאג בו שקט — מספר סביר שאיש לא יבחין בו.
       # תמונה לא נדחפת אם הבדיקות נופלות
