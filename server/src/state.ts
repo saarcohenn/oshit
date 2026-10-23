@@ -21,6 +21,8 @@ export interface HouseholdState {
   incomes: unknown[]
   goals: unknown[]
   plannedChanges: unknown[]
+  /** תנועות עובר ושב — ישות נפרדת מעסקאות הכרטיס */
+  accountMovements: unknown[]
 }
 
 type Row = Record<string, any>
@@ -73,7 +75,8 @@ export function readState(householdId: string): HouseholdState {
     `SELECT id, card, merchant, merchant_key AS merchantKey, date, charge_date AS chargeDate,
             amount, original_amount AS originalAmount, currency, kind,
             installment_current AS ic, installment_total AS it,
-            category, necessity, source, sightings, manual, paid_via AS paidVia
+            category, necessity, source, sightings, manual, paid_via AS paidVia,
+            one_off AS oneOff, person
      FROM transactions WHERE household_id = ?`,
   ).map((t) => ({
     id: t.id,
@@ -95,6 +98,31 @@ export function readState(householdId: string): HouseholdState {
     sightings: parseSightings(t.sightings, t.source),
     ...(t.manual ? { manual: true } : {}),
     ...(t.paidVia ? { paidVia: t.paidVia } : {}),
+    ...(t.oneOff ? { oneOff: true } : {}),
+    ...(t.person ? { person: t.person } : {}),
+  }))
+
+  const accountMovements = q(
+    `SELECT id, date, value_date AS valueDate, description, amount, balance, reference,
+            channel, kind, pending, one_off AS oneOff, person,
+            imported_at AS importedAt, source_file AS sourceFile
+     FROM account_movements WHERE household_id = ? ORDER BY date DESC`,
+  ).map((m) => ({
+    id: m.id,
+    date: m.date,
+    valueDate: m.valueDate || m.date,
+    description: m.description,
+    amount: m.amount,
+    // יתרה ריקה היא מצב אמיתי בשורה האחרונה של המקטע העתידי
+    balance: m.balance ?? null,
+    reference: m.reference,
+    channel: m.channel,
+    kind: m.kind,
+    pending: !!m.pending,
+    oneOff: !!m.oneOff,
+    importedAt: m.importedAt,
+    sourceFile: m.sourceFile,
+    ...(m.person ? { person: m.person } : {}),
   }))
 
   const annotations: Record<string, unknown> = {}
@@ -118,6 +146,7 @@ export function readState(householdId: string): HouseholdState {
     },
     categories,
     transactions,
+    accountMovements,
     annotations,
     budgets: q(
       `SELECT category, limit_amount AS "limit" FROM budgets WHERE household_id = ?`,
@@ -264,6 +293,36 @@ export const writeState = db.transaction((
         sightings: t.sightings ? JSON.stringify(t.sightings) : null,
         manual: bool(t.manual),
         paidVia: nullIfEmpty(t.paidVia),
+        oneOff: bool(t.oneOff),
+        person: nullIfEmpty(t.person),
+      })
+    }
+  }
+
+  if (state.accountMovements) {
+    del('account_movements')
+    const ins = db.prepare(`
+      INSERT INTO account_movements (id, household_id, date, value_date, description, amount,
+        balance, reference, channel, kind, pending, one_off, person, imported_at, source_file)
+      VALUES (@id, @householdId, @date, @valueDate, @description, @amount,
+        @balance, @reference, @channel, @kind, @pending, @oneOff, @person, @importedAt, @sourceFile)`)
+    for (const m of state.accountMovements as Row[]) {
+      ins.run({
+        id: m.id,
+        householdId,
+        date: m.date,
+        valueDate: m.valueDate ?? m.date,
+        description: m.description ?? '',
+        amount: m.amount ?? 0,
+        balance: m.balance ?? null,
+        reference: m.reference ?? '',
+        channel: m.channel ?? '',
+        kind: m.kind ?? 'expense',
+        pending: bool(m.pending),
+        oneOff: bool(m.oneOff),
+        person: nullIfEmpty(m.person),
+        importedAt: m.importedAt ?? '',
+        sourceFile: m.sourceFile ?? '',
       })
     }
   }

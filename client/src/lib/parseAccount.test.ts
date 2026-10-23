@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { parseAccountXlsx } from './parseAccount'
-import { countsAsExpense, countsAsIncome } from '../types'
+import { countsAsExpense, countsAsIncome, countsInTrend } from '../types'
 
 /*
  * הנתונים כאן מומצאים במכוון. דפי בנק אמיתיים אינם נכנסים למאגר, וגם לא
@@ -193,6 +193,36 @@ describe('קריאת ערכים', () => {
     ]))
     expect(r.movements).toHaveLength(1)
     expect(r.skipped).toBe(1)
+  })
+})
+
+describe('סימון חד-פעמי', () => {
+  /*
+   * חתונה או ירח דבש הם כסף שבאמת יצא, והם חייבים להופיע בסיכום של
+   * אותו חודש. הם רק לא אמורים לקבוע את הממוצע שמתכננים לפיו.
+   */
+  it('הוצאה חד-פעמית נספרת כהוצאה אך לא במגמה', () => {
+    const r = parse(accountFile([row('19/01/2026', 'העברה לאולם אירועים', -132270, '2960')]))
+    const m = { ...r.movements[0], oneOff: true }
+    expect(countsAsExpense(m)).toBe(true)
+    expect(countsInTrend(m)).toBe(false)
+  })
+
+  it('הכנסה חד-פעמית נספרת כהכנסה אך לא במגמה', () => {
+    const r = parse(accountFile([row('19/01/2026', 'הפקדת מזומן בסניף', 128650, '2961')]))
+    const m = { ...r.movements[0], oneOff: true }
+    expect(countsAsIncome(m)).toBe(true)
+    expect(countsInTrend(m)).toBe(false)
+  })
+
+  it('בלי הסימון התנועה נשארת במגמה', () => {
+    const r = parse(accountFile([row('05/09/2026', 'הראל בטוח חיוב', -85.08, '2950')]))
+    expect(countsInTrend(r.movements[0])).toBe(true)
+  })
+
+  it('התחשבנות כרטיס אינה במגמה גם בלי סימון', () => {
+    const r = parse(accountFile([row('09/09/2026', 'חיוב לכרטיס ויזה 9687', -8285.07, '2955')]))
+    expect(countsInTrend(r.movements[0])).toBe(false)
   })
 })
 

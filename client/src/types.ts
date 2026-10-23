@@ -78,6 +78,16 @@ export interface Transaction {
   manual?: boolean
   /** מי שילם בפועל כשהכסף עובר דרך מישהו אחר, למשל "אמא" */
   paidVia?: string
+  /**
+   * אירוע חד-פעמי שאינו מייצג התנהלות שוטפת.
+   *
+   * חייב להתקיים גם כאן ולא רק על תנועת חשבון: חתונה משולמת מהחשבון,
+   * אבל טיסות ומלונות עוברים בכרטיס. העסקה קרתה והכסף יצא — היא פשוט
+   * אינה נספרת בממוצעים ובמגמה.
+   */
+  oneOff?: boolean
+  /** בן הבית שההוצאה או ההכנסה שייכת לו */
+  person?: string
 }
 
 /**
@@ -129,6 +139,16 @@ export interface AccountMovement {
   kind: MovementKind
   /** תנועה עתידית שטרם בוצעה, מתוך מקטע "תנועות עתידיות" */
   pending: boolean
+  /**
+   * אירוע חד-פעמי שאינו מייצג התנהלות שוטפת — חתונה, ירח דבש, חל"ת.
+   *
+   * הסימון אינו טוען שהתנועה לא קרתה, ולכן הוא נפרד מ-countsAsExpense:
+   * הכסף יצא, הוא פשוט אינו נספר בממוצעים ובמגמה. בלי זה חודש אחד
+   * בסדר גודל אחר בולע את כל השאר בכל גרף.
+   */
+  oneOff?: boolean
+  /** בן הבית שההוצאה או ההכנסה שייכת לו */
+  person?: string
   importedAt: string
   sourceFile: string
 }
@@ -148,6 +168,18 @@ export function countsAsExpense(m: AccountMovement): boolean {
 export function countsAsIncome(m: AccountMovement): boolean {
   if (m.pending || m.amount <= 0) return false
   return !['card_settlement', 'transfer', 'investment'].includes(m.kind)
+}
+
+/**
+ * האם התנועה נכנסת למגמה ולממוצעים.
+ *
+ * נפרד מ-countsAsExpense במתכוון: הוצאה חד-פעמית היא כסף שבאמת יצא,
+ * והיא חייבת להופיע בסיכום של אותו חודש. היא רק לא אמורה לקבוע את
+ * הממוצע שלפיו מתכננים את החודש הבא.
+ */
+export function countsInTrend(m: AccountMovement): boolean {
+  if (m.oneOff) return false
+  return countsAsExpense(m) || countsAsIncome(m)
 }
 
 export interface Budget {
@@ -249,4 +281,6 @@ export interface AppState {
   incomes: Income[]
   goals: Goal[]
   plannedChanges: PlannedChange[]
+  /** תנועות עובר ושב — ישות נפרדת מעסקאות הכרטיס */
+  accountMovements: AccountMovement[]
 }

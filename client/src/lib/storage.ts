@@ -15,6 +15,7 @@ export const EMPTY_STATE: AppState = {
   incomes: [],
   goals: [],
   plannedChanges: [],
+  accountMovements: [],
 }
 
 export function loadState(): AppState {
@@ -34,6 +35,7 @@ export function loadState(): AppState {
       incomes: parsed.incomes ?? [],
       goals: parsed.goals ?? [],
       plannedChanges: parsed.plannedChanges ?? [],
+      accountMovements: parsed.accountMovements ?? [],
     }
   } catch {
     return EMPTY_STATE

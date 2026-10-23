@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  AccountMovement,
   Budget,
   CategoryId,
   Frequency,
@@ -21,6 +22,7 @@ import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
 import { tr, trf, useLang } from './lib/i18n'
 import ImportPanel from './components/ImportPanel'
+import MovementsPanel from './components/MovementsPanel'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
 import MerchantsPanel from './components/MerchantsPanel'
@@ -48,6 +50,7 @@ import {
   IconRecurring,
   IconSavings,
   IconTransactions,
+  IconHome,
 } from './components/Icons'
 import CategoriesPanel from './components/CategoriesPanel'
 
@@ -58,6 +61,7 @@ type Tab =
   | 'recurring'
   | 'savings'
   | 'transactions'
+  | 'movements'
   | 'merchants'
   | 'categories'
   | 'import'
@@ -76,6 +80,7 @@ const VIEW_TABS: TabDef[] = [
   { id: 'recurring', label: 'חיובים קבועים', Icon: IconRecurring },
   { id: 'savings', label: 'איפה לחסוך', Icon: IconSavings },
   { id: 'transactions', label: 'עסקאות', Icon: IconTransactions },
+  { id: 'movements', label: 'עובר ושב', Icon: IconHome },
 ]
 
 const SETUP_TABS: TabDef[] = [
@@ -95,6 +100,16 @@ export interface ImportSummary {
   alsoSeen: number
   /** סכום העסקאות החדשות בלבד */
   newTotal: number
+}
+
+/** תוצאת ייבוא של קובץ עובר ושב */
+export interface MovementImportSummary {
+  added: number
+  unchanged: number
+  /** תנועות עתידיות שטרם בוצעו — נשמרות, אך אינן נספרות */
+  pending: number
+  /** התחשבנויות כרטיס שזוהו ולא ייספרו כהוצאה */
+  settlements: number
 }
 
 /**
@@ -217,6 +232,25 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     return map
   }, [state.merchantRules])
 
+  /*
+   * בני הבית שאפשר לשייך אליהם תנועה.
+   *
+   * נאספים מהשמות שכבר הוקלדו — בעלי ההכנסות ושיוכים קיימים — ולא
+   * מרשימה נפרדת, כדי שלא יהיה מקום שני שצריך לתחזק בו את אותם שמות.
+   */
+  const people = useMemo(
+    () =>
+      [
+        ...new Set(
+          [
+            ...state.incomes.map((i) => i.owner),
+            ...state.accountMovements.map((m) => m.person),
+          ].filter((p): p is string => !!p && p.trim() !== ''),
+        ),
+      ].sort(),
+    [state.incomes, state.accountMovements],
+  )
+
   const dataMonths = useMemo(() => availableMonths(transactions), [transactions])
 
   /*
@@ -306,6 +340,58 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     })
 
     return summary
+  }
+
+  /**
+   * ממזג קובץ עובר ושב.
+   *
+   * סימון חד-פעמי ושיוך לאדם הם עבודה ידנית של המשתמש, ולכן ייבוא חוזר
+   * של אותו קובץ מעדכן את הנתונים מהבנק אך משאיר אותם על כנם.
+   */
+  function importMovements(incoming: AccountMovement[], fileName: string): MovementImportSummary {
+    const existing = new Map(stateRef.current.accountMovements.map((m) => [m.id, m]))
+    const summary: MovementImportSummary = { added: 0, unchanged: 0, pending: 0, settlements: 0 }
+    for (const m of incoming) {
+      if (existing.has(m.id)) summary.unchanged++
+      else summary.added++
+      if (m.pending) summary.pending++
+      if (m.kind === 'card_settlement') summary.settlements++
+    }
+
+    setState((prev) => {
+      const byId = new Map(prev.accountMovements.map((m) => [m.id, m]))
+      for (const m of incoming) {
+        const was = byId.get(m.id)
+        byId.set(m.id, was ? { ...m, oneOff: was.oneOff, person: was.person } : m)
+      }
+      return {
+        ...prev,
+        accountMovements: [...byId.values()].sort((a, b) => b.date.localeCompare(a.date)),
+        importedFiles: prev.importedFiles.includes(fileName)
+          ? prev.importedFiles
+          : [...prev.importedFiles, fileName],
+      }
+    })
+
+    return summary
+  }
+
+  /** מסמן תנועה כחד-פעמית, או מבטל את הסימון */
+  function setMovementOneOff(id: string, oneOff: boolean) {
+    setState((prev) => ({
+      ...prev,
+      accountMovements: prev.accountMovements.map((m) => (m.id === id ? { ...m, oneOff } : m)),
+    }))
+  }
+
+  /** משייך תנועה לבן בית. מחרוזת ריקה מסירה את השיוך */
+  function setMovementPerson(id: string, person: string) {
+    setState((prev) => ({
+      ...prev,
+      accountMovements: prev.accountMovements.map((m) =>
+        m.id === id ? { ...m, ...(person ? { person } : { person: undefined }) } : m,
+      ),
+    }))
   }
 
   /**
@@ -413,6 +499,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       incomes: [],
       goals: [],
       plannedChanges: [],
+      accountMovements: [],
     }))
     setTab('import')
   }
@@ -457,7 +544,13 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   /* מוחל לפני שהילדים מרונדרים, כדי שכל חישובי הניתוח יראו את אותו גבול מחזור */
   setCycleStartDay(state.settings?.cycleStartDay ?? 1)
 
-  const hasData = transactions.length > 0
+  /*
+   * יש נתונים גם כשיובא רק קובץ עובר ושב.
+   *
+   * המסך הריק חוסם את כל הלשוניות, ולכן בדיקה על עסקאות בלבד הייתה
+   * מסתירה את מסך העו"ש בדיוק אחרי ייבוא שהצליח.
+   */
+  const hasData = transactions.length > 0 || state.accountMovements.length > 0
   const shareHousehold = households.find((h) => h.id === shareId) ?? null
 
   /*
@@ -735,6 +828,14 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                 }}
               />
             )}
+            {tab === 'movements' && (
+              <MovementsPanel
+                movements={state.accountMovements}
+                people={people}
+                onSetOneOff={setMovementOneOff}
+                onSetPerson={setMovementPerson}
+              />
+            )}
             {tab === 'transactions' && (
               <TransactionsTable
                 transactions={transactions}
@@ -771,6 +872,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
               <ImportPanel
                 state={state}
                 onImport={importTransactions}
+                onImportMovements={importMovements}
                 onExport={() => exportState(state)}
                 onReset={resetAll}
                 onDone={() => setTab('dashboard')}
