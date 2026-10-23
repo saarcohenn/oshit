@@ -39,7 +39,7 @@ jobs:
 
       # הפרסר הוא נתיב הכסף, והבאג בו שקט — מספר סביר שאיש לא יבחין בו.
       # תמונה לא נדחפת אם הבדיקות נופלות
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
 
