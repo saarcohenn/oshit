@@ -1,6 +1,6 @@
 import express from 'express'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { db } from './db.js'
 import {
   createHousehold,
@@ -46,7 +46,23 @@ import {
 } from './users.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
-const PUBLIC_DIR = process.env.PUBLIC_DIR ?? join(process.cwd(), 'public')
+/*
+ * נתיב מוחלט תמיד: res.sendFile דורש זאת, ו-PUBLIC_DIR יחסי מתוך משתנה
+ * סביבה הפיל כל טעינת עמוד ב-500 — בלי רמז לסיבה. בתמונה הנתיב מוחלט
+ * ולכן זה לא התגלה, אבל בהרצה מקומית כן.
+ */
+const PUBLIC_DIR = resolve(process.env.PUBLIC_DIR ?? join(process.cwd(), 'public'))
+
+/**
+ * פרמטר נתיב כמחרוזת.
+ *
+ * ‎Express 5 מטפס את req.params כ-string | string[], כי path-to-regexp
+ * החדש תומך בפרמטר חוזר (‎/:id+‎). כל הנתיבים כאן הם ‎:param‎ יחיד ולכן
+ * הערך הוא תמיד מחרוזת, אבל הצמצום נעשה מפורשות ולא בהשתקת הטיפוס —
+ * נתיב שיתווסף בעתיד עם פרמטר חוזר לא ייתן כאן ערך מפתיע.
+ */
+const pathParam = (value: string | string[] | undefined): string =>
+  Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
 
 /*
  * הרשמה חופשית סגורה כברירת מחדל. שרת ביתי שנחשף לאינטרנט דרך מנהרה
@@ -216,7 +232,7 @@ app.post('/api/auth/password', requireAuth, asyncRoute(async (req, res) => {
 
 /** מימוש הזמנה על ידי מי שכבר מחובר */
 app.post('/api/invites/:code/accept', requireAuth, (req, res) => {
-  const info = acceptInvite(req.params.code, req.user!.id)
+  const info = acceptInvite(pathParam(req.params.code), req.user!.id)
   if (!info) return res.status(404).json({ error: 'ההזמנה אינה תקפה או שכבר מומשה' })
   res.json({ householdId: info.householdId, householdName: info.householdName })
 })
@@ -235,7 +251,7 @@ app.use('/api/households', requireAuth, households)
  */
 function member(role?: 'owner') {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const actual = roleOf(req.params.id, req.user!.id)
+    const actual = roleOf(pathParam(req.params.id), req.user!.id)
     if (!actual) return res.status(404).json({ error: 'משק הבית לא נמצא' })
     if (role === 'owner' && actual !== 'owner') {
       return res.status(403).json({ error: 'רק בעלים של משק הבית יכול לבצע את הפעולה' })
@@ -257,11 +273,11 @@ households.post('/', (req, res) => {
 })
 
 households.patch('/:id', member('owner'), (req, res) => {
-  const current = getHousehold(req.params.id, req.user!.id)!
+  const current = getHousehold(pathParam(req.params.id), req.user!.id)!
   const name = String(req.body?.name ?? current.name).trim() || current.name
   const emoji = String(req.body?.emoji ?? current.emoji).slice(0, 8) || current.emoji
-  db.prepare('UPDATE households SET name = ?, emoji = ? WHERE id = ?').run(name, emoji, req.params.id)
-  res.json(getHousehold(req.params.id, req.user!.id))
+  db.prepare('UPDATE households SET name = ?, emoji = ? WHERE id = ?').run(name, emoji, pathParam(req.params.id))
+  res.json(getHousehold(pathParam(req.params.id), req.user!.id))
 })
 
 /**
@@ -272,27 +288,27 @@ households.delete('/:id', member('owner'), (req, res) => {
   if (listHouseholds(req.user!.id).length <= 1) {
     return res.status(400).json({ error: 'אי אפשר למחוק את משק הבית האחרון' })
   }
-  db.prepare('DELETE FROM households WHERE id = ?').run(req.params.id)
+  db.prepare('DELETE FROM households WHERE id = ?').run(pathParam(req.params.id))
   res.status(204).end()
 })
 
 /* ---------------- שיתוף ---------------- */
 
 households.get('/:id/members', member(), (req, res) => {
-  const list = listMembers(req.params.id).map((m) => ({ ...m, isSelf: m.userId === req.user!.id }))
+  const list = listMembers(pathParam(req.params.id)).map((m) => ({ ...m, isSelf: m.userId === req.user!.id }))
   res.json({
     members: list,
-    invites: roleOf(req.params.id, req.user!.id) === 'owner' ? pendingInvites(req.params.id) : [],
+    invites: roleOf(pathParam(req.params.id), req.user!.id) === 'owner' ? pendingInvites(pathParam(req.params.id)) : [],
   })
 })
 
 households.post('/:id/invites', member('owner'), (req, res) => {
   const role = req.body?.role === 'owner' ? 'owner' : 'member'
-  res.status(201).json(createInvite(req.params.id, req.user!.id, role))
+  res.status(201).json(createInvite(pathParam(req.params.id), req.user!.id, role))
 })
 
 households.delete('/:id/invites', member('owner'), (req, res) => {
-  revokeInvites(req.params.id)
+  revokeInvites(pathParam(req.params.id))
   res.status(204).end()
 })
 
@@ -302,38 +318,38 @@ households.delete('/:id/invites', member('owner'), (req, res) => {
  */
 households.delete('/:id/members/:userId', member(), (req, res) => {
   const me = req.user!.id
-  const target = req.params.userId
-  const myRole = roleOf(req.params.id, me)
+  const target = pathParam(req.params.userId)
+  const myRole = roleOf(pathParam(req.params.id), me)
   if (target !== me && myRole !== 'owner') {
     return res.status(403).json({ error: 'רק בעלים יכול להסיר חברים אחרים' })
   }
-  if (roleOf(req.params.id, target) === 'owner' && ownerCount(req.params.id) <= 1) {
+  if (roleOf(pathParam(req.params.id), target) === 'owner' && ownerCount(pathParam(req.params.id)) <= 1) {
     return res.status(400).json({ error: 'אי אפשר להסיר את הבעלים היחיד של משק הבית' })
   }
-  removeMember(req.params.id, target)
+  removeMember(pathParam(req.params.id), target)
   res.status(204).end()
 })
 
 households.patch('/:id/members/:userId', member('owner'), (req, res) => {
   const role = req.body?.role === 'owner' ? 'owner' : 'member'
-  if (!roleOf(req.params.id, req.params.userId)) {
+  if (!roleOf(pathParam(req.params.id), pathParam(req.params.userId))) {
     return res.status(404).json({ error: 'המשתמש אינו חבר במשק הבית' })
   }
-  if (role === 'member' && ownerCount(req.params.id) <= 1) {
+  if (role === 'member' && ownerCount(pathParam(req.params.id)) <= 1) {
     return res.status(400).json({ error: 'צריך להישאר בעלים אחד לפחות' })
   }
-  addMember(req.params.id, req.params.userId, role)
+  addMember(pathParam(req.params.id), pathParam(req.params.userId), role)
   res.json({ ok: true })
 })
 
 /* ---------------- מצב משק הבית ---------------- */
 
 households.get('/:id/state', member(), (req, res) => {
-  res.json({ ...readState(req.params.id), version: readVersion(req.params.id) })
+  res.json({ ...readState(pathParam(req.params.id)), version: readVersion(pathParam(req.params.id)) })
 })
 
 households.put('/:id/state', member(), (req, res) => {
-  const id = req.params.id
+  const id = pathParam(req.params.id)
   const { version, ...rest } = req.body ?? {}
   try {
     const next = writeState(id, rest, typeof version === 'number' ? version : undefined)
@@ -358,7 +374,7 @@ households.put('/:id/state', member(), (req, res) => {
  * וגם שינוי של בן הזוג מחשבון אחר מגיע מיד.
  */
 households.get('/:id/events', member(), (req, res) => {
-  const id = req.params.id
+  const id = pathParam(req.params.id)
   const clientId = String(req.query.clientId ?? '')
 
   res.writeHead(200, {
@@ -379,7 +395,7 @@ households.get('/:id/events', member(), (req, res) => {
 
 /** ייצוא מלא — הבסיס ל"הנתונים שלך שייכים לך" */
 households.get('/:id/export', member(), (req, res) => {
-  const id = req.params.id
+  const id = pathParam(req.params.id)
   const household = getHousehold(id, req.user!.id)!
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader(
@@ -393,7 +409,7 @@ households.get('/:id/export', member(), (req, res) => {
 
 /** ייבוא של גיבוי לתוך משק בית קיים, מחליף את תוכנו */
 households.post('/:id/import', member(), (req, res) => {
-  const id = req.params.id
+  const id = pathParam(req.params.id)
   const state = req.body?.state ?? req.body
   if (!state || typeof state !== 'object') {
     return res.status(400).json({ error: 'קובץ הגיבוי אינו תקין' })
