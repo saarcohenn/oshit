@@ -18,6 +18,14 @@ updates:
         patterns:
           - vite
           - "@vitejs/*"
+      # אותו סיפור ב-react: @types/react-dom דורש @types/react מאותו major,
+      # ו-react-dom חייב להתאים ל-react. פיצול ל-PRs נפרדים מפיל את כולם.
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
       client-minor-and-patch:
         update-types: [minor, patch]
 
