@@ -58,7 +58,11 @@ sudo install -m 755 oshit-update.sh /usr/local/bin/oshit-update
 curl -s http://<SERVER_IP>:8082/api/health
 ```
 
-התשובה הצפויה: `{"ok":true,"version":1}`
+התשובה הצפויה: `{"ok":true,"version":2}`
+
+הבדיקה נוגעת במסד ולא רק בשרת ה-HTTP. אם המסד אינו נגיש היא מחזירה
+`503` עם `{"ok":false}`, וה-healthcheck של compose יסמן את הקונטיינר
+כלא תקין במקום להשאיר אותו "healthy" עם אפליקציה שבורה.
 
 ## שהתמונה תהיה ציבורית
 

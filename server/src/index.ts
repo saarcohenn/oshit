@@ -97,8 +97,25 @@ app.use('/api', (_req, res, next) => {
 
 app.use(attachUser)
 
+/*
+ * בדיקת בריאות שנוגעת באמת במסד.
+ *
+ * קודם הוחזר כאן קבוע, ולכן קונטיינר שהמסד שלו אינו נגיש — קובץ פגום,
+ * הרשאות על ה-volume, או מנהל מסד שנשבר בשדרוג — היה מסומן healthy
+ * וממשיך לקבל תעבורה. השאילתה נוגעת בטבלה אמיתית ולא ב-SELECT 1, כדי
+ * שגם סכמה חסרה תיתפס ולא רק קובץ שלא נפתח.
+ *
+ * כשל מחזיר 503 ולא 500: ה-healthcheck ב-compose בודק r.ok, וקוד 5xx
+ * הוא מה שמסמן את הקונטיינר כלא תקין.
+ */
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, version: 2 })
+  try {
+    db.prepare('SELECT COUNT(*) AS n FROM users').get()
+    res.json({ ok: true, version: 2 })
+  } catch (err) {
+    console.error('בדיקת הבריאות נכשלה — המסד אינו נגיש', err)
+    res.status(503).json({ ok: false, version: 2, error: 'database unavailable' })
+  }
 })
 
 /* ---------------- הזדהות ---------------- */
