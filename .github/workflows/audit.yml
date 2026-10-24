@@ -1,0 +1,80 @@
+name: בדיקת חולשות יומית
+
+# ci.yml מריץ npm audit על כל Pull Request, אבל זה שומר רק על הכניסה.
+# חולשה שמתפרסמת *אחרי* המיזוג יושבת בייצור עד שבמקרה נפתח PR חדש —
+# וזה קרה בפועל עם body-parser (GHSA-27r3-jxmh-p828), שישב בתמונה הרצה
+# עד שהתגלה דרך PR שלא קשור אליו. הריצה היומית סוגרת את הפער.
+#
+# הממצא נפתח כ-issue ולא רק כריצה אדומה, כי ריצה מתוזמנת שנכשלת בשקט
+# היא בדיוק אותה בעיה במסווה אחר.
+
+on:
+  schedule:
+    # 04:17 UTC. דקה לא עגולה בכוונה: בשעה עגולה יש עומס על ה-runners
+    # של GitHub, וריצות מתוזמנות נדחות שם בעשרות דקות.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    # ריצה רק במאגר המקורי — fork לא יפתח issues כאן
+    if: github.repository_owner == 'saarcohenn'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: בדיקת חולשות
+        id: audit
+        run: |
+          # --package-lock-only: בלי התקנה ובלי הרצת סקריפטים של חבילות.
+          # מהיר יותר, ומצמצם את מה שרץ בעבודה מתוזמנת ללא פיקוח.
+          report=''
+          failed=''
+          for dir in client server; do
+            echo "::group::$dir"
+            out="$(npm --prefix "$dir" audit --omit=dev --audit-level=high --package-lock-only 2>&1)" && code=0 || code=$?
+            echo "$out"
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              failed=1
+              report="${report}$(printf '### %s\n\n```\n%s\n```\n\n' "$dir" "$out")"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            {
+              echo 'report<<AUDIT_EOF'
+              echo "$report"
+              echo 'AUDIT_EOF'
+            } >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: פתיחת ממצא
+        if: failure() && steps.audit.outputs.report != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.audit.outputs.report }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create security-audit --color B60205 --description 'ממצא מבדיקת החולשות היומית' --force
+          body="$(printf '%s\nנמצא ב-%s\n\nהריצה: %s\n' "$REPORT" "$(date -u +%Y-%m-%d)" "$RUN_URL")"
+          # issue אחד פתוח בכל רגע. בלי זה, ריצה יומית שנכשלת שבוע
+          # ברציפות הייתה פותחת שבעה issues על אותה חולשה.
+          existing="$(gh issue list --label security-audit --state open --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "חולשה בתלות ייצור — $(date -u +%Y-%m-%d)" --label security-audit --body "$body"
+          fi
