@@ -1,3 +1,5 @@
+// ‎@types/react‎ 19 הסיר את מרחב השמות הגלובלי JSX, והוא מיובא מפורשות
+import type { JSX } from 'react'
 import type { AuthUser, Household } from '../lib/api'
 import { tr, trf, useLang } from '../lib/i18n'
 import { IconBrand, IconLogout, IconSettings } from './Icons'

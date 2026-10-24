@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+// ‎@types/react‎ 19 הסיר את מרחב השמות הגלובלי JSX, והוא מיובא מפורשות
+import { useEffect, useRef, type JSX } from 'react'
 import type { AuthUser, Household } from '../lib/api'
 import { THEME_LABEL, type Theme } from '../lib/theme'
 import { LANGS, setLang, tr, trf, useLang } from '../lib/i18n'
