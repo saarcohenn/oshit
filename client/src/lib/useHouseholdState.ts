@@ -1,6 +1,6 @@
 import { tr } from './i18n'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AppState } from '../types'
+import type { AgentEvent, AppState } from '../types'
 import { api, ConflictError, type Household } from './api'
 import { EMPTY_STATE } from './storage'
 
@@ -141,6 +141,21 @@ export function useHouseholdState() {
    * מנוי לזרם העדכונים. כשמכשיר אחר כותב, מגיעה הודעה עם מספר הגרסה
    * ואנחנו מושכים את המצב החדש — בלי רענון ובלי להמתין לפוקוס.
    */
+  /*
+   * מאזינים לצעדי סוכנים.
+   *
+   * רשימת מנויים ולא state: כל צעד היה מרנדר מחדש את כל האפליקציה, וריצה
+   * אחת מייצרת עשרות צעדים. רק מסך הסוכנים צריך אותם.
+   */
+  const agentListeners = useRef(new Set<(event: AgentEvent) => void>())
+
+  const subscribeAgentEvents = useCallback((listener: (event: AgentEvent) => void) => {
+    agentListeners.current.add(listener)
+    return () => {
+      agentListeners.current.delete(listener)
+    }
+  }, [])
+
   useEffect(() => {
     if (!activeId) return
     let source: EventSource | null = null
@@ -157,6 +172,16 @@ export function useHouseholdState() {
       if (saveTimer.current) return
       setLiveAt(Date.now())
       void loadHousehold(activeId, true)
+    })
+
+    source.addEventListener('agent', (e) => {
+      let event: AgentEvent
+      try {
+        event = JSON.parse((e as MessageEvent).data) as AgentEvent
+      } catch {
+        return // אירוע פגום לא יפיל את הזרם כולו
+      }
+      for (const listener of agentListeners.current) listener(event)
     })
 
     source.onerror = () => {
@@ -262,6 +287,7 @@ export function useHouseholdState() {
     refreshHouseholds,
     pendingLocalImport,
     consumeLocalImport,
+    subscribeAgentEvents,
     reload: () => (activeId ? loadHousehold(activeId) : Promise.resolve()),
   }
 }

@@ -23,6 +23,7 @@ import { applyTheme, loadTheme, type Theme } from './lib/theme'
 import { tr, trf, useLang } from './lib/i18n'
 import ImportPanel from './components/ImportPanel'
 import MovementsPanel from './components/MovementsPanel'
+import AgentsPanel from './components/AgentsPanel'
 import Dashboard from './components/Dashboard'
 import TransactionsTable from './components/TransactionsTable'
 import MerchantsPanel from './components/MerchantsPanel'
@@ -51,6 +52,7 @@ import {
   IconSavings,
   IconTransactions,
   IconHome,
+  IconAgents,
 } from './components/Icons'
 import CategoriesPanel from './components/CategoriesPanel'
 
@@ -62,6 +64,7 @@ type Tab =
   | 'savings'
   | 'transactions'
   | 'movements'
+  | 'agents'
   | 'merchants'
   | 'categories'
   | 'import'
@@ -81,6 +84,7 @@ const VIEW_TABS: TabDef[] = [
   { id: 'savings', label: 'איפה לחסוך', Icon: IconSavings },
   { id: 'transactions', label: 'עסקאות', Icon: IconTransactions },
   { id: 'movements', label: 'עובר ושב', Icon: IconHome },
+  { id: 'agents', label: 'סוכנים', Icon: IconAgents },
 ]
 
 const SETUP_TABS: TabDef[] = [
@@ -184,6 +188,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     refreshHouseholds,
     pendingLocalImport,
     consumeLocalImport,
+    subscribeAgentEvents,
     reload,
   } = useHouseholdState()
 
@@ -771,7 +776,7 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
               {tr('יצירת משק בית')}
             </button>
           </div>
-        ) : !hasData && tab !== 'import' ? (
+        ) : !hasData && tab !== 'import' && tab !== 'agents' ? (
           <div className="empty">
             <h2>{tr('עוד אין נתונים')}</h2>
             <p>{tr('ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.')}</p>
@@ -826,6 +831,13 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
                   setGoalFilter(goalId)
                   setTab('transactions')
                 }}
+              />
+            )}
+            {tab === 'agents' && activeId && (
+              <AgentsPanel
+                householdId={activeId}
+                isOwner={activeHousehold?.role === 'owner'}
+                subscribe={subscribeAgentEvents}
               />
             )}
             {tab === 'movements' && (

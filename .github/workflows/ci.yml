@@ -44,6 +44,10 @@ jobs:
       - name: בדיקת חולשות — שרת
         run: npm --prefix server audit --omit=dev --audit-level=high
 
+      # צינור הסוכנים: הטוקן, הוולידציה והשמירה. רץ על מסד זמני
+      - name: בדיקות — שרת
+        run: npm --prefix server test
+
       - name: בדיקת טיפוסים ובנייה — שרת
         run: npm --prefix server run build
 

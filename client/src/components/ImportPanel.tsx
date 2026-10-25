@@ -313,7 +313,7 @@ export default function ImportPanel({
 
       <div className="card">
         <div className="card-title">{tr('🔒 הנתונים נשארים אצלכם')}</div>
-        <div className="card-sub">{tr('הכול נשמר מקומית בדפדפן הזה בלבד. שום נתון פיננסי לא נשלח לשום שרת. מומלץ לייצא גיבוי מדי פעם — ניקוי היסטוריית הדפדפן ימחק את הנתונים.')}</div>
+        <div className="card-sub">{tr('הכול נשמר בשרת שלכם בלבד, ולא אצל ספק ענן חיצוני. החריג היחיד הוא סוכני Claude: כשהם רצים הם שולחים ל-Anthropic סיכומים בלבד, והפירוט המדויק מופיע במסך "סוכנים". מומלץ לייצא גיבוי מדי פעם.')}</div>
         <div className="toolbar" style={{ marginBottom: 0 }}>
           <button className="btn ghost" onClick={onExport}>{tr('ייצוא גיבוי (JSON)')}</button>
           <button className="btn danger" onClick={onReset}>{tr('מחיקת כל הנתונים')}</button>

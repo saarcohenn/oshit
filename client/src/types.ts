@@ -284,3 +284,48 @@ export interface AppState {
   /** תנועות עובר ושב — ישות נפרדת מעסקאות הכרטיס */
   accountMovements: AccountMovement[]
 }
+
+/* ---------------- סוכנים ---------------- */
+
+/** שלושת הסוכנים. רשימה סגורה גם בשרת — סוכן לא מוכר נדחה שם */
+export type AgentId = 'market' | 'spending' | 'research'
+
+/**
+ * צעד של סוכן. אין כאן סוג של ביצוע או מסחר במכוון: הסוכנים מנתחים
+ * וממליצים, ומי שמבצע הוא האדם.
+ */
+export type AgentEventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert' | 'done' | 'error'
+
+export interface AgentEvent {
+  runId: string
+  agent: AgentId
+  type: AgentEventType
+  /** ISO */
+  at: string
+  text?: string
+  tool?: string
+  data?: unknown
+  /** הדגמה מהממשק — ערכים לדוגמה, לא מצב אמיתי */
+  demo?: boolean
+}
+
+export interface AgentRun {
+  id: string
+  agent: AgentId
+  status: 'running' | 'done' | 'error'
+  startedAt: string
+  finishedAt: string | null
+  summary: string | null
+  inputTokens: number | null
+  outputTokens: number | null
+  demo: boolean
+  events: AgentEvent[]
+}
+
+export interface AgentsSnapshot {
+  /** האם השרת הוגדר עם שירות סוכנים (AGENTS_TOKEN) */
+  configured: boolean
+  /** מתי השירות משך בקשות לאחרונה — סימן חיים */
+  serviceSeenAt: string | null
+  runs: AgentRun[]
+}

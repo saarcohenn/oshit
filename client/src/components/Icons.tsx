@@ -279,6 +279,17 @@ export const IconSettings = ({ size = 17, className }: IconProps) => (
 )
 
 /** חיפוש — זכוכית מגדלת */
+/** ראש של רובוט — לשונית הסוכנים */
+export const IconAgents = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <rect x="5" y="8" width="14" height="11" rx="2" />
+    <path d="M12 8V5" />
+    <circle cx="12" cy="4" r="1" />
+    <path d="M9.5 13h.01M14.5 13h.01" />
+    <path d="M9.5 16h5" />
+  </svg>
+)
+
 export const IconSearch = ({ size = 16, className }: IconProps) => (
   <svg {...base(size, className)}>
     <circle cx="11" cy="11" r="6.5" />

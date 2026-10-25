@@ -223,6 +223,51 @@ CREATE TABLE IF NOT EXISTS account_movements (
   PRIMARY KEY (household_id, id)
 );
 CREATE INDEX IF NOT EXISTS idx_mv_household_date ON account_movements(household_id, date);
+
+/*
+ * סוכני Claude שרצים בקונטיינר נפרד ומדווחים לכאן על כל צעד.
+ *
+ * זמנים נשמרים כ-ISO ולא בפורמט של sqlTime: הם מוצגים ללקוח כמו שהם
+ * וממוינים כמחרוזת, ואינם מושווים מול datetime('now') של SQLite.
+ */
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id            TEXT NOT NULL,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  agent         TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'running',
+  started_at    TEXT NOT NULL,
+  finished_at   TEXT,
+  summary       TEXT,
+  input_tokens  INTEGER,
+  output_tokens INTEGER,
+  -- ריצת הדגמה מהממשק: עוברת באותו צינור, אבל בלי מודל ובלי עלות
+  demo          INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (household_id, id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_recent ON agent_runs(household_id, agent, started_at);
+
+CREATE TABLE IF NOT EXISTS agent_events (
+  seq           INTEGER PRIMARY KEY AUTOINCREMENT,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  run_id        TEXT NOT NULL,
+  agent         TEXT NOT NULL,
+  type          TEXT NOT NULL,
+  at            TEXT NOT NULL,
+  text          TEXT,
+  tool          TEXT,
+  data          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(household_id, run_id);
+
+/* בקשות "הרץ עכשיו" מהממשק. שירות הסוכנים מושך אותן — אין לו פורט פתוח */
+CREATE TABLE IF NOT EXISTS agent_requests (
+  id            TEXT NOT NULL PRIMARY KEY,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  agent         TEXT NOT NULL,
+  requested_at  TEXT NOT NULL,
+  requested_by  TEXT,
+  taken_at      TEXT
+);
 `
 
 db.exec(SCHEMA)
