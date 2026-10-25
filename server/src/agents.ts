@@ -2,6 +2,8 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import express from 'express'
 import { db, uid } from './db.js'
 import { broadcastAgent } from './events.js'
+import { readState, readVersion } from './state.js'
+import { buildSpendingContext } from './agentContext.js'
 
 /**
  * צינור האירועים של סוכני Claude.
@@ -368,6 +370,16 @@ export function agentServiceRouter() {
     if (!result.ok) return res.status(400).json({ error: result.error })
     recordAgentEvent(household, result.event)
     res.status(204).end()
+  })
+
+  /**
+   * ההקשר של סוכן ההוצאות — סיכומים בלבד, כפי שסער החליט.
+   * כל מה שמוחזר כאן מגיע למודל; הגבול עצמו מוגדר ונבדק ב-agentContext.ts.
+   */
+  router.get('/context', (req, res) => {
+    const household = String(req.query.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    res.json(buildSpendingContext(readState(household), readVersion(household)))
   })
 
   router.get('/requests', (req, res) => {

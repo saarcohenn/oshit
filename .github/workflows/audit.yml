@@ -42,7 +42,7 @@ jobs:
           # מהיר יותר, ומצמצם את מה שרץ בעבודה מתוזמנת ללא פיקוח.
           report=''
           failed=''
-          for dir in client server; do
+          for dir in client server agents; do
             echo "::group::$dir"
             out="$(npm --prefix "$dir" audit --omit=dev --audit-level=high --package-lock-only 2>&1)" && code=0 || code=$?
             echo "$out"

@@ -28,6 +28,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/oshit
+  AGENTS_IMAGE: ghcr.io/${{ github.repository_owner }}/oshit-agents
 
 jobs:
   build:
@@ -47,6 +48,11 @@ jobs:
         run: |
           npm --prefix client ci || npm --prefix client install
           npm --prefix client test
+
+      - name: בדיקות — סוכנים
+        run: |
+          npm --prefix agents ci
+          npm --prefix agents test
 
       - uses: docker/setup-buildx-action@v4
 
@@ -92,12 +98,48 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      # שירות הסוכנים — תמונה נפרדת, כדי שהמפתח של Anthropic לא יגיע לאפליקציה
+      - name: תגיות — סוכנים
+        id: agents-meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.AGENTS_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+            type=ref,event=tag
+
+      - name: בנייה ודחיפה — סוכנים
+        id: agents-push
+        uses: docker/build-push-action@v7
+        with:
+          context: agents
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.agents-meta.outputs.tags }}
+          labels: ${{ steps.agents-meta.outputs.labels }}
+          cache-from: type=gha,scope=agents
+          cache-to: type=gha,mode=max,scope=agents
+          provenance: mode=max
+          sbom: true
+
+      - name: חתימת מקור התמונה — סוכנים
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.AGENTS_IMAGE }}
+          subject-digest: ${{ steps.agents-push.outputs.digest }}
+          push-to-registry: true
+
       - name: סיכום
         run: |
-          echo "### נדחפה תמונה חדשה" >> $GITHUB_STEP_SUMMARY
+          echo "### נדחפו תמונות חדשות" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '`${{ env.IMAGE }}:latest`' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "digest: \`${{ steps.push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '`${{ env.AGENTS_IMAGE }}:latest`' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "digest: \`${{ steps.agents-push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "ההומלאב מושך את העדכון בעצמו — אין ל-GitHub גישה לרשת הביתית." >> $GITHUB_STEP_SUMMARY
