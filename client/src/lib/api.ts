@@ -1,5 +1,14 @@
 import { tr, trf } from './i18n'
-import type { AgentEvent, AgentId, AgentsBudget, AgentsSnapshot, AppState } from '../types'
+import type {
+  AgentDef,
+  AgentEvent,
+  AgentId,
+  AgentPortfolio,
+  AgentVersion,
+  AgentsBudget,
+  AgentsSnapshot,
+  AppState,
+} from '../types'
 
 export interface Household {
   id: string
@@ -196,6 +205,65 @@ export const api = {
 
   setAgentsBudget: (id: string, budgetUsd: number | null) =>
     request<AgentsBudget>(`/households/${id}/agents/budget`, { method: 'PUT', body: JSON.stringify({ budgetUsd }) }),
+
+  /* ---- הגדרות הסוכנים ---- */
+
+  createAgent: (id: string, def: AgentDef) =>
+    request<AgentDef>(`/households/${id}/agents/defs`, { method: 'POST', body: JSON.stringify(def) }),
+
+  updateAgent: (id: string, def: AgentDef) =>
+    request<AgentDef>(`/households/${id}/agents/defs/${def.id}`, { method: 'PUT', body: JSON.stringify(def) }),
+
+  deleteAgent: (id: string, agent: AgentId) =>
+    request<AgentDef>(`/households/${id}/agents/defs/${agent}`, { method: 'DELETE' }),
+
+  agentVersions: (id: string, agent: AgentId) =>
+    request<Array<AgentVersion & { def: AgentDef }>>(`/households/${id}/agents/defs/${agent}/versions`),
+
+  revertAgent: (id: string, agent: AgentId, seq: number) =>
+    request<AgentDef>(`/households/${id}/agents/defs/${agent}/revert`, { method: 'POST', body: JSON.stringify({ seq }) }),
+
+  resetAgent: (id: string, agent: AgentId) =>
+    request<AgentDef>(`/households/${id}/agents/defs/${agent}/reset`, { method: 'POST' }),
+
+  saveAgentMemory: (id: string, agent: AgentId, notes: string) =>
+    request<{ notes: string }>(`/households/${id}/agents/defs/${agent}/memory`, { method: 'PUT', body: JSON.stringify({ notes }) }),
+
+  agentMemoryVersions: (id: string, agent: AgentId) =>
+    request<Array<AgentVersion & { notes: string; reason: string }>>(`/households/${id}/agents/defs/${agent}/memory/versions`),
+
+  revertAgentMemory: (id: string, agent: AgentId, seq: number) =>
+    request<{ notes: string }>(`/households/${id}/agents/defs/${agent}/memory/revert`, {
+      method: 'POST',
+      body: JSON.stringify({ seq }),
+    }),
+
+  /* ---- התיק ---- */
+
+  savePortfolio: (id: string, portfolio: AgentPortfolio) =>
+    request<AgentPortfolio>(`/households/${id}/agents/portfolio`, { method: 'PUT', body: JSON.stringify(portfolio) }),
+
+  portfolioVersions: (id: string) =>
+    request<Array<AgentVersion & { portfolio: AgentPortfolio }>>(`/households/${id}/agents/portfolio/versions`),
+
+  revertPortfolio: (id: string, seq: number) =>
+    request<AgentPortfolio>(`/households/${id}/agents/portfolio/revert`, { method: 'POST', body: JSON.stringify({ seq }) }),
+
+  checkSymbols: (id: string) =>
+    request<{ ok: true; existing: boolean }>(`/households/${id}/agents/portfolio/check`, { method: 'POST' }),
+
+  /* ---- טלגרם ---- */
+
+  telegramLinkCode: (id: string, lang: 'he' | 'en') =>
+    request<{ code: string; expiresAt: string }>(`/households/${id}/agents/telegram/link`, {
+      method: 'POST',
+      body: JSON.stringify({ lang }),
+    }),
+
+  setTelegramLang: (id: string, lang: 'he' | 'en') =>
+    request<void>(`/households/${id}/agents/telegram`, { method: 'PUT', body: JSON.stringify({ lang }) }),
+
+  unlinkTelegram: (id: string) => request<void>(`/households/${id}/agents/telegram`, { method: 'DELETE' }),
 
   agentsDemo: (id: string) =>
     request<{ ok: true; alreadyRunning: boolean }>(`/households/${id}/agents/demo`, { method: 'POST' }),

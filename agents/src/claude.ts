@@ -11,10 +11,15 @@ import { addUsage, emptyUsage, type UsageTotals } from './pricing.js'
  * מהמבנה: אין לסוכן כלי שמבצע משהו, אז אין מה לשכוח לנעול.
  */
 
+/** ברירת המחדל. כל סוכן בוחר מודל בהגדרה שלו, מתוך רשימה סגורה בשרת */
 export const MODEL = 'claude-opus-5-5'
-/** תקרת סבבים לריצה. כל סבב הוא קריאה בתשלום; סוכן שלא סיים ב-8 — נתקע */
-const MAX_ITERATIONS = 8
 const MAX_TOKENS = 16_000
+
+/**
+ * fallback בצד השרת לסירוב — רק ב-Opus 5.5. ל-Haiku 5.5 אין fallback כזה,
+ * ובקשה עם הבטא הייתה נכשלת במקום לרוץ.
+ */
+const SERVER_FALLBACK_MODELS = new Set(['claude-opus-5-5'])
 
 export type Emit = (type: EventType, fields?: EventFields) => Promise<void>
 
@@ -37,6 +42,10 @@ export interface AgentDefinition {
   tools: AgentTool[]
   /** כלי שרת של Anthropic, כמו חיפוש ברשת. רצים אצלם, בלי run */
   serverTools?: Anthropic.Beta.BetaToolUnion[]
+  model?: string
+  effort?: 'low' | 'medium' | 'high'
+  /** תקרת סבבים לריצה. כל סבב הוא קריאה בתשלום; סוכן שלא סיים — נתקע */
+  maxIterations?: number
 }
 
 export type Usage = UsageTotals
@@ -61,7 +70,9 @@ const textOf = (message: Anthropic.Beta.BetaMessage) =>
     .trim()
 
 export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Emit): Promise<{ text: string; usage: Usage }> {
-  const usage: Usage = emptyUsage(MODEL)
+  const model = def.model ?? MODEL
+  const maxIterations = def.maxIterations ?? 8
+  const usage: Usage = emptyUsage(model)
 
   const tools = def.tools.map((t) =>
     betaTool({
@@ -81,15 +92,16 @@ export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Em
   )
 
   const runner = client.beta.messages.toolRunner({
-    model: MODEL,
+    model,
     max_tokens: MAX_TOKENS,
-    max_iterations: MAX_ITERATIONS,
-    // ב-Opus 5.5 החשיבה תמיד פעילה; העומק נקבע ב-effort, ו-medium הוא ברירת המחדל שלו
+    max_iterations: maxIterations,
+    // החשיבה אדפטיבית בכל המודלים; העומק נקבע ב-effort שבהגדרת הסוכן
     thinking: { type: 'adaptive' },
-    output_config: { effort: 'medium' },
+    output_config: { effort: def.effort ?? 'medium' },
     // סירוב של המודל עובר בצד השרת למודל חלופי, באותה קריאה
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    ...(SERVER_FALLBACK_MODELS.has(model)
+      ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
+      : {}),
     system: def.system,
     tools: [...tools, ...(def.serverTools ?? [])],
     messages: [{ role: 'user', content: def.prompt }],
@@ -140,7 +152,7 @@ export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Em
       throw new AgentRunError('המודל סירב להשלים את הריצה', usage)
     case 'tool_use':
     case 'pause_turn':
-      throw new AgentRunError(`הסוכן לא סיים אחרי ${MAX_ITERATIONS} סבבים`, usage)
+      throw new AgentRunError(`הסוכן לא סיים אחרי ${maxIterations} סבבים`, usage)
     default:
       throw new AgentRunError(`סיום לא צפוי: ${String(last.stop_reason)}`, usage)
   }

@@ -1,4 +1,5 @@
 import type { Config } from './config.js'
+import type { Portfolio, ServicePayload } from './defs.js'
 import type { UsageTotals } from './pricing.js'
 
 /**
@@ -8,8 +9,9 @@ import type { UsageTotals } from './pricing.js'
  * וכלי הקריאה מושכים את ההקשר. אין כאן אף נתיב שכותב לנתונים הפיננסיים.
  */
 
-export type AgentId = 'market' | 'spending' | 'research'
-export type EventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert' | 'done' | 'error'
+/** מזהה קצר של סוכן — הרשימה במסד של Osh.it, לא כאן */
+export type AgentId = string
+export type EventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert' | 'memory' | 'done' | 'error'
 
 export interface EventFields {
   text?: string
@@ -30,6 +32,8 @@ export interface Budget {
 export interface RunRequest {
   id: string
   agent: AgentId
+  /** run — "הרץ עכשיו"; check_symbols — בדיקת הסמלים בתיק */
+  kind: 'run' | 'check_symbols'
   requestedAt: string
 }
 
@@ -83,6 +87,48 @@ export class Oshit {
   async context<T>(): Promise<T> {
     const res = await this.call('GET', `/api/agents/context?household=${encodeURIComponent(this.config.household)}`)
     return (await res.json()) as T
+  }
+
+  private get q() {
+    return `household=${encodeURIComponent(this.config.household)}`
+  }
+
+  private post(path: string, body: Record<string, unknown>) {
+    return this.call('POST', path, { household: this.config.household, ...body })
+  }
+
+  /** ההגדרות, הזיכרון, התיק והטלגרם — נמשך בכל סבב */
+  async payload(): Promise<ServicePayload> {
+    return (await (await this.call('GET', `/api/agents/defs?${this.q}`)).json()) as ServicePayload
+  }
+
+  async saveMemory(agent: AgentId, runId: string, notes: string, reason: string, reasonEn: string): Promise<void> {
+    await this.post('/api/agents/memory', { agent, runId, notes, reason, reasonEn })
+  }
+
+  async reports(except: AgentId): Promise<unknown> {
+    return (await this.call('GET', `/api/agents/reports?${this.q}&agent=${encodeURIComponent(except)}`)).json()
+  }
+
+  async importPortfolio(portfolio: Portfolio): Promise<{ imported: boolean }> {
+    return (await (await this.post('/api/agents/portfolio/import', { portfolio })).json()) as { imported: boolean }
+  }
+
+  async symbols(results: Array<{ symbol: string; ok: boolean; currency?: string; error?: string }>): Promise<void> {
+    await this.post('/api/agents/symbols', { results })
+  }
+
+  async telegramStatus(botUsername: string | null): Promise<void> {
+    await this.post('/api/agents/telegram/status', { botUsername })
+  }
+
+  /** ‏null — הקוד לא תקף; ההודעה בבוט לא קושרה לשום דבר */
+  async telegramLink(code: string, chatId: number, name: string): Promise<{ lang: 'he' | 'en' } | null> {
+    try {
+      return (await (await this.post('/api/agents/telegram/link', { code, chatId, name })).json()) as { lang: 'he' | 'en' }
+    } catch {
+      return null
+    }
   }
 
   async budget(): Promise<Budget> {

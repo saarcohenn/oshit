@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AgentEvent, AgentId, AgentRun, AgentsSnapshot } from '../types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { AgentDef, AgentEvent, AgentId, AgentRun, AgentsSnapshot } from '../types'
 import { api } from '../lib/api'
 import { getLang, tr, trf, useLang } from '../lib/i18n'
 import VoxelFigure, { type FigureState } from './VoxelFigure'
 import AgentsBudget from './AgentsBudget'
+import AgentManager from './AgentManager'
+import PortfolioEditor from './PortfolioEditor'
+import TelegramCard from './TelegramCard'
 
 interface Props {
   householdId: string
@@ -11,43 +14,15 @@ interface Props {
   subscribe: (listener: (event: AgentEvent) => void) => () => void
 }
 
-const AGENTS: AgentId[] = ['market', 'spending', 'research']
+type Catalog = AgentsSnapshot['catalog']
 
-const NAME: Record<AgentId, string> = {
-  market: 'סוכן השוק',
-  spending: 'סוכן ההוצאות',
-  research: 'סוכן המחקר',
+/** שם בשפת המסך. ריצה של סוכן שנמחק עדיין מוצגת — עם המזהה שלו */
+const nameOf = (defs: AgentDef[], id: AgentId) => {
+  const def = defs.find((d) => d.id === id)
+  return def ? pick(def.name, def.nameEn) : id
 }
 
-const ROLE: Record<AgentId, string> = {
-  market: 'מחירים, ממוצעים, סטופים ורשימת המעקב — מול הכללים שלך',
-  spending: 'תקציבים, חריגות והתאמת חיובי כרטיס',
-  research: 'חדשות ודוחות קרובים לתיק ולרשימת המעקב',
-}
-
-/**
- * מה כל סוכן שולח ל-Anthropic.
- *
- * גלוי במסך ולא קבור בתיעוד: האפליקציה הבטיחה שנתונים פיננסיים לא יוצאים
- * מהשרת, והסוכנים הם החריג היחיד — אז המשתמש צריך לראות בדיוק מה עובר.
- */
-const SENDS: Record<AgentId, string> = {
-  market: 'מחירים ציבוריים, שמות הנכסים ורשימת המעקב, והסטופים והכללים שהגדרת. לא כמויות ולא שווי.',
-  spending:
-    'סכומים לפי קטגוריה וחודש, סכום החיוב לכל כרטיס (ארבע ספרות אחרונות), ופריטים חריגים בלבד (בית עסק וסכום). רשימת העסקאות עצמה לא נשלחת.',
-  research:
-    'שמות הנכסים שבתיק וברשימת המעקב, לחיפוש חדשות. הסוכן קורא דפי אינטרנט שעלולים להכיל טקסט מטעה — ולכן אין לו שום כלי שמבצע פעולה.',
-}
-
-const TOOL_LABEL: Record<string, string> = {
-  get_market_snapshot: 'נתוני שוק',
-  screen_watchlist: 'רשימת מעקב',
-  get_spending_summary: 'סיכום הוצאות',
-  get_flagged_items: 'פריטים חריגים',
-  get_reconciliation: 'התאמת כרטיסים',
-  get_holdings: 'נכסי התיק',
-  web_search: 'חיפוש ברשת',
-}
+const colorOf = (defs: AgentDef[], id: AgentId) => defs.find((d) => d.id === id)?.color ?? '#8a949b'
 
 const TYPE_ICON: Record<AgentEvent['type'], string> = {
   start: '▶️',
@@ -55,6 +30,7 @@ const TYPE_ICON: Record<AgentEvent['type'], string> = {
   tool_call: '🔧',
   finding: '💡',
   alert: '⚠️',
+  memory: '🧠',
   done: '✅',
   error: '❌',
 }
@@ -87,16 +63,17 @@ const STALE_MS = 10 * 60_000
 /** שירות שלא משך בקשות בזמן הזה נחשב מנותק. הוא מושך כל 20 שניות */
 const SERVICE_ALIVE_MS = 90_000
 
-function toolText(e: AgentEvent): string {
-  const label = e.tool ? tr(TOOL_LABEL[e.tool] ?? e.tool) : ''
+function toolText(e: AgentEvent, catalog: Catalog): string {
+  const info = e.tool ? catalog[e.tool as keyof Catalog] : undefined
+  const label = info ? pick(info.label, info.labelEn) : (e.tool ?? '')
   const text = pick(e.text, e.textEn)
   return text ? `${label} · ${text}` : label
 }
 
-function describe(e: AgentEvent): string {
+function describe(e: AgentEvent, catalog: Catalog): string {
   switch (e.type) {
     case 'tool_call':
-      return toolText(e)
+      return toolText(e, catalog)
     case 'thinking':
       return tr('חושב…')
     default:
@@ -110,7 +87,7 @@ function describe(e: AgentEvent): string {
  * רגעים — ממצא, התראה, סיום — נשארים על המסך כמה שניות ואז מתחלפים, כדי
  * שקפיצה של ממצא לא תימשך לנצח אם זה היה הצעד האחרון שנשמר.
  */
-function figureOf(run: AgentRun | undefined, now: number): { state: FigureState; bubble?: string } {
+function figureOf(run: AgentRun | undefined, now: number, catalog: Catalog): { state: FigureState; bubble?: string } {
   const last = run?.events[run.events.length - 1]
   if (!run || !last) return { state: 'idle' }
   const age = now - Date.parse(last.at)
@@ -124,7 +101,9 @@ function figureOf(run: AgentRun | undefined, now: number): { state: FigureState;
     case 'thinking':
       return { state: 'thinking', bubble: tr('חושב…') }
     case 'tool_call':
-      return { state: 'working', bubble: toolText(last) }
+      return { state: 'working', bubble: toolText(last, catalog) }
+    case 'memory':
+      return { state: 'working', bubble: `🧠 ${pick(last.text, last.textEn)}` }
     case 'finding':
       return { state: age < MOMENT_MS ? 'finding' : 'thinking', bubble: pick(last.text, last.textEn) }
     case 'alert':
@@ -226,7 +205,10 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
         setSnapshot((prev) => (prev ? { ...prev, runs: mergeEvent(prev.runs, event) } : prev))
         // היומן המורחב ממשיך לקבל צעדים חיים למעלה, בלי לגדול מעבר לגודל שנבחר
         setLongLog((prev) => (prev ? { ...prev, events: [event, ...prev.events].slice(0, prev.size) } : prev))
-        setAnnounce(`${tr(NAME[event.agent])}: ${describe(event)}`)
+        const current = snapRef.current
+        if (current) setAnnounce(`${nameOf(current.defs, event.agent)}: ${describe(event, current.catalog)}`)
+        // הסוכן עדכן את הזיכרון — טוענים, כדי שהעורך יציג את הגרסה החדשה
+        if (event.type === 'memory') setTimeout(() => void load(), 700)
         /*
          * בסוף ריצה טוענים מחדש: הטוקנים לא עוברים בשידור החי, וצעדים
          * שהוחמצו בזמן ניתוק של הזרם נאספים כאן.
@@ -242,7 +224,16 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
     return () => clearInterval(tick)
   }, [])
 
+  // הקריאה החיה מגיעה מחוץ לרינדור; ה-ref נותן לה את השמות והקטלוג העדכניים
+  const snapRef = useRef(snapshot)
+  useEffect(() => {
+    snapRef.current = snapshot
+  }, [snapshot])
+
   const runs = snapshot?.runs ?? []
+  const defs = snapshot?.defs ?? []
+  const catalog = (snapshot?.catalog ?? {}) as Catalog
+  const agents = defs.filter((d) => d.enabled)
   const latest = useMemo(() => {
     const map = new Map<AgentId, AgentRun>()
     for (const run of runs) if (!map.has(run.agent)) map.set(run.agent, run)
@@ -295,8 +286,8 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
       const result = await api.runAgent(householdId, agent)
       setNotice(
         result.existing
-          ? trf('{name} כבר בתור — הוא יתחיל בסבב הבא.', { name: tr(NAME[agent]) })
-          : trf('{name} יתחיל תוך כ-20 שניות.', { name: tr(NAME[agent]) }),
+          ? trf('{name} כבר בתור — הוא יתחיל בסבב הבא.', { name: nameOf(defs, agent) })
+          : trf('{name} יתחיל תוך כ-20 שניות.', { name: nameOf(defs, agent) }),
       )
     } catch (err) {
       setError((err as Error).message)
@@ -308,7 +299,7 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
       <div className="card">
         <div className="card-title">{tr('סוכנים')}</div>
         <div className="card-sub">
-          {tr('שלושה סוכני Claude שרצים על השרת שלכם. הם מנתחים ומסכמים — לעולם לא מבצעים פעולה, ואין להם גישה לחשבון המסחר.')}
+          {tr('סוכני Claude שרצים על השרת שלכם. הם מנתחים ומסכמים — לעולם לא מבצעים פעולה, ואין להם גישה לחשבון המסחר.')}
         </div>
 
         <div className="agents-status" role="status">
@@ -334,24 +325,27 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
         {notice && <div className="notice">{notice}</div>}
 
         <div className="agents-stage" style={{ marginTop: 14 }}>
-          {AGENTS.map((agent) => {
+          {agents.map((def) => {
+            const agent = def.id
             const run = latest.get(agent)
-            const figure = figureOf(run, now)
+            const figure = figureOf(run, now, catalog)
             const busy = run?.status === 'running'
+            const name = pick(def.name, def.nameEn)
             return (
               <div className="agent-slot" key={agent}>
                 <VoxelFigure
-                  agent={agent}
+                  color={def.color}
+                  emoji={def.emoji}
                   state={figure.state}
                   bubble={figure.bubble}
-                  label={trf('{name} — {state}', { name: tr(NAME[agent]), state: tr(STATE_LABEL[figure.state]) })}
+                  label={trf('{name} — {state}', { name, state: tr(STATE_LABEL[figure.state]) })}
                 />
                 <div className="agent-slot-name">
-                  {tr(NAME[agent])}
+                  {name}
                   {/* גם אחרי הסיום: הבועה עדיין מציגה ערכים לדוגמה, ואסור שייראו אמיתיים */}
                   {run?.demo && <span className="demo-tag">{tr('הדגמה')}</span>}
                 </div>
-                <div className="agent-slot-role">{tr(ROLE[agent])}</div>
+                <div className="agent-slot-role">{pick(def.role, def.roleEn)}</div>
                 {isOwner && (
                   <div className="agent-slot-actions">
                     <button
@@ -388,14 +382,15 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
       <div className="card">
         <div className="card-title">{tr('ריצה אחרונה')}</div>
         <div className="agent-runs">
-          {AGENTS.map((agent) => {
+          {agents.map((def) => {
+            const agent = def.id
             const run = latest.get(agent)
             const cost = run ? costOf(run) : null
             return (
               <div className="agent-run" key={agent}>
                 <div className="agent-run-head">
-                  <span className={`agent-swatch ${agent}`} />
-                  {tr(NAME[agent])}
+                  <span className="agent-swatch" style={{ background: def.color }} />
+                  {pick(def.name, def.nameEn)}
                   {run?.demo && <span className="demo-tag">{tr('הדגמה')}</span>}
                 </div>
                 {!run ? (
@@ -435,7 +430,8 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
           householdId={householdId}
           isOwner={isOwner}
           budget={snapshot.budget}
-          agentName={(agent) => tr(NAME[agent] ?? agent)}
+          agentName={(agent) => nameOf(defs, agent)}
+          agentColor={(agent) => colorOf(defs, agent)}
           onChange={(budget) => setSnapshot((prev) => (prev ? { ...prev, budget } : prev))}
         />
       )}
@@ -476,12 +472,12 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
               <li key={`${eventKey(e)}-${i}`}>
                 <time dateTime={e.at}>{timeOf(e.at)}</time>
                 <span className="agent-feed-who">
-                  <span className={`agent-swatch ${e.agent}`} />
-                  {tr(NAME[e.agent])}
+                  <span className="agent-swatch" style={{ background: colorOf(defs, e.agent) }} />
+                  {nameOf(defs, e.agent)}
                 </span>
                 <span className="agent-feed-text">
                   <span aria-hidden="true">{TYPE_ICON[e.type]} </span>
-                  {describe(e)}
+                  {describe(e, catalog)}
                   {e.demo && <span className="demo-tag">{tr('הדגמה')}</span>}
                 </span>
               </li>
@@ -498,13 +494,46 @@ export default function AgentsPanel({ householdId, isOwner, subscribe }: Props) 
           {tr('כדי לנתח, כל סוכן שולח למודל רק את מה שמפורט כאן. ההחלטה מה לעשות עם הממצאים — שלכם.')}
         </div>
         <ul className="import-summary">
-          {AGENTS.map((agent) => (
-            <li key={agent}>
-              <strong>{tr(NAME[agent])}</strong> — {tr(SENDS[agent])}
+          {agents.map((def) => (
+            <li key={def.id}>
+              <strong>{pick(def.name, def.nameEn)}</strong>
+              {def.tools.length ? (
+                <ul>
+                  {def.tools.map((t) => (
+                    <li key={t}>
+                      {catalog[t] ? `${pick(catalog[t].label, catalog[t].labelEn)}: ${pick(catalog[t].sends, catalog[t].sendsEn)}` : t}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                ` — ${tr('בלי כלים: רק ההנחיות שלו')}`
+              )}
             </li>
           ))}
         </ul>
       </div>
+
+      {snapshot && (
+        <>
+          <AgentManager
+            householdId={householdId}
+            isOwner={isOwner}
+            defs={defs}
+            catalog={catalog}
+            memory={snapshot.memory}
+            onChanged={load}
+          />
+          <PortfolioEditor
+            householdId={householdId}
+            isOwner={isOwner}
+            portfolio={snapshot.portfolio}
+            symbolCheck={snapshot.symbolCheck}
+            serviceAlive={alive}
+            onChanged={load}
+          />
+          <TelegramCard householdId={householdId} isOwner={isOwner} telegram={snapshot.telegram} onChanged={load} />
+        </>
+      )}
     </div>
   )
 }

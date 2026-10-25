@@ -4,6 +4,20 @@ import { db, uid } from './db.js'
 import { broadcastAgent } from './events.js'
 import { readState, readVersion } from './state.js'
 import { buildSpendingContext } from './agentContext.js'
+import {
+  BUILTIN_IDS,
+  agentExists,
+  allAgentMemory,
+  completeTelegramLink,
+  ensureBuiltins,
+  getPortfolio,
+  importPortfolio,
+  latestReports,
+  listAgentDefs,
+  saveAgentMemory,
+  saveSymbolCheck,
+  telegramLink,
+} from './agentDefs.js'
 
 /**
  * צינור האירועים של סוכני Claude.
@@ -16,10 +30,17 @@ import { buildSpendingContext } from './agentContext.js'
  * (AGENTS_TOKEN), והאפליקציה עצמה לעולם לא פונה למודל.
  */
 
-export const AGENT_IDS = ['market', 'spending', 'research'] as const
-export type AgentId = (typeof AGENT_IDS)[number]
+/**
+ * סוכן מזוהה במזהה קצר. הרשימה עצמה במסד (agentDefs.ts) — סער מוסיף סוכנים
+ * מהמסך — ולכן כאן נבדקת רק הצורה, וקיום הסוכן נבדק בנתיב מול המסד.
+ */
+export type AgentId = string
+export const AGENT_SLUG = /^[a-z][a-z0-9-]{1,30}$/
+/** הסוכנים של ההדגמה — תמיד קיימים, כי הם נזרעים בכל משק בית */
+const DEMO_AGENTS = BUILTIN_IDS
 
-export const EVENT_TYPES = ['start', 'thinking', 'tool_call', 'finding', 'alert', 'done', 'error'] as const
+/** memory — הסוכן עדכן את הזיכרון של עצמו. מוצג ביומן, כדי ששינוי לא יעבור בשקט */
+export const EVENT_TYPES = ['start', 'thinking', 'tool_call', 'finding', 'alert', 'memory', 'done', 'error'] as const
 export type AgentEventType = (typeof EVENT_TYPES)[number]
 
 const TERMINAL: AgentEventType[] = ['done', 'error']
@@ -99,7 +120,7 @@ export function validateAgentEvent(body: unknown): Validation {
   const b = (body ?? {}) as Record<string, unknown>
   const runId = String(b.runId ?? '')
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(runId)) return { ok: false, error: 'runId לא תקין' }
-  if (!AGENT_IDS.includes(b.agent as AgentId)) return { ok: false, error: 'סוכן לא מוכר' }
+  if (!AGENT_SLUG.test(String(b.agent ?? ''))) return { ok: false, error: 'סוכן לא מוכר' }
   if (!EVENT_TYPES.includes(b.type as AgentEventType)) return { ok: false, error: 'סוג אירוע לא מוכר' }
 
   const event: AgentEventInput = { runId, agent: b.agent as AgentId, type: b.type as AgentEventType }
@@ -450,24 +471,36 @@ export function agentServiceSeenAt(householdId: string): string | null {
   return serviceSeenAt.get(householdId) ?? null
 }
 
+/** שם הבוט בטלגרם, כפי שהשירות דיווח. בזיכרון — הטוקן של הבוט לא מגיע לכאן */
+const telegramBot = new Map<string, string>()
+
+export function agentTelegramBot(householdId: string): string | null {
+  return telegramBot.get(householdId) ?? null
+}
+
 export type EnqueueResult =
   | { ok: true; id: string; existing: boolean }
   | { ok: false; reason: 'not_configured' }
 
-/** בקשה פתוחה אחת לכל סוכן: לחיצה כפולה לא תריץ ותחייב פעמיים */
-export function enqueueRun(householdId: string, agent: AgentId, userId: string): EnqueueResult {
+export type RequestKind = 'run' | 'check_symbols'
+
+/**
+ * בקשה פתוחה אחת לכל סוכן ולכל סוג: לחיצה כפולה לא תריץ ותחייב פעמיים.
+ * "בדוק סמלים" נכנס לאותו תור — לשירות אין פורט פתוח, הוא רק מושך.
+ */
+export function enqueueRun(householdId: string, agent: AgentId, userId: string, kind: RequestKind = 'run'): EnqueueResult {
   if (!agentsConfigured()) return { ok: false, reason: 'not_configured' }
   const pending = db
     .prepare(
-      `SELECT id FROM agent_requests WHERE household_id = ? AND agent = ? AND taken_at IS NULL`,
+      `SELECT id FROM agent_requests WHERE household_id = ? AND agent = ? AND kind = ? AND taken_at IS NULL`,
     )
-    .get(householdId, agent) as { id: string } | undefined
+    .get(householdId, agent, kind) as { id: string } | undefined
   if (pending) return { ok: true, id: pending.id, existing: true }
   const id = uid('rq_')
   db.prepare(
-    `INSERT INTO agent_requests (id, household_id, agent, requested_at, requested_by)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, householdId, agent, new Date().toISOString(), userId)
+    `INSERT INTO agent_requests (id, household_id, agent, requested_at, requested_by, kind)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, householdId, agent, new Date().toISOString(), userId, kind)
   return { ok: true, id, existing: false }
 }
 
@@ -513,7 +546,8 @@ export function startDemo(householdId: string): boolean {
   if (demoRunning.has(householdId)) return false
   demoRunning.add(householdId)
   const stamp = Date.now().toString(36)
-  const runIds = Object.fromEntries(AGENT_IDS.map((a) => [a, `demo_${a}_${stamp}`])) as Record<AgentId, string>
+  ensureBuiltins(householdId)
+  const runIds = Object.fromEntries(DEMO_AGENTS.map((a) => [a, `demo_${a}_${stamp}`])) as Record<AgentId, string>
   for (const step of DEMO_SCRIPT) {
     setTimeout(() => {
       // משק בית שנמחק באמצע ההדגמה — אין לאן לכתוב
@@ -551,8 +585,91 @@ export function agentServiceRouter() {
     if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
     const result = validateAgentEvent(req.body)
     if (!result.ok) return res.status(400).json({ error: result.error })
+    if (!agentExists(household, result.event.agent)) return res.status(400).json({ error: 'סוכן לא מוכר' })
     recordAgentEvent(household, result.event)
     res.status(204).end()
+  })
+
+  /**
+   * כל מה שהשירות צריך כדי לרוץ: ההגדרות, הזיכרון של כל סוכן, התיק, וקישור
+   * הטלגרם. נמשך בכל סבב, ולכן סוכן שנוסף במסך רץ בלי פריסה ובלי הפעלה מחדש.
+   */
+  router.get('/defs', (req, res) => {
+    const household = String(req.query.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const telegram = telegramLink(household)
+    res.json({
+      defs: listAgentDefs(household),
+      memory: allAgentMemory(household),
+      portfolio: getPortfolio(household),
+      telegram: telegram ? { chatId: telegram.chatId, lang: telegram.lang } : null,
+    })
+  })
+
+  /**
+   * הכלי היחיד שכותב: הסוכן מעדכן את הזיכרון של עצמו, ורק אותו. כל עדכון
+   * נרשם ביומן כאירוע memory עם הסיבה, כדי שסער יראה וישחזר אם צריך.
+   */
+  router.post('/memory', (req, res) => {
+    const household = String(req.body?.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const agent = String(req.body?.agent ?? '')
+    const runId = String(req.body?.runId ?? '')
+    if (!AGENT_SLUG.test(agent) || !/^[A-Za-z0-9_-]{1,64}$/.test(runId)) return res.status(400).json({ error: 'בקשה לא תקינה' })
+    const result = saveAgentMemory(household, agent, req.body?.notes, req.body?.reason, 'agent')
+    if (!result.ok) return res.status(400).json({ error: result.error })
+    const reason = String(req.body?.reason ?? '').slice(0, 200)
+    recordAgentEvent(household, {
+      runId,
+      agent,
+      type: 'memory',
+      text: reason || 'עדכן את הזיכרון',
+      ...(typeof req.body?.reasonEn === 'string' ? { textEn: req.body.reasonEn.slice(0, 200) } : { textEn: 'Updated its memory' }),
+    })
+    res.json({ ok: true, length: result.notes.length })
+  })
+
+  /** הדוחות האחרונים של הסוכנים האחרים — לכלי read_agent_reports */
+  router.get('/reports', (req, res) => {
+    const household = String(req.query.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    res.json(latestReports(household, String(req.query.agent ?? '')))
+  })
+
+  /** ייבוא חד-פעמי של קובץ התיק הישן. תיק שכבר נערך במסך לא נדרס */
+  router.post('/portfolio/import', (req, res) => {
+    const household = String(req.body?.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const result = importPortfolio(household, req.body?.portfolio)
+    if (!result.ok) return res.status(result.status).json({ error: result.error })
+    res.json({ imported: result.imported })
+  })
+
+  router.post('/symbols', (req, res) => {
+    const household = String(req.body?.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const check = saveSymbolCheck(household, req.body)
+    if (!check) return res.status(400).json({ error: 'תוצאות לא תקינות' })
+    res.status(204).end()
+  })
+
+  /** השירות מדווח מה שם הבוט, כדי שהמסך יגיד לאן לשלוח את הקוד */
+  router.post('/telegram/status', (req, res) => {
+    const household = String(req.body?.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const bot = String(req.body?.botUsername ?? '')
+    if (bot && /^[A-Za-z0-9_]{3,64}$/.test(bot)) telegramBot.set(household, bot)
+    else telegramBot.delete(household)
+    res.status(204).end()
+  })
+
+  /** הודעה בבוט שנראית כמו קוד. רק קוד תקף של משק הבית מקשר את הצ'אט */
+  router.post('/telegram/link', (req, res) => {
+    const household = String(req.body?.household ?? '')
+    if (!householdExists(household)) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    const link = completeTelegramLink(household, req.body?.code, req.body?.chatId, req.body?.name)
+    if (!link) return res.status(404).json({ error: 'קוד לא תקף' })
+    res.json({ ok: true, lang: link.lang })
   })
 
   /**
@@ -579,7 +696,7 @@ export function agentServiceRouter() {
     serviceSeenAt.set(household, new Date().toISOString())
     const pending = db
       .prepare(
-        `SELECT id, agent, requested_at AS requestedAt FROM agent_requests
+        `SELECT id, agent, kind, requested_at AS requestedAt FROM agent_requests
          WHERE household_id = ? AND taken_at IS NULL ORDER BY requested_at ASC`,
       )
       .all(household)

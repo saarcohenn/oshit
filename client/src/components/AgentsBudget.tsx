@@ -8,6 +8,7 @@ interface Props {
   isOwner: boolean
   budget: Budget
   agentName: (agent: AgentId) => string
+  agentColor: (agent: AgentId) => string
   onChange: (budget: Budget) => void
 }
 
@@ -29,7 +30,7 @@ function modelName(model: string): string {
  * מפתח ניהול של Anthropic. זו הערכה לפי המחירון; תקרת ההוצאה ב-Console
  * נשארת הבלם האחרון.
  */
-export default function AgentsBudget({ householdId, isOwner, budget, agentName, onChange }: Props) {
+export default function AgentsBudget({ householdId, isOwner, budget, agentName, agentColor, onChange }: Props) {
   const [draft, setDraft] = useState(budget.budgetUsd?.toString() ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -94,7 +95,7 @@ export default function AgentsBudget({ householdId, isOwner, budget, agentName, 
           <ul>
             {budget.byAgent.map((row) => (
               <li key={row.agent}>
-                <span className={`agent-swatch ${row.agent}`} />
+                <span className="agent-swatch" style={{ background: agentColor(row.agent) }} />
                 <span>{agentName(row.agent)}</span>
                 <span className="dim">{trf('{n} ריצות', { n: row.runs })}</span>
                 <strong>{usd(row.usd)}</strong>

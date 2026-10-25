@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { SCHEDULES, isDue, wallClock } from './schedule.js'
+import { isDue, wallClock, type Schedule } from './schedule.js'
+
+// לוחות הזמנים של הסוכנים המובנים, כפי שהם נזרעים בשרת
+const SCHEDULES: Record<string, Schedule> = {
+  market: { days: [2, 3, 4, 5, 6], hour: 8, minute: 41 },
+  spending: { days: [0, 1, 2, 3, 4, 5, 6], hour: 7, minute: 30 },
+  research: { days: [0], hour: 8, minute: 22 },
+}
 
 describe('שעון ישראל', () => {
   it('שעון חורף: UTC+2', () => {

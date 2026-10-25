@@ -287,14 +287,14 @@ export interface AppState {
 
 /* ---------------- סוכנים ---------------- */
 
-/** שלושת הסוכנים. רשימה סגורה גם בשרת — סוכן לא מוכר נדחה שם */
-export type AgentId = 'market' | 'spending' | 'research'
+/** מזהה קצר של סוכן. הרשימה במסד — סער מוסיף סוכנים מהמסך */
+export type AgentId = string
 
 /**
  * צעד של סוכן. אין כאן סוג של ביצוע או מסחר במכוון: הסוכנים מנתחים
  * וממליצים, ומי שמבצע הוא האדם.
  */
-export type AgentEventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert' | 'done' | 'error'
+export type AgentEventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert' | 'memory' | 'done' | 'error'
 
 export interface AgentEvent {
   runId: string
@@ -339,11 +339,105 @@ export interface AgentsBudget {
   byModel: Array<{ model: string; usd: number; runs: number }>
 }
 
+export type AgentToolId =
+  | 'get_market_snapshot'
+  | 'screen_watchlist'
+  | 'get_holdings'
+  | 'get_spending_summary'
+  | 'get_flagged_items'
+  | 'get_reconciliation'
+  | 'web_search'
+  | 'read_agent_reports'
+  | 'update_memory'
+
+export interface AgentToolInfo {
+  label: string
+  labelEn: string
+  /** מה הכלי שולח ל-Anthropic */
+  sends: string
+  sendsEn: string
+}
+
+export interface AgentSchedule {
+  /** 0 = ראשון */
+  days: number[]
+  hour: number
+  minute: number
+}
+
+/** סוכן כפי שהוא מוגדר במסד — נערך במסך. הגבולות מצורפים בשרת ואינם חלק מכאן */
+export interface AgentDef {
+  id: AgentId
+  name: string
+  nameEn: string
+  role: string
+  roleEn: string
+  emoji: string
+  color: string
+  instructions: string
+  tools: AgentToolId[]
+  schedule: AgentSchedule | null
+  model: 'claude-opus-5-5' | 'claude-sonnet-5-5' | 'claude-haiku-5-5'
+  effort: 'low' | 'medium' | 'high'
+  maxIterations: number
+  maxSearches: number
+  notify: 'alerts' | 'all' | 'none'
+  enabled: boolean
+  builtin: boolean
+}
+
+export interface AgentHolding {
+  name: string
+  symbol: string | null
+  currency: string
+  stop?: number
+  stopLimit?: number
+  note?: string
+}
+
+export interface AgentWatchItem {
+  name: string
+  symbol: string
+  note?: string
+}
+
+export interface AgentPortfolio {
+  benchmark: { name: string; symbol: string }
+  holdings: AgentHolding[]
+  watchlist: AgentWatchItem[]
+  rules: string
+}
+
+export interface AgentSymbolCheck {
+  checkedAt: string
+  results: Array<{ symbol: string; ok: boolean; currency?: string; error?: string }>
+}
+
+export interface AgentsTelegram {
+  /** שם הבוט, כפי שהשירות דיווח. ‏null — אין בוט מוגדר בשרת */
+  bot: string | null
+  linked: { name: string; lang: 'he' | 'en'; linkedAt: string } | null
+  /** קוד קישור פתוח — לבעלים בלבד */
+  pending: { code: string; expiresAt: string } | null
+}
+
+export interface AgentVersion {
+  seq: number
+  savedAt: string
+  savedBy: string
+}
+
 export interface AgentsSnapshot {
   /** האם השרת הוגדר עם שירות סוכנים (AGENTS_TOKEN) */
   configured: boolean
   /** מתי השירות משך בקשות לאחרונה — סימן חיים */
   serviceSeenAt: string | null
+  defs: AgentDef[]
+  catalog: Record<AgentToolId, AgentToolInfo>
+  memory: Record<AgentId, string>
   runs: AgentRun[]
   budget: AgentsBudget
+  portfolio: AgentPortfolio | null
+  symbolCheck: AgentSymbolCheck | null
+  telegram: AgentsTelegram
 }
