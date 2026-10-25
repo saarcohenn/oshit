@@ -319,7 +319,63 @@ CREATE TABLE IF NOT EXISTS agent_settings (
   value         TEXT NOT NULL,
   PRIMARY KEY (household_id, key)
 );
+
+-- הגדרת סוכן כ-JSON אחד: נבדקת בשלמותה בכל שמירה (agentDefs.ts), ונשמרת כגרסה
+CREATE TABLE IF NOT EXISTS agent_defs (
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  id            TEXT NOT NULL,
+  def           TEXT NOT NULL,
+  builtin       INTEGER NOT NULL DEFAULT 0,
+  position      INTEGER NOT NULL DEFAULT 0,
+  updated_at    TEXT NOT NULL,
+  PRIMARY KEY (household_id, id)
+);
+CREATE TABLE IF NOT EXISTS agent_def_versions (
+  seq           INTEGER PRIMARY KEY AUTOINCREMENT,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  agent_id      TEXT NOT NULL,
+  def           TEXT NOT NULL,
+  saved_at      TEXT NOT NULL,
+  saved_by      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_agent_def_versions ON agent_def_versions(household_id, agent_id, seq);
+
+-- הזיכרון של כל סוכן: טקסט חופשי שהוא כותב לעצמו, וכל שינוי נשמר עם סיבה
+CREATE TABLE IF NOT EXISTS agent_memory (
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  agent_id      TEXT NOT NULL,
+  notes         TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  PRIMARY KEY (household_id, agent_id)
+);
+CREATE TABLE IF NOT EXISTS agent_memory_versions (
+  seq           INTEGER PRIMARY KEY AUTOINCREMENT,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  agent_id      TEXT NOT NULL,
+  notes         TEXT NOT NULL,
+  reason        TEXT,
+  saved_at      TEXT NOT NULL,
+  saved_by      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_versions ON agent_memory_versions(household_id, agent_id, seq);
+
+-- התיק: נכסים, סטופים, רשימת מעקב וכללים. לא במאגר הציבורי — כאן, במסד של סער
+CREATE TABLE IF NOT EXISTS agent_portfolio (
+  household_id  TEXT NOT NULL PRIMARY KEY REFERENCES households(id) ON DELETE CASCADE,
+  doc           TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agent_portfolio_versions (
+  seq           INTEGER PRIMARY KEY AUTOINCREMENT,
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  doc           TEXT NOT NULL,
+  saved_at      TEXT NOT NULL,
+  saved_by      TEXT
+);
 `)
+
+// "הרץ עכשיו" או "בדוק סמלים" — שני סוגי בקשות באותו תור
+addColumnIfMissing('agent_requests', 'kind', "TEXT NOT NULL DEFAULT 'run'")
 
 /**
  * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.

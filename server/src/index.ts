@@ -11,12 +11,12 @@ import {
 import { readState, readVersion, VersionConflict, writeState } from './state.js'
 import { broadcastVersion, connectedCount, subscribe } from './events.js'
 import {
-  AGENT_IDS,
   agentBudget,
   agentLog,
   agentLogText,
   agentServiceRouter,
   agentServiceSeenAt,
+  agentTelegramBot,
   agentsConfigured,
   enqueueRun,
   listAgentRuns,
@@ -24,6 +24,30 @@ import {
   startDemo,
   type AgentId,
 } from './agents.js'
+import {
+  TOOL_CATALOG,
+  agentDefVersions,
+  agentMemoryVersions,
+  allAgentMemory,
+  deleteAgentDef,
+  getAgentDef,
+  getPortfolio,
+  listAgentDefs,
+  pendingTelegramCode,
+  portfolioVersions,
+  resetBuiltin,
+  revertAgentDef,
+  revertAgentMemory,
+  revertPortfolio,
+  saveAgentDef,
+  saveAgentMemory,
+  savePortfolio,
+  setTelegramLang,
+  startTelegramLink,
+  symbolCheck,
+  telegramLink,
+  unlinkTelegram,
+} from './agentDefs.js'
 import {
   attachUser,
   clearAttempts,
@@ -460,15 +484,125 @@ households.post('/:id/import', member(), (req, res) => {
 /** נתיבים לשירות הסוכנים בלבד — טוקן, לא עוגיית משתמש */
 app.use('/api/agents', agentServiceRouter())
 
-/** הריצות האחרונות, ומצב החיבור של השירות, לטעינה הראשונה של המסך */
+/**
+ * כל מה שהמסך צריך בטעינה אחת: הסוכנים והגדרותיהם, הזיכרון, הריצות, התקציב,
+ * התיק, ומצב הטלגרם. קוד הקישור לטלגרם מוצג רק לבעלים — מי שמחזיק אותו
+ * יכול לחבר צ'אט שיקבל את ההתראות.
+ */
 households.get('/:id/agents', member(), (req, res) => {
   const id = pathParam(req.params.id)
+  const owner = roleOf(id, req.user!.id) === 'owner'
+  const telegram = telegramLink(id)
   res.json({
     configured: agentsConfigured(),
     serviceSeenAt: agentServiceSeenAt(id),
+    defs: listAgentDefs(id),
+    catalog: TOOL_CATALOG,
+    memory: allAgentMemory(id),
     runs: listAgentRuns(id),
     budget: agentBudget(id),
+    portfolio: getPortfolio(id),
+    symbolCheck: symbolCheck(id),
+    telegram: {
+      bot: agentTelegramBot(id),
+      linked: telegram ? { name: telegram.name, lang: telegram.lang, linkedAt: telegram.linkedAt } : null,
+      pending: owner ? pendingTelegramCode(id) : null,
+    },
   })
+})
+
+/* ---- הגדרות הסוכנים: יצירה, עריכה, גרסאות. עריכה לבעלים בלבד ---- */
+
+const sendSave = (res: express.Response, result: { ok: true } | { ok: false; status: number; error: string }, body: unknown) =>
+  result.ok ? res.json(body) : res.status(result.status).json({ error: result.error })
+
+households.post('/:id/agents/defs', member('owner'), (req, res) => {
+  const result = saveAgentDef(pathParam(req.params.id), req.body, req.user!.id, true)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.put('/:id/agents/defs/:agent', member('owner'), (req, res) => {
+  const result = saveAgentDef(pathParam(req.params.id), { ...req.body, id: pathParam(req.params.agent) }, req.user!.id, false)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.delete('/:id/agents/defs/:agent', member('owner'), (req, res) => {
+  const result = deleteAgentDef(pathParam(req.params.id), pathParam(req.params.agent), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.get('/:id/agents/defs/:agent/versions', member(), (req, res) => {
+  res.json(agentDefVersions(pathParam(req.params.id), pathParam(req.params.agent)))
+})
+
+households.post('/:id/agents/defs/:agent/revert', member('owner'), (req, res) => {
+  const result = revertAgentDef(pathParam(req.params.id), pathParam(req.params.agent), Number(req.body?.seq), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.post('/:id/agents/defs/:agent/reset', member('owner'), (req, res) => {
+  const result = resetBuiltin(pathParam(req.params.id), pathParam(req.params.agent), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+/* ---- הזיכרון של סוכן: צפייה, עריכה ושחזור ---- */
+
+households.put('/:id/agents/defs/:agent/memory', member('owner'), (req, res) => {
+  const result = saveAgentMemory(pathParam(req.params.id), pathParam(req.params.agent), req.body?.notes, 'נערך במסך', req.user!.id)
+  if (!result.ok) return res.status(400).json({ error: result.error })
+  res.json({ notes: result.notes })
+})
+
+households.get('/:id/agents/defs/:agent/memory/versions', member(), (req, res) => {
+  res.json(agentMemoryVersions(pathParam(req.params.id), pathParam(req.params.agent)))
+})
+
+households.post('/:id/agents/defs/:agent/memory/revert', member('owner'), (req, res) => {
+  const result = revertAgentMemory(pathParam(req.params.id), pathParam(req.params.agent), Number(req.body?.seq), req.user!.id)
+  if (!result.ok) return res.status(404).json({ error: result.error })
+  res.json({ notes: result.notes })
+})
+
+/* ---- התיק ---- */
+
+households.put('/:id/agents/portfolio', member('owner'), (req, res) => {
+  const result = savePortfolio(pathParam(req.params.id), req.body, req.user!.id)
+  if (!result.ok) return res.status(result.status).json({ error: result.error })
+  res.json(result.portfolio)
+})
+
+households.get('/:id/agents/portfolio/versions', member(), (req, res) => {
+  res.json(portfolioVersions(pathParam(req.params.id)))
+})
+
+households.post('/:id/agents/portfolio/revert', member('owner'), (req, res) => {
+  const result = revertPortfolio(pathParam(req.params.id), Number(req.body?.seq), req.user!.id)
+  if (!result.ok) return res.status(result.status).json({ error: result.error })
+  res.json(result.portfolio)
+})
+
+/** בדיקת הסמלים נעשית בשירות הסוכנים — רק לו יש גישה החוצה למקור המחירים */
+households.post('/:id/agents/portfolio/check', member('owner'), (req, res) => {
+  const result = enqueueRun(pathParam(req.params.id), 'symbols', req.user!.id, 'check_symbols')
+  if (!result.ok) return res.status(503).json({ error: 'שירות הסוכנים לא מוגדר בשרת הזה' })
+  res.status(202).json(result)
+})
+
+/* ---- טלגרם ---- */
+
+households.post('/:id/agents/telegram/link', member('owner'), (req, res) => {
+  const lang = req.body?.lang === 'en' ? 'en' : 'he'
+  res.json(startTelegramLink(pathParam(req.params.id), lang))
+})
+
+households.put('/:id/agents/telegram', member('owner'), (req, res) => {
+  setTelegramLang(pathParam(req.params.id), req.body?.lang === 'en' ? 'en' : 'he')
+  res.status(204).end()
+})
+
+households.delete('/:id/agents/telegram', member('owner'), (req, res) => {
+  unlinkTelegram(pathParam(req.params.id))
+  res.status(204).end()
 })
 
 /** היומן — 50, 250 או 1000 הצעדים האחרונים */
@@ -514,7 +648,9 @@ households.post('/:id/agents/demo', member('owner'), (req, res) => {
  */
 households.post('/:id/agents/:agent/run', member('owner'), (req, res) => {
   const agent = pathParam(req.params.agent) as AgentId
-  if (!AGENT_IDS.includes(agent)) return res.status(404).json({ error: 'סוכן לא מוכר' })
+  const def = getAgentDef(pathParam(req.params.id), agent)
+  if (!def) return res.status(404).json({ error: 'סוכן לא מוכר' })
+  if (!def.enabled) return res.status(400).json({ error: 'הסוכן כבוי' })
   const result = enqueueRun(pathParam(req.params.id), agent, req.user!.id)
   // 503 ולא 409: הלקוח מפרש כל 409 כהתנגשות גרסאות
   if (!result.ok) return res.status(503).json({ error: 'שירות הסוכנים לא מוגדר בשרת הזה' })

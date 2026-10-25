@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from 'react'
-import type { AgentId } from '../types'
 
 /**
  * דמות "מפוסלת" של סוכן, בסגנון Minecraft — CSS תלת-ממדי בלבד.
@@ -54,10 +53,11 @@ function Box({ w, h, d, x, y, className, front }: BoxProps) {
   )
 }
 
-const BADGE: Record<AgentId, string> = { market: '📈', spending: '💳', research: '🔎' }
-
 interface Props {
-  agent: AgentId
+  /** צבע הגוף — מהגדרת הסוכן, כדי שכל סוכן שנוסף במסך ייראה אחרת */
+  color: string
+  /** הסמל על החזה */
+  emoji: string
   state: FigureState
   /** הטקסט בבועה שמעל הראש. ריק — בלי בועה */
   bubble?: string
@@ -65,7 +65,7 @@ interface Props {
   label: string
 }
 
-export default function VoxelFigure({ agent, state, bubble, label }: Props) {
+export default function VoxelFigure({ color, emoji, state, bubble, label }: Props) {
   /*
    * שלוש שכבות, ולכל אחת תפקיד:
    * vx-wrap — הגודל בפריסה, ומסננים (הילה, אפור). filter על אלמנט תלת-ממדי
@@ -81,7 +81,13 @@ export default function VoxelFigure({ agent, state, bubble, label }: Props) {
           {bubble}
         </div>
         <div className="vx-shadow" />
-        <div className="vx-figure" data-agent={agent} data-state={state} role="img" aria-label={label}>
+        <div
+          className="vx-figure"
+          data-state={state}
+          role="img"
+          aria-label={label}
+          style={{ '--vx-agent': color } as CSSProperties}
+        >
           <div className="voxel">
             {/* מידות בפיקסלים, בפרופורציות של דמות Minecraft: ראש גדול, גוף צר */}
             <Box className="vx-antenna" w={4} h={12} d={4} x={60} y={8} />
@@ -107,7 +113,7 @@ export default function VoxelFigure({ agent, state, bubble, label }: Props) {
               d={22}
               x={60}
               y={75}
-              front={<span className="vx-badge">{BADGE[agent]}</span>}
+              front={<span className="vx-badge">{emoji}</span>}
             />
             <Box className="vx-arm vx-arm-l" w={13} h={48} d={13} x={33} y={74} />
             <Box className="vx-arm vx-arm-r" w={13} h={48} d={13} x={87} y={74} />

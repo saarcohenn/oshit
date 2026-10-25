@@ -5,8 +5,6 @@
  * לשעון קיץ לא מזיז ריצה: "08:41" נשאר 08:41 בשני הצדדים של המעבר.
  */
 
-import type { AgentId } from './oshit.js'
-
 export interface Schedule {
   /** ימי השבוע לפי getDay: 0 ראשון … 6 שבת */
   days: number[]
@@ -20,16 +18,6 @@ export interface WallClock {
   day: number
   hour: number
   minute: number
-}
-
-/**
- * לפי האיפיון: שוק ג׳–ש׳ 08:41 (אחרי נעילת וול סטריט של הלילה), הוצאות כל
- * יום 07:30, מחקר א׳ 08:22.
- */
-export const SCHEDULES: Record<AgentId, Schedule> = {
-  market: { days: [2, 3, 4, 5, 6], hour: 8, minute: 41 },
-  spending: { days: [0, 1, 2, 3, 4, 5, 6], hour: 7, minute: 30 },
-  research: { days: [0], hour: 8, minute: 22 },
 }
 
 const ZONE = 'Asia/Jerusalem'

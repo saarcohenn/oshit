@@ -1,46 +1,26 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import type { Portfolio } from './defs.js'
 
 /**
- * הגדרות השירות — מהסביבה ומקובץ התיק.
+ * הגדרות השירות — מהסביבה בלבד.
  *
- * הסודות (מפתח Anthropic, טוקן השירות) מגיעים רק מהסביבה, מקובץ ה-.env
- * שבשרת. התיק — שמות הנכסים, הסטופים והכללים של סער — מגיע מקובץ JSON
- * שמותקן לקונטיינר, ולא מהמאגר: המאגר ציבורי, והתיק לא.
+ * הסודות (מפתח Anthropic, טוקן השירות, טוקן הבוט) מגיעים מקובץ ה-.env שבשרת.
+ * הסוכנים עצמם והתיק נמצאים ב-Osh.it ונערכים במסך. קובץ התיק הישן נקרא רק
+ * פעם אחת, לייבוא, אם הוא עדיין מותקן.
  */
-
-export interface Holding {
-  name: string
-  /** סמל ב-Yahoo, למשל INTC או TEVA.TA. ‏null — אין מקור מחירים, והפער מוצג ולא מוסתר */
-  symbol: string | null
-  /** מטבע הסטופ. כשהוא שונה ממטבע הסדרה, הסטופ לא מושווה — טבע בדולר מול סטופ בשקלים */
-  currency: string
-  stop?: number
-  stopLimit?: number
-  note?: string
-}
-
-/** נכס שסער עוקב אחריו ועוד לא מחזיק. הרשימה שלו — הסוכן סורק אותה, לא מרחיב אותה */
-export interface WatchItem {
-  name: string
-  symbol: string
-  note?: string
-}
-
-export interface Portfolio {
-  benchmark: { name: string; symbol: string }
-  holdings: Holding[]
-  watchlist: WatchItem[]
-  /** הכללים של סער כטקסט חופשי. הסוכן משווה אליהם — הוא לא מנסח אותם */
-  rules: string
-}
 
 export interface Config {
   anthropicKey: string | null
   oshitUrl: string
   token: string
   household: string
+  /** קובץ התיק הישן — לייבוא חד-פעמי בלבד */
   portfolioFile: string
   dataDir: string
+  /** ‏null — בלי טלגרם; הסוכנים מדווחים רק במסך */
+  telegramToken: string | null
+  /** הכתובת של Osh.it מבחוץ, לקישור בהודעות. בלעדיה ההודעות בלי קישור */
+  publicUrl: string | null
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -53,15 +33,19 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     household: env.HOUSEHOLD_ID!,
     portfolioFile: env.PORTFOLIO_FILE || '/config/portfolio.json',
     dataDir: env.DATA_DIR || '/data',
+    telegramToken: env.TELEGRAM_BOT_TOKEN || null,
+    publicUrl: env.OSHIT_PUBLIC_URL ? env.OSHIT_PUBLIC_URL.replace(/\/+$/, '') : null,
   }
 }
 
-/** קורא את קובץ התיק בכל ריצה, כדי שעדכון סטופ לא ידרוש הפעלה מחדש */
-export function readPortfolio(file: string): Portfolio {
+/** קובץ התיק הישן, אם קיים. השרת בודק אותו בייבוא — כאן רק קוראים */
+export function readPortfolioFile(file: string): Portfolio | null {
+  if (!existsSync(file)) return null
   const raw = JSON.parse(readFileSync(file, 'utf8')) as Partial<Portfolio>
-  if (!raw.benchmark?.symbol || !Array.isArray(raw.holdings)) {
-    throw new Error(`קובץ התיק ${file} חסר benchmark או holdings`)
+  return {
+    benchmark: raw.benchmark ?? { name: 'S&P 500', symbol: '^GSPC' },
+    holdings: raw.holdings ?? [],
+    watchlist: raw.watchlist ?? [],
+    rules: String(raw.rules ?? ''),
   }
-  const watchlist = Array.isArray(raw.watchlist) ? raw.watchlist.filter((w) => w?.name && w?.symbol) : []
-  return { benchmark: raw.benchmark, holdings: raw.holdings, watchlist, rules: String(raw.rules ?? '') }
 }

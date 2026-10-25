@@ -10,5 +10,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     env: { DATA_DIR: mkdtempSync(join(tmpdir(), 'oshit-test-')) },
+    // כל הקבצים חולקים את אותו מסד זמני, וכל אחד מנקה טבלאות אחרי בדיקה —
+    // במקביל, קובץ אחד היה מוחק נתונים שקובץ אחר באמצע לבדוק
+    fileParallelism: false,
   },
 })
