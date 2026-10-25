@@ -303,6 +303,8 @@ export interface AgentEvent {
   /** ISO */
   at: string
   text?: string
+  /** אותו טקסט באנגלית. בלעדיו המסך מציג את העברית גם באנגלית */
+  textEn?: string
   tool?: string
   data?: unknown
   /** הדגמה מהממשק — ערכים לדוגמה, לא מצב אמיתי */
@@ -316,10 +318,25 @@ export interface AgentRun {
   startedAt: string
   finishedAt: string | null
   summary: string | null
+  summaryEn?: string | null
   inputTokens: number | null
   outputTokens: number | null
+  /** העלות כפי שחושבה בשירות הסוכנים. ‏null בריצות שקדמו לרישום העלות */
+  costUsd?: number | null
+  model?: string | null
+  searches?: number | null
   demo: boolean
   events: AgentEvent[]
+}
+
+export interface AgentsBudget {
+  /** ‏null — לא הוגדר תקציב */
+  budgetUsd: number | null
+  spentUsd: number
+  /** ISO — תחילת החודש לפי שעון ישראל */
+  monthStart: string
+  byAgent: Array<{ agent: AgentId; usd: number; runs: number }>
+  byModel: Array<{ model: string; usd: number; runs: number }>
 }
 
 export interface AgentsSnapshot {
@@ -328,4 +345,5 @@ export interface AgentsSnapshot {
   /** מתי השירות משך בקשות לאחרונה — סימן חיים */
   serviceSeenAt: string | null
   runs: AgentRun[]
+  budget: AgentsBudget
 }

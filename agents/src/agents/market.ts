@@ -121,6 +121,7 @@ ${portfolio.rules || '(לא הוגדרו כללים בקובץ התיק — דו
           'מחזיר תמונת מצב של מדד הייחוס ושל כל נכס בתיק: סגירה אחרונה, ממוצע 50, ממוצע 200, ATR(14), אחוז מעל או מתחת לממוצע 200, מרחק מהסטופ באחוזים וביחידות ATR, ודגלים עובדתיים. נכסים בלי מקור מחירים מופיעים ב-unavailable.',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         label: 'מושך מחירים ומחשב ממוצעים',
+        labelEn: 'Fetching prices and computing averages',
         run: async () => {
           const benchmark = await fetchDaily(portfolio.benchmark.symbol).then((series) => {
             const s = snapshot(portfolio.benchmark.symbol, portfolio.benchmark.name, series.bars)
@@ -157,6 +158,7 @@ ${portfolio.rules || '(לא הוגדרו כללים בקובץ התיק — דו
                 'סורק את רשימת המעקב של סער: לכל נכס — סגירה, אחוז מעל או מתחת לממוצע 200, והאם ממוצע 50 מעל 200. passing הם הנכסים שעומדים בשני התנאים הטכניים, ממוינים מהרחוק ביותר מעל ממוצע 200. מצב מדד הייחוס נמצא ב-get_market_snapshot. מועד דוח קרוב לא נבדק.',
               inputSchema: { type: 'object' as const, properties: {}, additionalProperties: false as const },
               label: 'סורק את רשימת המעקב',
+              labelEn: 'Screening the watchlist',
               run: async () => screen(portfolio.watchlist, await fetchMany(portfolio.watchlist.map((w) => w.symbol))),
             },
           ]

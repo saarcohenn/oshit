@@ -12,11 +12,15 @@ import { readState, readVersion, VersionConflict, writeState } from './state.js'
 import { broadcastVersion, connectedCount, subscribe } from './events.js'
 import {
   AGENT_IDS,
+  agentBudget,
+  agentLog,
+  agentLogText,
   agentServiceRouter,
   agentServiceSeenAt,
   agentsConfigured,
   enqueueRun,
   listAgentRuns,
+  setAgentBudget,
   startDemo,
   type AgentId,
 } from './agents.js'
@@ -463,7 +467,34 @@ households.get('/:id/agents', member(), (req, res) => {
     configured: agentsConfigured(),
     serviceSeenAt: agentServiceSeenAt(id),
     runs: listAgentRuns(id),
+    budget: agentBudget(id),
   })
+})
+
+/** היומן — 50, 250 או 1000 הצעדים האחרונים */
+households.get('/:id/agents/log', member(), (req, res) => {
+  res.json(agentLog(pathParam(req.params.id), Number(req.query.limit)))
+})
+
+/** היומן המלא להורדה, בשפה של המסך */
+households.get('/:id/agents/log.txt', member(), (req, res) => {
+  const lang = req.query.lang === 'en' ? 'en' : 'he'
+  const day = new Date().toISOString().slice(0, 10)
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="oshit-agents-${day}.txt"`)
+  res.send(agentLogText(pathParam(req.params.id), lang))
+})
+
+/** תקציב חודשי בדולרים. null מבטל אותו. לבעלים בלבד — זה הכסף שלהם */
+households.put('/:id/agents/budget', member('owner'), (req, res) => {
+  const raw = req.body?.budgetUsd
+  const budget = raw === null || raw === '' ? null : Number(raw)
+  if (budget !== null && (!Number.isFinite(budget) || budget < 0 || budget > 10_000)) {
+    return res.status(400).json({ error: 'תקציב לא תקין' })
+  }
+  const id = pathParam(req.params.id)
+  setAgentBudget(id, budget === null ? null : Math.round(budget * 100) / 100)
+  res.json(agentBudget(id))
 })
 
 /**

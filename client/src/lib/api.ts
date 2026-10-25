@@ -1,5 +1,5 @@
 import { tr, trf } from './i18n'
-import type { AgentId, AgentsSnapshot, AppState } from '../types'
+import type { AgentEvent, AgentId, AgentsBudget, AgentsSnapshot, AppState } from '../types'
 
 export interface Household {
   id: string
@@ -188,6 +188,14 @@ export const api = {
 
   runAgent: (id: string, agent: AgentId) =>
     request<{ ok: true; existing: boolean }>(`/households/${id}/agents/${agent}/run`, { method: 'POST' }),
+
+  agentsLog: (id: string, limit: 50 | 250 | 1000) => request<AgentEvent[]>(`/households/${id}/agents/log?limit=${limit}`),
+
+  /** קישור הורדה רגיל — הדפדפן שולח את עוגיית החיבור בעצמו */
+  agentsLogUrl: (id: string, lang: 'he' | 'en') => `${BASE}/api/households/${id}/agents/log.txt?lang=${lang}`,
+
+  setAgentsBudget: (id: string, budgetUsd: number | null) =>
+    request<AgentsBudget>(`/households/${id}/agents/budget`, { method: 'PUT', body: JSON.stringify({ budgetUsd }) }),
 
   agentsDemo: (id: string) =>
     request<{ ok: true; alreadyRunning: boolean }>(`/households/${id}/agents/demo`, { method: 'POST' }),

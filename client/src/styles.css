@@ -1602,6 +1602,27 @@ select.filter, .filter-toggle {
 .agent-feed time { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 12px; }
 .agent-feed-who { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; white-space: nowrap; }
 .agent-feed-text { overflow-wrap: anywhere; }
+/* היומן בגובה קבוע עם גלילה משלו — 1000 שורות לא דוחפות את המסך כולו */
+.agent-feed-scroll { max-height: 440px; overflow-y: auto; overscroll-behavior: contain; }
+.agent-log-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.agent-log-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 10px; }
+.agent-log-actions a.btn { text-decoration: none; }
+
+.agent-budget-total { display: flex; align-items: baseline; gap: 8px; margin: 8px 0; }
+.agent-budget-total strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.agent-budget-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
+.agent-budget-split ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.agent-budget-split li {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center;
+  font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--border);
+}
+.agent-budget-split ul + ul li { grid-template-columns: 1fr auto auto; }
+.agent-budget-split strong { font-variant-numeric: tabular-nums; }
+.agent-budget-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+.agent-budget-form .notice { margin: 0; }
+@media (max-width: 560px) {
+  .agent-budget-split { grid-template-columns: 1fr; }
+}
 .agent-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
 .agent-swatch.market { background: #1a9e8f; }
 .agent-swatch.spending { background: #e0892c; }

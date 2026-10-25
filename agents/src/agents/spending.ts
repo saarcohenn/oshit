@@ -40,6 +40,7 @@ export function spendingAgent(context: SpendingContext): AgentDefinition {
           'סכומי הוצאה לפי חודש (עד שישה אחרונים): סך חיובי כרטיס, חד-פעמיים, פירוט לפי קטגוריה עם תקציב, והוצאות והכנסות מהעו"ש. בנוסף, קטגוריות שעברו 90% מהתקציב בחודש האחרון.',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         label: 'מסכם הוצאות לפי קטגוריה',
+        labelEn: 'Summing spending by category',
         run: async () => ({ latestMonth: context.latestMonth, months: context.months, budgets: context.budgets }),
       },
       {
@@ -48,6 +49,7 @@ export function spendingAgent(context: SpendingContext): AgentDefinition {
           'פריטים חריגים מהחודשיים האחרונים לפי כללים קבועים: large (גדול פי 3 מהחציון של הקטגוריה ולפחות 1,000 ₪) או new_merchant (בית עסק שלא הופיע קודם, מעל 300 ₪). חיובים שסומנו חד-פעמיים אינם נכללים.',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         label: 'מחפש חיובים חריגים',
+        labelEn: 'Looking for unusual charges',
         run: async () => ({ flagged: context.flagged }),
       },
       {
@@ -56,6 +58,7 @@ export function spendingAgent(context: SpendingContext): AgentDefinition {
           'התאמה בין כל חיוב כרטיס בעו"ש (לפי ארבע ספרות אחרונות) לבין סכום העסקאות של אותו כרטיס סביב אותו תאריך. status: matched, mismatch, או no_card_data כשקובץ הכרטיס לא יובא.',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         label: 'מתאים חיובי כרטיס מול העו"ש',
+        labelEn: 'Matching card charges to the checking account',
         run: async () => ({ reconciliation: context.reconciliation }),
       },
     ],
