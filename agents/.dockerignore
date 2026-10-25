@@ -1,0 +1,4 @@
+node_modules
+dist
+portfolio.json
+src/**/*.test.ts

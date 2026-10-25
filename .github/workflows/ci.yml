@@ -51,6 +51,19 @@ jobs:
       - name: בדיקת טיפוסים ובנייה — שרת
         run: npm --prefix server run build
 
+      - name: התקנת תלויות הסוכנים
+        run: npm --prefix agents ci
+
+      - name: בדיקת חולשות — סוכנים
+        run: npm --prefix agents audit --omit=dev --audit-level=high
+
+      # מדדים, תזמון ופענוח הדוח. בלי קריאה אמיתית ל-API
+      - name: בדיקות — סוכנים
+        run: npm --prefix agents test
+
+      - name: בדיקת טיפוסים ובנייה — סוכנים
+        run: npm --prefix agents run build
+
       # בנייה בלבד, בלי push — מוודאת שה-Dockerfile תקין גם ב-PR
       - name: בניית תמונת דוקר
         uses: docker/build-push-action@v7
@@ -59,3 +72,11 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: בניית תמונת הסוכנים
+        uses: docker/build-push-action@v7
+        with:
+          context: agents
+          push: false
+          cache-from: type=gha,scope=agents
+          cache-to: type=gha,mode=max,scope=agents

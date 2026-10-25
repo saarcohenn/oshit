@@ -13,3 +13,6 @@ server/.devdata*
 *.xlsx
 *.xls
 oshit-backup-*.json
+
+# התיק האמיתי של שירות הסוכנים — חי רק בשרת. במאגר יש רק portfolio.example.json
+agents/portfolio.json

@@ -1,0 +1,12 @@
+{
+  "benchmark": { "name": "S&P 500", "symbol": "^GSPC" },
+  "holdings": [
+    { "name": "Example Corp", "symbol": "AAPL", "currency": "USD", "stop": 150, "stopLimit": 148 },
+    { "name": "מניה בת\"א", "symbol": "TEVA.TA", "currency": "ILS", "stop": 100, "stopLimit": 98 },
+    { "name": "קרן בלי מקור מחירים", "symbol": null, "currency": "ILS", "note": "אין מקור מחירים — הסטופ לא נבדק" }
+  ],
+  "watchlist": [
+    { "name": "Nasdaq-100", "symbol": "QQQ", "note": "דוגמה — הרשימה שלך" }
+  ],
+  "rules": "- כניסה: המדד מעל ממוצע 200, והנכס מעל ממוצע 200.\n- יציאה: סגירה מתחת לסטופ."
+}
