@@ -1416,3 +1416,215 @@ select.filter, .filter-toggle {
   .saving-card .saving-amount { text-align: start; }
   .card.flush th:first-child, .card.flush td:first-child { padding-inline-start: 12px; }
 }
+
+/* ---------- סוכנים: דמויות voxel ---------- */
+
+/*
+ * כל דמות היא קופסאות CSS תלת-ממדיות. --vx-c הוא צבע הבסיס של חלק,
+ * והפאות נגזרות ממנו: העליונה בהירה, הצדדים כהים יותר, האחורית הכי כהה —
+ * זה מה שנותן את המראה המפוסל של Minecraft בלי טקסטורות.
+ */
+.vx-wrap {
+  --k: 1;
+  position: relative;
+  width: calc(150px * var(--k));
+  height: calc(232px * var(--k));
+  transition: filter 0.3s;
+}
+.vx-inner {
+  position: absolute; top: 0; left: 50%;
+  width: 150px; height: 232px; margin-left: -75px;
+  transform: scale(var(--k)); transform-origin: top center;
+}
+.vx-figure {
+  --vx-agent: #1a9e8f;
+  --vx-metal: #cfd6da;
+  --vx-dark: #34405a;
+  position: absolute; top: 72px; left: 15px;
+  width: 120px; height: 150px;
+  perspective: 700px;
+}
+.vx-figure[data-agent='spending'] { --vx-agent: #e0892c; }
+.vx-figure[data-agent='research'] { --vx-agent: #7b6cf0; }
+
+.voxel {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(-14deg) rotateY(-28deg);
+}
+.vx-box { position: absolute; transform-style: preserve-3d; }
+.vx-face {
+  position: absolute;
+  backface-visibility: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+.vx-front { background: var(--vx-c); }
+.vx-top { background: color-mix(in srgb, var(--vx-c) 72%, #fff); }
+.vx-left, .vx-right { background: color-mix(in srgb, var(--vx-c) 78%, #000); }
+.vx-back, .vx-bottom { background: color-mix(in srgb, var(--vx-c) 62%, #000); }
+
+.vx-head, .vx-antenna { --vx-c: var(--vx-metal); }
+.vx-torso, .vx-arm { --vx-c: var(--vx-agent); }
+.vx-leg { --vx-c: var(--vx-dark); }
+.vx-antenna-tip { --vx-c: color-mix(in srgb, var(--vx-agent) 45%, #9aa5ab); }
+
+.vx-head { transform-origin: 50% 100%; transition: transform 0.3s ease; }
+.vx-arm { transform-origin: 50% 4px; transition: transform 0.25s ease; }
+.vx-leg { transform-origin: 50% 0; }
+
+.vx-visor {
+  position: absolute; left: 4px; right: 4px; top: 11px; height: 13px;
+  background: #1b2430;
+  display: flex; align-items: center; justify-content: space-around; padding: 0 5px;
+}
+.vx-eye {
+  width: 7px; height: 7px;
+  background: var(--vx-agent);
+  box-shadow: 0 0 6px var(--vx-agent);
+}
+.vx-badge { position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
+
+.vx-shadow {
+  position: absolute; left: 50%; top: 212px;
+  width: 74px; height: 14px; margin-left: -37px;
+  border-radius: 50%;
+  background: radial-gradient(rgba(0, 0, 0, 0.28), transparent 70%);
+}
+
+.vx-bubble {
+  position: absolute; top: 0; left: 50%;
+  width: max-content; max-width: 188px;
+  padding: 7px 11px; border-radius: 12px;
+  background: var(--surface-solid); color: var(--text);
+  border: 1px solid var(--border-bright);
+  box-shadow: 0 6px 18px rgba(12, 30, 36, 0.12);
+  font-size: 12.5px; line-height: 1.4; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  opacity: 0; transform: translate(-50%, 6px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.vx-bubble.show { opacity: 1; transform: translate(-50%, 0); }
+.vx-bubble-finding { border-color: var(--ok-fill); }
+.vx-bubble-alert { border-color: var(--danger-fill); color: var(--danger); }
+.vx-bubble-error { border-color: var(--text-dim); color: var(--text-dim); }
+
+/* --- מצבים --- */
+.vx-figure[data-state='idle'],
+.vx-figure[data-state='done'] { animation: vx-bob 3.2s ease-in-out infinite; }
+
+.vx-figure[data-state='thinking'] { animation: vx-bob 2.4s ease-in-out infinite; }
+.vx-figure[data-state='thinking'] .vx-head { animation: vx-tilt 2.4s ease-in-out infinite; }
+
+/* האנטנה נדלקת כשהסוכן עובד — הסימן הכי מהיר לקריאה מרחוק */
+.vx-figure[data-state='thinking'] .vx-antenna-tip,
+.vx-figure[data-state='working'] .vx-antenna-tip { --vx-c: var(--vx-agent); }
+.vx-figure[data-state='thinking'] .vx-antenna-tip .vx-face,
+.vx-figure[data-state='working'] .vx-antenna-tip .vx-face {
+  box-shadow: 0 0 10px var(--vx-agent);
+  animation: vx-blink 1s steps(2, jump-none) infinite;
+}
+
+.vx-figure[data-state='working'] .vx-arm-l { animation: vx-swing 0.5s ease-in-out infinite; }
+.vx-figure[data-state='working'] .vx-arm-r { animation: vx-swing 0.5s ease-in-out infinite reverse; }
+
+.vx-figure[data-state='finding'] { animation: vx-jump 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) 2; }
+.vx-wrap[data-state='finding'] .vx-shadow { animation: vx-shadow 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) 2; }
+.vx-figure[data-state='finding'] .vx-arm-l { transform: rotateZ(155deg); }
+.vx-figure[data-state='finding'] .vx-arm-r { transform: rotateZ(-155deg); }
+
+.vx-figure[data-state='alert'] { animation: vx-shake 0.32s linear infinite; }
+.vx-wrap[data-state='alert'] { filter: drop-shadow(0 0 12px rgba(209, 75, 60, 0.55)); }
+.vx-figure[data-state='alert'] .vx-eye,
+.vx-figure[data-state='alert'] .vx-antenna-tip { --vx-agent: var(--danger-fill); --vx-c: var(--danger-fill); }
+
+.vx-figure[data-state='done'] .vx-arm-r { animation: vx-wave 0.55s ease-in-out 4; }
+
+.vx-wrap[data-state='error'] { filter: grayscale(0.9); }
+.vx-figure[data-state='error'] { transform: translateY(5px); }
+.vx-figure[data-state='error'] .vx-head { transform: rotateX(28deg); }
+.vx-figure[data-state='error'] .vx-eye { background: #6b7680; box-shadow: none; }
+
+@keyframes vx-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes vx-jump { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-26px); } }
+@keyframes vx-shadow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(0.6); opacity: 0.5; }
+}
+@keyframes vx-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes vx-swing { 0%, 100% { transform: rotateX(40deg); } 50% { transform: rotateX(-40deg); } }
+@keyframes vx-tilt { 0%, 100% { transform: rotateZ(-7deg); } 50% { transform: rotateZ(7deg); } }
+@keyframes vx-wave { 0%, 100% { transform: rotateZ(-155deg); } 50% { transform: rotateZ(-115deg); } }
+@keyframes vx-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/*
+ * הכלל הגלובלי של תנועה מופחתת מקצר אנימציות ל-1ms — וזה הופך לולאה
+ * אינסופית להבהוב מהיר, ההפך הגמור ממה שמשתמש כזה ביקש. כאן הן נעצרות.
+ * המצבים נשארים קריאים: צבע, ידיים מורמות, בועה.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .vx-wrap, .vx-wrap * { animation: none !important; transition: none !important; }
+}
+
+/* ---------- מסך הסוכנים ---------- */
+
+.agents-stage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.agent-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 6px 6px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.agent-slot-name { font-weight: 700; font-size: 14px; }
+.agent-slot-role { font-size: 12px; color: var(--text-dim); text-align: center; line-height: 1.4; }
+.agent-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+.agents-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.agents-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: none; }
+.agents-dot.on { background: var(--ok-fill); box-shadow: 0 0 0 3px rgba(22, 169, 111, 0.18); }
+.agents-dot.off { background: var(--danger-fill); }
+
+.agent-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.agent-feed li {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: baseline;
+  padding: 6px 4px; border-bottom: 1px solid var(--border);
+  font-size: 13px; min-width: 0;
+}
+.agent-feed time { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: 12px; }
+.agent-feed-who { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; white-space: nowrap; }
+.agent-feed-text { overflow-wrap: anywhere; }
+.agent-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.agent-swatch.market { background: #1a9e8f; }
+.agent-swatch.spending { background: #e0892c; }
+.agent-swatch.research { background: #7b6cf0; }
+
+.demo-tag {
+  display: inline-block; margin-inline-start: 6px;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  background: var(--warn-soft); color: var(--warn);
+}
+
+.agent-runs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.agent-run { padding: 12px; border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.agent-run-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 6px; }
+.agent-run p { margin: 0 0 6px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  .agent-runs { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .vx-wrap { --k: 0.66; }
+  .agents-stage { gap: 6px; }
+  .agent-slot { padding: 4px 2px 10px; }
+  .agent-slot-role { display: none; }
+}

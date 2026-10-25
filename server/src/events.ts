@@ -51,6 +51,25 @@ export function broadcastVersion(householdId: string, version: number, originCli
   }
 }
 
+/**
+ * צעד של סוכן — לכל המכשירים של משק הבית, כולל זה שביקש את הריצה.
+ *
+ * בניגוד לגרסה, כאן אין מה לסנן: האירוע לא נוצר במכשיר כלשהו, והמסך
+ * שלחץ "הרץ עכשיו" הוא בדיוק זה שרוצה לראות את הדמות זזה.
+ */
+export function broadcastAgent(householdId: string, event: unknown) {
+  const room = rooms.get(householdId)
+  if (!room) return
+  const payload = `event: agent\ndata: ${JSON.stringify(event)}\n\n`
+  for (const client of room) {
+    try {
+      client.res.write(payload)
+    } catch {
+      // חיבור שנסגר יטופל ב-close handler שלו
+    }
+  }
+}
+
 export function connectedCount(householdId: string): number {
   return rooms.get(householdId)?.size ?? 0
 }

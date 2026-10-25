@@ -1,5 +1,5 @@
 import { tr, trf } from './i18n'
-import type { AppState } from '../types'
+import type { AgentId, AgentsSnapshot, AppState } from '../types'
 
 export interface Household {
   id: string
@@ -183,6 +183,14 @@ export const api = {
   deleteHousehold: (id: string) => request<void>(`/households/${id}`, { method: 'DELETE' }),
 
   getState: (id: string) => request<AppState & { version: number }>(`/households/${id}/state`),
+
+  agents: (id: string) => request<AgentsSnapshot>(`/households/${id}/agents`),
+
+  runAgent: (id: string, agent: AgentId) =>
+    request<{ ok: true; existing: boolean }>(`/households/${id}/agents/${agent}/run`, { method: 'POST' }),
+
+  agentsDemo: (id: string) =>
+    request<{ ok: true; alreadyRunning: boolean }>(`/households/${id}/agents/demo`, { method: 'POST' }),
 
   putState: (id: string, state: AppState, version: number) =>
     request<{ ok: true; version: number }>(`/households/${id}/state`, {

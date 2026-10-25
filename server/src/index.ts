@@ -11,6 +11,16 @@ import {
 import { readState, readVersion, VersionConflict, writeState } from './state.js'
 import { broadcastVersion, connectedCount, subscribe } from './events.js'
 import {
+  AGENT_IDS,
+  agentServiceRouter,
+  agentServiceSeenAt,
+  agentsConfigured,
+  enqueueRun,
+  listAgentRuns,
+  startDemo,
+  type AgentId,
+} from './agents.js'
+import {
   attachUser,
   clearAttempts,
   clearSessionCookie,
@@ -439,6 +449,45 @@ households.post('/:id/import', member(), (req, res) => {
     console.error('ייבוא הגיבוי נכשל', err)
     res.status(500).json({ error: 'ייבוא הגיבוי נכשל' })
   }
+})
+
+/* ---------------- סוכנים ---------------- */
+
+/** נתיבים לשירות הסוכנים בלבד — טוקן, לא עוגיית משתמש */
+app.use('/api/agents', agentServiceRouter())
+
+/** הריצות האחרונות, ומצב החיבור של השירות, לטעינה הראשונה של המסך */
+households.get('/:id/agents', member(), (req, res) => {
+  const id = pathParam(req.params.id)
+  res.json({
+    configured: agentsConfigured(),
+    serviceSeenAt: agentServiceSeenAt(id),
+    runs: listAgentRuns(id),
+  })
+})
+
+/**
+ * הדגמה — אותו צינור, בלי מודל ובלי עלות. לבעלים בלבד, כמו כל הפעלה.
+ *
+ * הדגמה שכבר רצה אינה שגיאה: המשתמש ביקש לראות הדגמה, והיא רצה. וגם לא
+ * 409 — הלקוח מפרש כל 409 כהתנגשות גרסאות ומטעין מחדש את משק הבית.
+ */
+households.post('/:id/agents/demo', member('owner'), (req, res) => {
+  const started = startDemo(pathParam(req.params.id))
+  res.status(202).json({ ok: true, alreadyRunning: !started })
+})
+
+/**
+ * "הרץ עכשיו". הבקשה נכנסת לתור, ושירות הסוכנים מושך אותה בסבב הבא.
+ * לבעלים בלבד: כל ריצה אמיתית עולה כסף.
+ */
+households.post('/:id/agents/:agent/run', member('owner'), (req, res) => {
+  const agent = pathParam(req.params.agent) as AgentId
+  if (!AGENT_IDS.includes(agent)) return res.status(404).json({ error: 'סוכן לא מוכר' })
+  const result = enqueueRun(pathParam(req.params.id), agent, req.user!.id)
+  // 503 ולא 409: הלקוח מפרש כל 409 כהתנגשות גרסאות
+  if (!result.ok) return res.status(503).json({ error: 'שירות הסוכנים לא מוגדר בשרת הזה' })
+  res.status(202).json(result)
 })
 
 /* ---------------- הגשת הלקוח ---------------- */
