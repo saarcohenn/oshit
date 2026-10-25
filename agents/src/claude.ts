@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { betaTool } from '@anthropic-ai/sdk/helpers/beta/json-schema'
 import type { EventFields, EventType } from './oshit.js'
+import { addUsage, emptyUsage, type UsageTotals } from './pricing.js'
 
 /**
  * הלולאה מול Claude — Tool Runner, לא Agent SDK.
@@ -26,6 +27,7 @@ export interface AgentTool {
   inputSchema: ToolSchema
   /** מה הדמות "אומרת" בזמן שהכלי רץ */
   label: string
+  labelEn: string
   run: (input: Record<string, unknown>) => Promise<unknown>
 }
 
@@ -37,10 +39,7 @@ export interface AgentDefinition {
   serverTools?: Anthropic.Beta.BetaToolUnion[]
 }
 
-export interface Usage {
-  input: number
-  output: number
-}
+export type Usage = UsageTotals
 
 /** כשל עם השימוש שנצבר עד אליו — גם ריצה שנכשלה עולה כסף, והמסך מציג את זה */
 export class AgentRunError extends Error {
@@ -52,21 +51,17 @@ export class AgentRunError extends Error {
   }
 }
 
-/** כל הטוקנים שחויבו כקלט, כולל מטמון — מעריך את העלות מלמעלה ולא מלמטה */
-function addUsage(total: Usage, u: Anthropic.Beta.BetaUsage) {
-  total.input += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0)
-  total.output += u.output_tokens
-}
-
 const textOf = (message: Anthropic.Beta.BetaMessage) =>
   message.content
     .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
     .map((b) => b.text)
-    .join('\n')
+    // בלי מפריד: חיפוש ברשת מפצל משפט אחד לכמה בלוקים מצוטטים, ו-\n היה
+    // שובר שורת ממצא באמצע
+    .join('')
     .trim()
 
 export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Emit): Promise<{ text: string; usage: Usage }> {
-  const usage: Usage = { input: 0, output: 0 }
+  const usage: Usage = emptyUsage(MODEL)
 
   const tools = def.tools.map((t) =>
     betaTool({
@@ -74,7 +69,7 @@ export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Em
       description: t.description,
       inputSchema: t.inputSchema,
       run: async (input) => {
-        await emit('tool_call', { tool: t.name, text: t.label })
+        await emit('tool_call', { tool: t.name, text: t.label, textEn: t.labelEn })
         try {
           return JSON.stringify(await t.run(input as Record<string, unknown>))
         } catch (err) {
@@ -100,19 +95,24 @@ export async function runAgent(client: Anthropic, def: AgentDefinition, emit: Em
     messages: [{ role: 'user', content: def.prompt }],
   })
 
-  await emit('thinking', { text: 'קורא את ההנחיות ומתכנן' })
+  await emit('thinking', { text: 'קורא את ההנחיות ומתכנן', textEn: 'Reading the instructions and planning' })
 
   let last: Anthropic.Beta.BetaMessage | undefined
   try {
     for await (const message of runner) {
       last = message
-      addUsage(usage, message.usage)
+      // מודל חלופי אחרי סירוב מתומחר לפי עצמו — message.model הוא מי שענה בפועל
+      addUsage(usage, message.model, message.usage)
 
       // חיפוש ברשת רץ אצל Anthropic, בלי run() אצלנו — מדווחים עליו מהתשובה
       for (const block of message.content) {
         if (block.type === 'server_tool_use') {
           const query = (block.input as { query?: unknown })?.query
-          await emit('tool_call', { tool: block.name, text: typeof query === 'string' ? query : 'מחפש ברשת' })
+          await emit('tool_call', {
+            tool: block.name,
+            text: typeof query === 'string' ? query : 'מחפש ברשת',
+            textEn: typeof query === 'string' ? query : 'Searching the web',
+          })
         }
       }
 

@@ -298,6 +298,29 @@ addColumnIfMissing('transactions', 'sightings', 'TEXT')
 addColumnIfMissing('transactions', 'one_off', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('transactions', 'person', 'TEXT')
 
+/*
+ * סוכנים: טקסט באנגלית לצד העברית, ועלות מדויקת לכל ריצה.
+ * העלות מחושבת בשירות הסוכנים לפי המודל שענה בפועל, כולל מטמון וחיפושים.
+ */
+addColumnIfMissing('agent_events', 'text_en', 'TEXT')
+addColumnIfMissing('agent_runs', 'summary_en', 'TEXT')
+addColumnIfMissing('agent_runs', 'cost_usd', 'REAL')
+addColumnIfMissing('agent_runs', 'model', 'TEXT')
+addColumnIfMissing('agent_runs', 'searches', 'INTEGER')
+
+/*
+ * הגדרות הסוכנים — לא בטבלת settings: ‏writeState מוחק ובונה אותה מחדש
+ * מהמצב שהלקוח שולח, ותקציב שנשמר שם היה נמחק בשמירה הבאה של משק הבית.
+ */
+db.exec(`
+CREATE TABLE IF NOT EXISTS agent_settings (
+  household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  key           TEXT NOT NULL,
+  value         TEXT NOT NULL,
+  PRIMARY KEY (household_id, key)
+);
+`)
+
 /**
  * חותמת זמן בפורמט של SQLite עצמו: 'YYYY-MM-DD HH:MM:SS' ב-UTC.
  *

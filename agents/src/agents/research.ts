@@ -35,6 +35,7 @@ ${portfolio.rules || '(לא הוגדרו כללים בקובץ התיק)'}`,
         description: 'רשימת הנכסים שבתיק וברשימת המעקב: שם וסמל בלבד.',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
         label: 'קורא את רשימת הנכסים',
+        labelEn: 'Reading the holdings list',
         run: async () => ({
           benchmark: portfolio.benchmark.name,
           holdings: portfolio.holdings.map((h) => ({ name: h.name, symbol: h.symbol })),

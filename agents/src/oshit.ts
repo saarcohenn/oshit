@@ -1,4 +1,5 @@
 import type { Config } from './config.js'
+import type { UsageTotals } from './pricing.js'
 
 /**
  * הלקוח של Osh.it — הערוץ היחיד שבו השירות מדבר עם האפליקציה.
@@ -12,9 +13,18 @@ export type EventType = 'start' | 'thinking' | 'tool_call' | 'finding' | 'alert'
 
 export interface EventFields {
   text?: string
+  /** אותו טקסט באנגלית, למסך שמוצג באנגלית */
+  textEn?: string | null
   tool?: string
   data?: unknown
-  usage?: { input: number; output: number }
+  usage?: UsageTotals
+}
+
+export interface Budget {
+  /** ‏null — לא הוגדר תקציב */
+  budgetUsd: number | null
+  spentUsd: number
+  monthStart: string
 }
 
 export interface RunRequest {
@@ -57,6 +67,7 @@ export class Oshit {
       type,
       ...fields,
       ...(fields.text != null ? { text: clip(fields.text) } : {}),
+      ...(fields.textEn != null ? { textEn: clip(fields.textEn) } : { textEn: undefined }),
     }
     const attempts = type === 'done' || type === 'error' ? 2 : 1
     for (let i = 0; i < attempts; i++) {
@@ -72,6 +83,11 @@ export class Oshit {
   async context<T>(): Promise<T> {
     const res = await this.call('GET', `/api/agents/context?household=${encodeURIComponent(this.config.household)}`)
     return (await res.json()) as T
+  }
+
+  async budget(): Promise<Budget> {
+    const res = await this.call('GET', `/api/agents/budget?household=${encodeURIComponent(this.config.household)}`)
+    return (await res.json()) as Budget
   }
 
   async requests(): Promise<RunRequest[]> {
