@@ -762,9 +762,12 @@ export function latestReports(householdId: string, except: string) {
       `SELECT r.id, r.agent, r.finished_at AS finishedAt, r.summary, r.summary_en AS summaryEn
        FROM agent_runs r
        WHERE r.household_id = ? AND r.status = 'done' AND r.demo = 0 AND r.agent != ?
-         AND r.finished_at = (SELECT MAX(finished_at) FROM agent_runs x
-                              WHERE x.household_id = r.household_id AND x.agent = r.agent
-                                AND x.status = 'done' AND x.demo = 0)`,
+         -- ריצה אחת לכל סוכן. MAX(finished_at) לבדו החזיר שתיים כששתיהן
+         -- הסתיימו באותה אלפית שנייה; rowid מכריע לטובת האחרונה שנרשמה
+         AND r.rowid = (SELECT x.rowid FROM agent_runs x
+                        WHERE x.household_id = r.household_id AND x.agent = r.agent
+                          AND x.status = 'done' AND x.demo = 0
+                        ORDER BY x.finished_at DESC, x.rowid DESC LIMIT 1)`,
     )
     .all(householdId, except) as Row[]
   const findings = db.prepare(

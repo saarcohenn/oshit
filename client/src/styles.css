@@ -40,6 +40,10 @@
   /* כרטיס ההדגשה — יעד קרוב, חיסכון שנתי */
   --hero: #0c3b3a;
   --hero-ink: #f2fbfa;
+  /* טקסט משני על ה-hero, ורקעים רכים להצלחה ולסכנה */
+  --hero-dim: rgba(242, 251, 250, 0.74);
+  --ok-soft: #e1f4ea;
+  --danger-soft: #fbe8e5;
   --brand-ring-1: #0c3b3a;
   --brand-ring-2: #00857e;
   --brand-ring-3: #35c4b5;
@@ -96,6 +100,9 @@
     --warn-soft: rgba(224, 162, 26, 0.14);
     --hero: #10474a;
     --hero-ink: #eafbf9;
+    --hero-dim: rgba(234, 251, 249, 0.76);
+    --ok-soft: rgba(22, 169, 111, 0.16);
+    --danger-soft: rgba(209, 75, 60, 0.18);
     --brand-ring-1: #e6efee;
     --brand-ring-2: #35c4b5;
     --brand-ring-3: #7fe3d8;
@@ -139,6 +146,9 @@
   --warn-soft: rgba(224, 162, 26, 0.14);
   --hero: #10474a;
   --hero-ink: #eafbf9;
+  --hero-dim: rgba(234, 251, 249, 0.76);
+  --ok-soft: rgba(22, 169, 111, 0.16);
+  --danger-soft: rgba(209, 75, 60, 0.18);
   --brand-ring-1: #e6efee;
   --brand-ring-2: #35c4b5;
   --brand-ring-3: #7fe3d8;
@@ -463,6 +473,12 @@ tbody tr:last-child td { border-bottom: none; }
 .empty { text-align: center; padding: 70px 20px; color: var(--text-dim); }
 .empty h2 { color: var(--text); margin-bottom: 8px; font-size: 22px; }
 .empty p { margin-bottom: 20px; }
+.notice {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: var(--radius-sm); padding: 11px 15px; font-size: 13.5px;
+  line-height: 1.6;
+}
 .notice.warn {
   background: color-mix(in srgb, var(--warn) 13%, transparent);
   border-color: color-mix(in srgb, var(--warn) 34%, transparent);
@@ -1696,3 +1712,424 @@ select.filter, .filter-toggle {
   .agent-slot { padding: 4px 2px 10px; }
   .agent-slot-role { display: none; }
 }
+
+/* ============================================================
+   v3 · משקי בית
+   המתג שבראש הסרגל, מסך ההגדרות, החלונות, וערכת ה-voxel.
+   ============================================================ */
+
+/* ---------- הודעות ---------- */
+.notice.ok {
+  background: var(--ok-soft);
+  border-color: color-mix(in srgb, var(--ok) 30%, transparent);
+  color: var(--ok);
+}
+.notice-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.main > .notice-row, .main > .readonly-notice { margin-bottom: 16px; }
+.readonly-notice b { color: var(--accent-ink); }
+/* מהבהב כשמנסים לשנות משהו בהרשאת צפייה — אחרת שדה שלא מגיב נראה כמו תקלה */
+.readonly-notice.pulse { animation: readonlyPulse 0.7s ease-out 2; }
+@keyframes readonlyPulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  45% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 32%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .readonly-notice.pulse { animation: none; border-color: var(--accent); }
+}
+/* בזמן ההבהוב ההודעה נצמדת מתחת לסרגל העליון: במסך גלול היא מחוץ לתצוגה,
+   והלחיצה הייתה נראית כאילו לא קרה כלום. רקע אטום — היא עוברת מעל התוכן */
+.main > .readonly-notice.pulse {
+  position: sticky; top: 76px; z-index: 25;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-solid));
+}
+@media (max-width: 999px) { .main > .readonly-notice.pulse { top: 68px; } }
+@media (max-width: 620px) { .main > .readonly-notice.pulse { top: 162px; } }
+.empty-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+
+/* חץ "חזרה" מצביע ימינה בעברית ושמאלה באנגלית */
+[dir='ltr'] .flip-ltr { transform: scaleX(-1); }
+
+/* ---------- כפתורים ---------- */
+/* אייקון וטקסט על קו אחד — רק בכפתורים שיש בהם אייקון */
+.btn:has(> svg) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.btn.sm:has(> svg) { gap: 6px; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-decoration: none; }
+/* מסגרת בצל פנימי ולא ב-border: אותו גובה כמו הכפתורים שלידה */
+.btn.outline-danger {
+  background: transparent; color: var(--danger);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 42%, transparent);
+}
+.btn.outline-danger:hover { background: var(--danger-soft); filter: none; }
+.btn.hero-primary { background: #35c4b5; color: #04201d; }
+.btn.onhero {
+  background: rgba(242, 251, 250, 0.1); color: var(--hero-ink);
+  box-shadow: inset 0 0 0 1px rgba(242, 251, 250, 0.26);
+}
+.btn.onhero:hover { background: rgba(242, 251, 250, 0.16); filter: none; }
+.hh-hero .btn:focus-visible { outline-color: var(--hero-ink); }
+
+/* ---------- תגיות ואווטרים ---------- */
+.hh-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 22px; padding: 0 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  background: var(--chip-bg); color: var(--text-dim);
+}
+.hh-tag.on { background: var(--ok-soft); color: var(--ok); }
+
+.av {
+  width: 28px; height: 28px; flex: none; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  border: 2px solid var(--surface);
+}
+.av.lg { width: 40px; height: 40px; font-size: 15px; }
+.avatars { display: inline-flex; flex: none; }
+.avatars .av + .av { margin-inline-start: -8px; }
+.av.invite-av { background: var(--surface-2); color: var(--text-dim); border: 1.5px dashed var(--border-bright); }
+.role-pill.editor { color: var(--text); background: var(--surface-2); }
+
+/* ---------- voxel ----------
+   קוביות ב-CSS 3D. בלי opacity ו-filter על .iso ועל .bx — הם משטחים את
+   הסצנה לדו-ממד. השם .vscene ולא .voxel: זה כבר תפוס בדמויות הסוכנים. */
+.vscene { position: relative; flex: none; }
+.vscene .iso { position: absolute; transform-style: preserve-3d; transform: rotateX(60deg) rotateZ(45deg); }
+.vscene .bx { position: absolute; transform-style: preserve-3d; }
+.vscene .bx > div { position: absolute; left: 0; top: 0; }
+.vscene .bx > .ft { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16); }
+.vscene .bx > .fr { transform-origin: 100% 50%; transform: rotateY(90deg); }
+.vscene .bx > .ff { transform-origin: 50% 100%; transform: rotateX(-90deg); }
+.vfloat { position: absolute; inset: 0; animation: vfloat 7s ease-in-out infinite; }
+.vfloat.still { animation: none; }
+@keyframes vfloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+/* הצל לא מרחף, רק מתכווץ כשהבית עולה */
+.vshadow {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 20, 18, 0.42), rgba(0, 20, 18, 0));
+  animation: vshadow 7s ease-in-out infinite;
+}
+@keyframes vshadow { 0%, 100% { transform: none; } 50% { transform: scale(0.9); } }
+/* התווית יושבת על רקע ה-hero בשני המצבים, ולכן צבעיה קבועים */
+.vlabel {
+  position: absolute; transform: translate(-50%, -100%);
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 10px 6px; border-radius: 10px;
+  background: #f2fbfa; color: #0c1e24;
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.55);
+  white-space: nowrap; line-height: 1.15;
+}
+.vlabel b {
+  max-width: 128px; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--font-display); font-size: 13.5px; font-weight: 600;
+}
+.vlabel span { font-size: 11.5px; font-weight: 600; color: #3d5056; }
+.vlabel::after {
+  content: ''; position: absolute; bottom: -5px; left: 50%; margin-left: -5px;
+  border: 5px solid transparent; border-top-color: #f2fbfa; border-bottom: 0;
+}
+@media (prefers-reduced-motion: reduce) { .vfloat, .vshadow { animation: none; } }
+
+/* ---------- מתג משקי הבית ---------- */
+.sidebar > .hh-switch { margin-top: -10px; }
+.hh-switch { position: relative; }
+.hh-switch-btn {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 4px; padding-inline-end: 10px;
+  border-radius: 14px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); text-align: start;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.hh-switch-btn:hover { border-color: var(--border-bright); }
+.hh-switch-btn[aria-expanded='true'] { border-color: var(--accent); background: var(--surface); }
+.hh-switch-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hh-switch-art { flex: none; display: grid; place-items: center; width: 48px; height: 44px; }
+.hh-switch-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.hh-switch-text small { font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.hh-switch-text b { font-size: 14px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-chevron { flex: none; color: var(--text-dim); transition: transform 0.18s ease; }
+.hh-chevron.up { transform: rotate(180deg); }
+
+/* בתוך רוחב הסרגל: הסרגל גולל, ותפריט רחב ממנו היה נחתך */
+.hh-menu {
+  position: absolute; z-index: 40; inset-inline: 0; top: calc(100% + 6px);
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: min(60vh, 440px); overflow-y: auto;
+  padding: 6px; border-radius: 14px;
+  background: var(--surface-solid); border: 1px solid var(--border-bright);
+  box-shadow: var(--shadow-lift);
+  animation: slideIn 0.16s ease both;
+}
+.hh-opt {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 46px; padding: 6px 8px;
+  border: 0; border-radius: 10px; background: transparent;
+  color: var(--text); text-align: start; font-size: 13.5px; font-weight: 600;
+}
+.hh-opt:hover { background: var(--surface-2); }
+.hh-opt:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hh-opt[aria-checked='true'] { background: var(--accent-soft); }
+.hh-opt.accent { color: var(--accent-ink); }
+/* פריט פעולה בלי אריח: האייקון במרכז רוחב של אריח, כדי שהטקסטים יתיישרו */
+.hh-opt > svg:first-child { flex: none; margin-inline: 8.5px; }
+.hh-opt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.hh-opt-text b, .hh-opt-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-opt-text b { font-size: 13.5px; font-weight: 650; }
+.hh-opt-text small { font-size: 11.5px; font-weight: 500; color: var(--text-dim); }
+.hh-check { flex: none; color: var(--accent); }
+.hh-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+.hh-tile {
+  flex: none; display: grid; place-items: center; border-radius: 10px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.14);
+}
+@media (prefers-reduced-motion: reduce) { .hh-chevron { transition: none; } }
+
+/* ---------- משקי בית במגירה ---------- */
+.drawer-household-item { padding-block: 7px; }
+.drawer-household-text { display: flex; flex-direction: column; line-height: 1.3; }
+.drawer-household-text > span, .drawer-household-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drawer-household-text > span { color: var(--text); }
+.drawer-household-text small { font-size: 11.5px; font-weight: 500; }
+/* רקע מלא היה מעלים את הטקסט המשני; הבית הפעיל מסומן ברקע רך ובוי */
+.drawer-item.drawer-household-item.active { background: var(--accent-soft); color: var(--accent-ink); }
+.drawer-household-item.active > svg { color: var(--accent); }
+
+/* ---------- חלונות ---------- */
+.modal-head small { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.5; }
+.modal-body > p { margin: 0; line-height: 1.6; }
+.modal-body > .notice { margin-bottom: 12px; }
+.modal-foot {
+  display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px;
+  padding: 12px 18px 16px; border-top: 1px solid var(--border);
+}
+.dialog-form { display: flex; flex-direction: column; gap: 14px; }
+.dialog-form.narrow { max-width: 400px; }
+.dialog-form p { margin: 0; line-height: 1.6; }
+.dialog-form .notice { margin: 0; }
+.auth-field select { padding: 10px 12px; font-size: 15px; }
+.choice-group { margin: 0; padding: 0; border: 0; min-width: 0; }
+.choice-group legend { padding: 0; margin-bottom: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+
+.kind-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.kind-choice {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 10px 14px 14px; border-radius: 14px;
+  border: 1px solid var(--border-bright); background: var(--surface-solid);
+  cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.kind-choice:hover { border-color: var(--accent); }
+.kind-choice.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.kind-choice input { position: absolute; inset-block-start: 10px; inset-inline-end: 10px; margin: 0; opacity: 0; pointer-events: none; }
+.kind-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.kind-art { display: block; margin-inline-start: -6px; }
+.kind-text { display: flex; flex-direction: column; gap: 2px; }
+.kind-text b { font-size: 14.5px; }
+.kind-text small { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+
+/* .hh-swatch ולא .swatch: זה תפוס בבורר הצבעים של הקטגוריות */
+.hh-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.hh-swatch {
+  position: relative; width: 38px; height: 38px; border-radius: 12px;
+  border: 3px solid var(--surface-solid);
+  box-shadow: 0 0 0 1px var(--border-bright);
+  cursor: pointer; transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.hh-swatch:hover { transform: translateY(-1px); }
+.hh-swatch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.hh-swatch:has(input:checked) { box-shadow: 0 0 0 3px var(--text); }
+.hh-swatch:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+.invite-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.invite-card b { font-size: 15.5px; }
+.invite-card p { margin: 2px 0 0; font-size: 13px; }
+.invite-tile { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; font-size: 22px; }
+
+/* ---------- מסך ההגדרות ---------- */
+.settings {
+  display: flex; align-items: flex-start; gap: 32px;
+  max-width: 1280px; min-height: 100vh; margin: 0 auto;
+  padding: 26px 30px calc(48px + env(safe-area-inset-bottom));
+}
+.settings-aside {
+  flex: 0 0 236px; position: sticky; top: 26px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.settings-main { flex: 1; min-width: 0; }
+.settings-title h1 { font-size: 26px; }
+.settings-title p { margin: 3px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.settings-navlist { display: flex; flex-direction: column; gap: 3px; }
+.settings-nav {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%; min-height: 42px; padding: 0 12px;
+  border: 0; border-radius: 12px; background: transparent;
+  color: var(--text-dim); font-size: 14.5px; font-weight: 600; text-align: start;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.settings-nav svg { flex: none; }
+.settings-nav:hover { background: var(--surface-2); color: var(--text); }
+.settings-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.settings-nav.on { background: var(--accent-soft); color: var(--accent-ink); }
+.settings-nav.back {
+  width: auto; align-self: flex-start; padding-inline: 10px 14px;
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 1px 2px rgba(12, 30, 36, 0.05);
+}
+.settings-nav.back:hover { background: var(--surface-2); }
+
+.settings-stack { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
+.settings-head h2 { font-size: 24px; }
+.settings-head p { margin: 4px 0 0; }
+.settings-card { display: flex; flex-direction: column; gap: 10px; }
+.settings-card h3 { font-size: 16px; }
+.settings-card p { margin: 0; }
+.account-row { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.account-row b { font-size: 16px; }
+.account-row .dim { overflow-wrap: anywhere; }
+.sidebar-avatar.account-avatar { width: 46px; height: 46px; font-size: 18px; }
+/* כל מספר אפשרויות בשורה אחת — שפות, ערכות נושא */
+.theme-switch.wide {
+  grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr;
+  max-width: 440px;
+}
+.theme-switch.wide button {
+  flex-direction: row; justify-content: center; gap: 7px;
+  padding: 9px 12px; border-radius: 999px; font-size: 13px;
+}
+
+/* ---------- הגדרות · משקי בית ---------- */
+.hh-settings { display: flex; flex-direction: column; gap: 18px; }
+
+/* הזוהר יושב מתחת לבתים — בצד שמאל בעברית, בצד ימין באנגלית */
+.hh-hero {
+  --glow-x: 18%;
+  position: relative; overflow: hidden;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+  padding: 28px 30px; border-radius: var(--radius-lg);
+  color: var(--hero-ink);
+  background:
+    radial-gradient(55% 80% at var(--glow-x) 100%, rgba(53, 196, 181, 0.3), transparent 72%),
+    linear-gradient(160deg, color-mix(in srgb, var(--hero) 84%, #35c4b5), var(--hero) 70%);
+  box-shadow: var(--shadow-hero);
+}
+[dir='ltr'] .hh-hero { --glow-x: 82%; }
+.hh-hero-text { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.hh-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--hero-dim); }
+.hh-hero h2 { font-size: 30px; line-height: 1.15; }
+.hh-hero p { margin: 0; max-width: 48ch; font-size: 14.5px; line-height: 1.65; color: var(--hero-dim); }
+.hh-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.hh-hero-art { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+
+.hh-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 14px; }
+.hh-card { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; }
+.hh-card.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--hh) 75%, transparent), var(--shadow); }
+.hh-card-head { display: flex; align-items: center; gap: 12px; }
+.hh-card-art {
+  flex: none; display: grid; place-items: center;
+  width: 76px; height: 72px; border-radius: 14px;
+  background: color-mix(in srgb, var(--hh) 14%, var(--surface-2));
+}
+.hh-card-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.hh-card-title h3 { max-width: 100%; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-card-title > .dim { font-size: 12.5px; }
+.hh-card-title .hh-tag { margin-top: 4px; }
+.hh-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 13px; }
+.hh-facts dt { color: var(--text-dim); font-weight: 600; }
+.hh-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.hh-card-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.hh-card-members { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hh-new-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 240px; padding: 22px; border-radius: var(--radius);
+  border: 1.5px dashed var(--border-bright); background: transparent;
+  color: var(--text); text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.hh-new-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.hh-new-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hh-new-tile b { font-size: 15px; }
+.hh-new-tile small { max-width: 28ch; font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+.hh-new-plus {
+  display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 4px;
+  border-radius: 12px; background: var(--accent-soft); color: var(--accent);
+}
+
+.hh-manage { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.hh-section-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 6px; }
+.hh-section-head h2, .hh-details h2, .hh-data h2 { font-size: 18px; }
+.hh-section-head p { margin: 3px 0 0; font-size: 13px; }
+.hh-invite-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.hh-invite-actions select, .hh-member-role select { padding: 6px 10px; font-size: 13px; }
+.hh-member-list { list-style: none; margin: 0; padding: 0; }
+.hh-member {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px;
+  padding: 11px 0; border-top: 1px solid var(--border);
+}
+.hh-member:first-child { border-top: 0; }
+.hh-member-who { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.35; }
+.hh-member-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.hh-member-name b, .hh-member-who > b { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* הכתובת לטינית: מיושרת לתחילת השורה כמו השם, גם בעברית */
+.hh-member-mail { align-self: flex-start; max-width: 100%; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-member-since { font-size: 12.5px; white-space: nowrap; }
+.hh-member-role { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; }
+.hh-invite-link {
+  width: 100%; margin-top: 4px; padding: 5px 9px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-dim); background: var(--surface-2);
+  border: 1px solid transparent; border-radius: 8px;
+}
+.hh-invite-link:focus { outline: none; border-color: var(--accent); }
+.hh-legend {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--surface-2); font-size: 12.5px; line-height: 1.5; color: var(--text-dim);
+}
+.hh-legend b { color: var(--text); font-weight: 650; }
+.hh-members > .tiny { margin: 10px 0 0; }
+
+.hh-details { display: flex; flex-direction: column; gap: 12px; }
+.hh-details > p { margin: 0; }
+.hh-role-big { font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--accent-ink); }
+.kind-seg { align-self: flex-start; }
+.kind-seg button { padding: 7px 14px; font-size: 13px; }
+.hh-details-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+
+.hh-data { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 24px; }
+.hh-data-text { flex: 1 1 280px; min-width: 0; }
+.hh-data-text p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.6; }
+.hh-data-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- רוחב ---------- */
+@media (max-width: 1100px) {
+  .hh-manage { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .settings { flex-direction: column; align-items: stretch; gap: 16px; padding: 14px 14px 40px; }
+  .settings-aside { position: static; flex: none; gap: 12px; }
+  .settings-title h1 { font-size: 22px; }
+  /* האזורים בשורה אחת שגוללת לרוחב, מקצה לקצה */
+  .settings-navlist {
+    flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    margin-inline: -14px; padding-inline: 14px;
+  }
+  .settings-navlist::-webkit-scrollbar { display: none; }
+  .settings-nav { width: auto; flex: none; min-height: 38px; font-size: 13.5px; white-space: nowrap; background: var(--surface); }
+  .settings-nav.on { background: var(--accent-soft); }
+}
+@media (max-width: 620px) {
+  .hh-hero { padding: 22px 18px 12px; }
+  .hh-hero h2 { font-size: 24px; }
+  .hh-card, .hh-members, .hh-details, .hh-data { padding: 16px; }
+  /* חבר בשורה: האווטר בצד, והשם, התאריך וההרשאה זה מתחת לזה */
+  .hh-member { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; }
+  .hh-member > .av { grid-row: span 3; align-self: start; }
+  .hh-member-since, .hh-member-role { grid-column: 2; }
+  .hh-member-role { margin-inline-start: 0; flex-wrap: wrap; }
+  .hh-data-actions { width: 100%; }
+}
+/* הכפר נבנה ב-400 על 300; בטלפון מקטינים את כולו, כולל התוויות */
+@media (max-width: 560px) { .hh-hero-art .village { zoom: 0.8; } }
+@media (max-width: 400px) { .hh-hero-art .village { zoom: 0.72; } }

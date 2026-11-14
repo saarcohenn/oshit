@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { DEFAULT_HOUSEHOLD_COLOR, HOUSEHOLD_COLORS } from './palette.js'
 
 const DATA_DIR = process.env.DATA_DIR ?? join(process.cwd(), 'data')
 mkdirSync(DATA_DIR, { recursive: true })
@@ -50,14 +51,18 @@ CREATE TABLE IF NOT EXISTS households (
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   -- מונה גרסה לבקרת מקביליות: עולה בכל כתיבה, ומאפשר לדחות כתיבה
   -- שנשענת על מצב ישן במקום לתת לה לדרוס נתונים של מכשיר אחר
-  version     INTEGER NOT NULL DEFAULT 0
+  version     INTEGER NOT NULL DEFAULT 0,
+  -- 'home' או 'business'. עסק קטן מתחיל עם קטגוריות עסקיות
+  kind        TEXT NOT NULL DEFAULT 'home',
+  color       TEXT NOT NULL DEFAULT '${DEFAULT_HOUSEHOLD_COLOR}'
 );
 
 CREATE TABLE IF NOT EXISTS household_members (
   household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  -- owner רשאי לשתף, לשנות שם ולמחוק; member רואה ועורך את הנתונים בלבד
-  role          TEXT NOT NULL DEFAULT 'member',
+  -- owner: הכול, כולל סוכנים, שחזור גיבוי ומחיקה. editor: ייבוא, קטגוריות
+  -- ותקציבים. viewer: קריאה בלבד. 'member' הוא השם הישן של editor
+  role          TEXT NOT NULL DEFAULT 'editor',
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (household_id, user_id)
 );
@@ -70,7 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_members_user ON household_members(user_id);
 CREATE TABLE IF NOT EXISTS invites (
   code          TEXT PRIMARY KEY,
   household_id  TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
-  role          TEXT NOT NULL DEFAULT 'member',
+  role          TEXT NOT NULL DEFAULT 'editor',
   created_by    TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   expires_at    TEXT NOT NULL,
@@ -277,14 +282,39 @@ db.exec(SCHEMA)
  * CREATE TABLE IF NOT EXISTS לא נוגע בטבלה קיימת, ולכן עמודה חדשה חייבת
  * ALTER מפורש — אחרת שדרוג של שרת פעיל נופל על "no such column".
  */
-function addColumnIfMissing(table: string, column: string, definition: string) {
+function addColumnIfMissing(table: string, column: string, definition: string): boolean {
   const columns = (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
     (c) => c.name,
   )
-  if (!columns.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  if (columns.includes(column)) return false
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  return true
 }
 
 addColumnIfMissing('households', 'version', 'INTEGER NOT NULL DEFAULT 0')
+
+/*
+ * v3: סוג וצבע לכל משק בית. בשרת קיים כל הבתים היו מקבלים את אותו צבע
+ * ברירת מחדל, ולכן בהגירה הם מקבלים את צבעי הפלטה לפי סדר היצירה.
+ */
+addColumnIfMissing('households', 'kind', "TEXT NOT NULL DEFAULT 'home'")
+if (addColumnIfMissing('households', 'color', `TEXT NOT NULL DEFAULT '${DEFAULT_HOUSEHOLD_COLOR}'`)) {
+  const ids = db.prepare('SELECT id FROM households ORDER BY created_at, id').all() as Array<{ id: string }>
+  const paint = db.prepare('UPDATE households SET color = ? WHERE id = ?')
+  ids.forEach(({ id }, i) => paint.run(HOUSEHOLD_COLORS[i % HOUSEHOLD_COLORS.length], id))
+}
+
+/**
+ * v3 מחליף את 'member' ב-editor, ומוסיף viewer. ברירת המחדל של העמודה
+ * בטבלה ישנה נשארת 'member' (SQLite לא משנה ברירת מחדל בלי לבנות טבלה
+ * מחדש), ולכן כל הכנסה מציינת תפקיד במפורש, ו-roleOf מתרגם שורה ישנה
+ * גם אם ההגירה הזו לא רצה עליה.
+ */
+export function migrateRoles() {
+  db.prepare("UPDATE household_members SET role = 'editor' WHERE role = 'member'").run()
+  db.prepare("UPDATE invites SET role = 'editor' WHERE role = 'member'").run()
+}
+migrateRoles()
 addColumnIfMissing('goals', 'target_date', 'TEXT')
 // מאיפה הגיעה עסקה. JSON, כי זו רשימה שגדלה עם כל מקור נוסף
 addColumnIfMissing('transactions', 'sightings', 'TEXT')

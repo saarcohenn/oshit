@@ -16,7 +16,7 @@ import { useHouseholdState } from './lib/useHouseholdState'
 import { CategoryProvider } from './lib/categoryContext'
 import { setCycleStartDay } from './lib/cycle'
 import { addMonths } from './lib/plan'
-import { api, type AuthUser } from './lib/api'
+import { api, type AuthUser, type InviteInfo } from './lib/api'
 import { availableMonths, summarize, transactionMonth } from './lib/analytics'
 import { monthLabel } from './lib/format'
 import { applyTheme, loadTheme, type Theme } from './lib/theme'
@@ -34,7 +34,8 @@ import PlanPanel from './components/PlanPanel'
 import AppDrawer from './components/AppDrawer'
 import Sidebar, { type SidebarTab } from './components/Sidebar'
 import AuthScreen from './components/AuthScreen'
-import ShareDialog from './components/ShareDialog'
+import SettingsScreen, { type SettingsSection } from './components/SettingsScreen'
+import { JoinDialog, NewHouseholdDialog } from './components/HouseholdDialogs'
 import { useAuth } from './lib/useAuth'
 import {
   IconBrandOutline,
@@ -169,21 +170,45 @@ export default function App() {
 
   // מפתח לפי מזהה המשתמש: החלפת חשבון מפרקת את כל המצב במקום לגרור
   // אליו נתונים של החשבון הקודם
-  return <AppShell key={auth.user.id} user={auth.user} onLogout={() => void auth.logout()} />
+  return (
+    <AppShell
+      key={auth.user.id}
+      user={auth.user}
+      onLogout={() => void auth.logout()}
+      invite={auth.invite}
+      inviteRejected={auth.inviteRejected}
+      onInviteHandled={auth.clearInvite}
+    />
+  )
 }
 
-function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+function AppShell({
+  user,
+  onLogout,
+  invite,
+  inviteRejected,
+  onInviteHandled,
+}: {
+  user: AuthUser
+  onLogout: () => void
+  /** קישור הזמנה שנפתח כשכבר מחוברים — מוצג לאישור, לא ממומש לבד */
+  invite: InviteInfo | null
+  inviteRejected: boolean
+  onInviteHandled: () => void
+}) {
   const {
     households,
     activeId,
     state,
     setState,
+    readOnly,
+    blockedAt,
     status,
     error,
     liveAt,
     switchHousehold,
     createHousehold,
-    renameHousehold,
+    updateHousehold,
     deleteHousehold,
     refreshHouseholds,
     pendingLocalImport,
@@ -200,8 +225,22 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   const [drawerOpen, setDrawerOpen] = useState(false)
   /** החיפוש בכותרת — מוביל למסך העסקאות ומסנן אותו */
   const [query, setQuery] = useState('')
-  /** משק הבית שפתוח כרגע בחלון השיתוף */
-  const [shareId, setShareId] = useState<string | null>(null)
+  /** האפליקציה עצמה, או מסך ההגדרות שמחליף אותה */
+  const [screen, setScreen] = useState<'app' | 'settings'>('app')
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('households')
+  const [dialog, setDialog] = useState<'new' | 'join' | null>(null)
+
+  function openSettings(section: SettingsSection) {
+    setSettingsSection(section)
+    setScreen('settings')
+    setDrawerOpen(false)
+    window.scrollTo(0, 0)
+  }
+
+  // צפייה בלבד: אין מסך ייבוא, וגם לא נשארים בו אם ההרשאה ירדה באמצע
+  useEffect(() => {
+    if (readOnly && tab === 'import') setTab('dashboard')
+  }, [readOnly, tab])
 
   useEffect(() => applyTheme(theme), [theme])
   // מרנדר מחדש כשהשפה מתחלפת. ההחלה על המסמך נעשית ב-main לפני הרינדור הראשון
@@ -556,7 +595,6 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
    * מסתירה את מסך העו"ש בדיוק אחרי ייבוא שהצליח.
    */
   const hasData = transactions.length > 0 || state.accountMovements.length > 0
-  const shareHousehold = households.find((h) => h.id === shareId) ?? null
 
   /*
    * מספרים קטנים בסרגל: חריגות תקציב באדום — זה מה שדורש תשומת לב —
@@ -574,7 +612,10 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
   const withBadges = (tabs: TabDef[]) => tabs.map((t) => ({ ...t, badge: badges[t.id] }))
   const navGroups = [
     { title: 'מסכים', tabs: withBadges(VIEW_TABS) },
-    { title: 'הגדרות ונתונים', tabs: withBadges(SETUP_TABS) },
+    {
+      title: 'הגדרות ונתונים',
+      tabs: withBadges(readOnly ? SETUP_TABS.filter((t) => t.id !== 'import') : SETUP_TABS),
+    },
   ]
 
   // בטלפון אין סרגל צד, ולכן הכותרת אומרת באיזה מסך אנחנו
@@ -618,8 +659,62 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     )
   }
 
+  const dialogs = (
+    <>
+      {dialog === 'new' && (
+        <NewHouseholdDialog
+          usedColors={households.map((h) => h.color.toLowerCase())}
+          onCreate={(input) => createHousehold(input)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {(dialog === 'join' || invite) && (
+        <JoinDialog
+          invite={dialog === 'join' ? null : invite}
+          onJoined={async (result) => {
+            onInviteHandled()
+            await refreshHouseholds()
+            await switchHousehold(result.householdId)
+          }}
+          onClose={() => {
+            onInviteHandled()
+            setDialog(null)
+          }}
+        />
+      )}
+    </>
+  )
+
+  if (screen === 'settings') {
+    return (
+      <>
+        {dialogs}
+        <SettingsScreen
+          section={settingsSection}
+          onSection={setSettingsSection}
+          onBack={() => setScreen('app')}
+          user={user}
+          onLogout={onLogout}
+          theme={theme}
+          onSetTheme={setTheme}
+          households={{
+            households,
+            activeId,
+            onSwitch: switchHousehold,
+            onNew: () => setDialog('new'),
+            onJoin: () => setDialog('join'),
+            onUpdate: updateHousehold,
+            onDelete: deleteHousehold,
+            onRefresh: refreshHouseholds,
+          }}
+        />
+      </>
+    )
+  }
+
   return (
     <CategoryProvider categories={state.categories}>
+    {dialogs}
     <AppDrawer
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
@@ -629,35 +724,26 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
       households={households}
       activeHouseholdId={activeId}
       onSwitchHousehold={(id) => void switchHousehold(id)}
-      onCreateHousehold={(n, e) => void createHousehold(n, e)}
-      onRenameHousehold={(id, n, e) => void renameHousehold(id, n, e)}
-      onDeleteHousehold={(id) => void deleteHousehold(id)}
-      onShareHousehold={(id) => {
-        setShareId(id)
-        setDrawerOpen(false)
-      }}
+      onCreateHousehold={() => setDialog('new')}
+      onOpenSettings={() => openSettings('households')}
       user={user}
       onLogout={onLogout}
       theme={theme}
       onSetTheme={setTheme}
     />
 
-    {shareHousehold && (
-      <ShareDialog
-        household={shareHousehold}
-        onClose={() => setShareId(null)}
-        onChanged={() => void refreshHouseholds()}
-      />
-    )}
-
     <div className="shell">
     <Sidebar
       groups={navGroups}
       activeTab={tab}
       onSelectTab={setTab}
-      household={activeHousehold}
+      households={households}
+      activeHouseholdId={activeId}
+      onSwitchHousehold={(id) => void switchHousehold(id)}
+      onCreateHousehold={() => setDialog('new')}
+      onManageHouseholds={() => openSettings('households')}
       user={user}
-      onOpenSettings={() => setDrawerOpen(true)}
+      onOpenSettings={() => openSettings('account')}
       onLogout={onLogout}
     />
 
@@ -749,14 +835,25 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
             </button>
           </div>
 
-          <button className="btn import-btn" onClick={() => setTab('import')}>
-            {tr('ייבוא דוח')}
-          </button>
+          {!readOnly && (
+            <button className="btn import-btn" onClick={() => setTab('import')}>
+              {tr('ייבוא דוח')}
+            </button>
+          )}
         </div>
       </header>
 
       <main className="main">
-        {pendingLocalImport() && households.length > 0 && (
+        {inviteRejected && (
+          <div className="notice warn notice-row" role="status">
+            <span className="grow">{tr('קישור ההזמנה כבר לא תקף: פג תוקפו, כבר נוצל, או שבוטל. בקשו קישור חדש.')}</span>
+            <button className="link-btn" onClick={onInviteHandled}>
+              {tr('הבנתי')}
+            </button>
+          </div>
+        )}
+        {readOnly && activeHousehold && <ReadOnlyNotice name={activeHousehold.name} blockedAt={blockedAt} />}
+        {activeHousehold?.role === 'owner' && pendingLocalImport() && households.length > 0 && (
           <div className="notice warn" style={{ marginBottom: 16 }}>
             {tr('נמצאו נתונים ששמרתם בדפדפן לפני שהאפליקציה עברה לשרת.')}{' '}
             <button className="link-btn" onClick={() => void migrateLocalData()}>
@@ -769,20 +866,28 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
           <div className="empty">
             <h2>{tr('אין לכם משק בית')}</h2>
             <p>{tr('צרו משק בית חדש, או בקשו קישור הזמנה ממי שכבר מנהל אחד.')}</p>
-            <button
-              className="btn"
-              onClick={() => void createHousehold(tr('משק הבית שלי'), '🏡')}
-            >
-              {tr('יצירת משק בית')}
-            </button>
+            <div className="empty-actions">
+              <button className="btn" onClick={() => setDialog('new')}>
+                {tr('יצירת משק בית')}
+              </button>
+              <button className="btn ghost" onClick={() => setDialog('join')}>
+                {tr('הצטרפות בקוד הזמנה')}
+              </button>
+            </div>
           </div>
         ) : !hasData && tab !== 'import' && tab !== 'agents' ? (
           <div className="empty">
             <h2>{tr('עוד אין נתונים')}</h2>
-            <p>{tr('ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.')}</p>
-            <button className="btn" onClick={() => setTab('import')}>
-              {tr('מעבר לייבוא')}
-            </button>
+            {readOnly ? (
+              <p>{tr('אחרי ייבוא קובץ בהרשאת עריכה, הנתונים יופיעו כאן.')}</p>
+            ) : (
+              <>
+                <p>{tr('ייבאו את קובץ האקסל של פירוט כרטיסי האשראי כדי להתחיל.')}</p>
+                <button className="btn" onClick={() => setTab('import')}>
+                  {tr('מעבר לייבוא')}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -896,6 +1001,26 @@ function AppShell({ user, onLogout }: { user: AuthUser; onLogout: () => void }) 
     </div>
     </div>
     </CategoryProvider>
+  )
+}
+
+/**
+ * הרשאת צפייה. ההסבר קבוע בראש המסך, ומהבהב כשמנסים לשנות משהו —
+ * אחרת לחיצה על שדה שלא מגיב נראית כמו תקלה.
+ */
+function ReadOnlyNotice({ name, blockedAt }: { name: string; blockedAt: number }) {
+  const [pulse, setPulse] = useState(false)
+  useEffect(() => {
+    if (!blockedAt) return
+    setPulse(true)
+    const t = setTimeout(() => setPulse(false), 1600)
+    return () => clearTimeout(t)
+  }, [blockedAt])
+  return (
+    <div className={`notice readonly-notice ${pulse ? 'pulse' : ''}`} role="status">
+      <b>{tr('צפייה בלבד')}</b>{' · '}
+      {trf('במשק הבית "{name}" אפשר לראות הכול, אבל לא לשנות. שינוי ההרשאה שמור לבעלים של משק הבית.', { name })}
+    </div>
   )
 }
 

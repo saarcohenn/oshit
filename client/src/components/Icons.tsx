@@ -296,3 +296,62 @@ export const IconSearch = ({ size = 16, className }: IconProps) => (
     <path d="m20 20-4.2-4.2" />
   </svg>
 )
+
+/* ---------------- v3: הגדרות ומשקי בית ---------------- */
+
+/** חזרה — בעברית החץ פונה ימינה, אל תחילת השורה; באנגלית הוא מתהפך שמאלה */
+export const IconArrowBack = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size, `flip-ltr ${className ?? ''}`)}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+)
+
+export const IconCheck = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
+  </svg>
+)
+
+export const IconLink = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+  </svg>
+)
+
+export const IconDownload = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M12 3v12M7 10l5 5 5-5M4 19h16" />
+  </svg>
+)
+
+export const IconTrash = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />
+  </svg>
+)
+
+/** עסק קטן — בניין */
+export const IconBuilding = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M3 21h18M8 7h4M8 11h4M8 15h4" />
+  </svg>
+)
+
+export const IconKey = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M14 3a6 6 0 0 0-5.7 7.9L3 16.2V21h4.8v-2.2H10v-2.2h2.2l1-1A6 6 0 1 0 14 3zM16.5 7.5h.01" />
+  </svg>
+)
+
+export const IconLang = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M4 5h9M8.5 3v2M6 5c.5 3 2.5 5.5 5 7M11 5c-.5 3-2.6 5.6-6 7.5M13 21l4-10 4 10M14.5 17.5h5" />
+  </svg>
+)
+
+/** כניסה בקוד — חץ שנכנס לדלת */
+export const IconEnter = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size, className)}>
+    <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l4-4-4-4M14 12H4" />
+  </svg>
+)

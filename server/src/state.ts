@@ -268,10 +268,10 @@ export const writeState = db.transaction((
     const ins = db.prepare(`
       INSERT INTO transactions (id, household_id, card, merchant, merchant_key, date, charge_date,
         amount, original_amount, currency, kind, installment_current, installment_total,
-        category, necessity, source, sightings, manual, paid_via)
+        category, necessity, source, sightings, manual, paid_via, one_off, person)
       VALUES (@id, @householdId, @card, @merchant, @merchantKey, @date, @chargeDate,
         @amount, @originalAmount, @currency, @kind, @ic, @it,
-        @category, @necessity, @source, @sightings, @manual, @paidVia)`)
+        @category, @necessity, @source, @sightings, @manual, @paidVia, @oneOff, @person)`)
     for (const t of state.transactions as Row[]) {
       ins.run({
         id: t.id,
