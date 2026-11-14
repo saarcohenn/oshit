@@ -23,6 +23,11 @@ export interface Auth {
   needsSetup: boolean
   openRegistration: boolean
   invite: InviteInfo | null
+  /**
+   * נפתח קישור הזמנה, אבל השרת לא מכיר אותו: פג תוקף, כבר נוצל או בוטל.
+   * בלי זה הקישור פשוט "לא עשה כלום", ולא היה ברור למה.
+   */
+  inviteRejected: boolean
   error: string | null
   login: (email: string, password: string) => Promise<void>
   register: (email: string, name: string, password: string) => Promise<void>
@@ -35,6 +40,8 @@ export function useAuth(): Auth {
   const [state, setState] = useState<AuthState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [invite] = useState(takeInviteFromUrl)
+  // ההזמנה טופלה — מומשה בהתחברות, אושרה, או שהמשתמש סגר אותה
+  const [inviteHandled, setInviteHandled] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -66,6 +73,7 @@ export function useAuth(): Auth {
     async (email: string, password: string) => {
       setError(null)
       const { user } = await api.login({ email, password, invite: invite || undefined })
+      setInviteHandled(true)
       setState((prev) => ({
         needsSetup: false,
         openRegistration: prev?.openRegistration ?? false,
@@ -80,6 +88,7 @@ export function useAuth(): Auth {
     async (email: string, name: string, password: string) => {
       setError(null)
       const { user } = await api.register({ email, name, password, invite: invite || undefined })
+      setInviteHandled(true)
       setState((prev) => ({
         needsSetup: false,
         openRegistration: prev?.openRegistration ?? false,
@@ -100,11 +109,12 @@ export function useAuth(): Auth {
     user: state?.user ?? null,
     needsSetup: state?.needsSetup ?? false,
     openRegistration: state?.openRegistration ?? false,
-    invite: state?.invite ?? null,
+    invite: inviteHandled ? null : (state?.invite ?? null),
+    inviteRejected: Boolean(invite) && !!state && !state.invite && !inviteHandled,
     error,
     login,
     register,
     logout,
-    clearInvite: () => setState((prev) => (prev ? { ...prev, invite: null } : prev)),
+    clearInvite: () => setInviteHandled(true),
   }
 }

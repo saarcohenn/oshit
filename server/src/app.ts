@@ -1,0 +1,746 @@
+import express from 'express'
+import { existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { db } from './db.js'
+import {
+  changeKind,
+  createHousehold,
+  ensureDefaultHousehold,
+  getHousehold,
+  listHouseholds,
+  parseKind,
+} from './households.js'
+import { isHexColor } from './palette.js'
+import { readState, readVersion, VersionConflict, writeState } from './state.js'
+import { broadcastVersion, connectedCount, subscribe } from './events.js'
+import {
+  agentBudget,
+  agentLog,
+  agentLogText,
+  agentServiceRouter,
+  agentServiceSeenAt,
+  agentTelegramBot,
+  agentsConfigured,
+  enqueueRun,
+  listAgentRuns,
+  setAgentBudget,
+  startDemo,
+  type AgentId,
+} from './agents.js'
+import {
+  TOOL_CATALOG,
+  agentDefVersions,
+  agentMemoryVersions,
+  allAgentMemory,
+  deleteAgentDef,
+  getAgentDef,
+  getPortfolio,
+  listAgentDefs,
+  pendingTelegramCode,
+  portfolioVersions,
+  resetBuiltin,
+  revertAgentDef,
+  revertAgentMemory,
+  revertPortfolio,
+  saveAgentDef,
+  saveAgentMemory,
+  savePortfolio,
+  setTelegramLang,
+  startTelegramLink,
+  symbolCheck,
+  telegramLink,
+  unlinkTelegram,
+} from './agentDefs.js'
+import {
+  attachUser,
+  clearAttempts,
+  clearSessionCookie,
+  createSession,
+  destroyAllSessions,
+  destroySession,
+  hashPassword,
+  noteFailedAttempt,
+  requireAuth,
+  sessionToken,
+  setSessionCookie,
+  tooManyAttempts,
+  verifyPassword,
+} from './auth.js'
+import {
+  acceptInvite,
+  createInvite,
+  createUser,
+  findUserByEmail,
+  findUserById,
+  inviteInfo,
+  listMembers,
+  normalizeEmail,
+  ownerCount,
+  parseRole,
+  pendingInvites,
+  removeMember,
+  revokeInvite,
+  revokeInvites,
+  roleAtLeast,
+  roleOf,
+  setRole,
+  transferOwnership,
+  userCount,
+  adoptOrphanHouseholds,
+  type Role,
+} from './users.js'
+
+/*
+ * נתיב מוחלט תמיד: res.sendFile דורש זאת, ו-PUBLIC_DIR יחסי מתוך משתנה
+ * סביבה הפיל כל טעינת עמוד ב-500 — בלי רמז לסיבה. בתמונה הנתיב מוחלט
+ * ולכן זה לא התגלה, אבל בהרצה מקומית כן.
+ */
+const PUBLIC_DIR = resolve(process.env.PUBLIC_DIR ?? join(process.cwd(), 'public'))
+
+/**
+ * פרמטר נתיב כמחרוזת.
+ *
+ * ‎Express 5 מטפס את req.params כ-string | string[], כי path-to-regexp
+ * החדש תומך בפרמטר חוזר (‎/:id+‎). כל הנתיבים כאן הם ‎:param‎ יחיד ולכן
+ * הערך הוא תמיד מחרוזת, אבל הצמצום נעשה מפורשות ולא בהשתקת הטיפוס —
+ * נתיב שיתווסף בעתיד עם פרמטר חוזר לא ייתן כאן ערך מפתיע.
+ */
+const pathParam = (value: string | string[] | undefined): string =>
+  Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+
+/*
+ * הרשמה חופשית סגורה כברירת מחדל. שרת ביתי שנחשף לאינטרנט דרך מנהרה
+ * הוא הפריסה הרגילה כאן, ופתיחת הרשמה לכל מי שמגיע לכתובת הייתה נותנת
+ * לזרים ליצור חשבונות. הצטרפות נעשית בהזמנה; הדלת נפתחת רק בהתקנה
+ * חדשה לגמרי, עד שנוצר החשבון הראשון.
+ */
+const OPEN_REGISTRATION = process.env.OSHIT_OPEN_REGISTRATION === 'true'
+
+/*
+ * האפליקציה בלי listen: index.ts מפעיל אותה, והבדיקות מריצות אותה על
+ * פורט אקראי ופונות אליה ב-HTTP אמיתי — כולל העוגייה והשערים.
+ */
+export const app = express()
+// מאחורי פרוקסי — כדי ש-req.secure ישקף את ה-TLS שהסתיים בפרוקסי
+app.set('trust proxy', 1)
+// קובץ אשראי של שנה שלמה עדיין קטן, אבל ברירת המחדל של express קטנה מדי עבורו
+app.use(express.json({ limit: '20mb' }))
+
+/*
+ * שום תשובת API אינה ניתנת לשמירה במטמון.
+ *
+ * הלקוח מבקש no-store, אבל זה חל רק על מטמון הדפדפן עצמו. בלי הכרזה
+ * מצד השרת, כל שכבה בדרך — reverse proxy, CDN, או service worker —
+ * רשאית לשמור את התשובה ולהגיש אותה שוב.
+ *
+ * זה לא תיאורטי: מספיק שתשובה אחת של ‎/state‎ נשמרת, והלקוח קורא לנצח
+ * מספר גרסה ישן. כל כתיבה שלו נדחית אז ב-409, הוא טוען מחדש, מקבל שוב
+ * את אותה תשובה שמורה — ונכנס ללולאה שאין ממנה יציאה.
+ */
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  res.setHeader('Pragma', 'no-cache')
+  next()
+})
+
+app.use(attachUser)
+
+/*
+ * בדיקת בריאות שנוגעת באמת במסד.
+ *
+ * קודם הוחזר כאן קבוע, ולכן קונטיינר שהמסד שלו אינו נגיש — קובץ פגום,
+ * הרשאות על ה-volume, או מנהל מסד שנשבר בשדרוג — היה מסומן healthy
+ * וממשיך לקבל תעבורה. השאילתה נוגעת בטבלה אמיתית ולא ב-SELECT 1, כדי
+ * שגם סכמה חסרה תיתפס ולא רק קובץ שלא נפתח.
+ *
+ * כשל מחזיר 503 ולא 500: ה-healthcheck ב-compose בודק r.ok, וקוד 5xx
+ * הוא מה שמסמן את הקונטיינר כלא תקין.
+ */
+app.get('/api/health', (_req, res) => {
+  try {
+    db.prepare('SELECT COUNT(*) AS n FROM users').get()
+    res.json({ ok: true, version: 2 })
+  } catch (err) {
+    console.error('בדיקת הבריאות נכשלה — המסד אינו נגיש', err)
+    res.status(503).json({ ok: false, version: 2, error: 'database unavailable' })
+  }
+})
+
+/* ---------------- הזדהות ---------------- */
+
+const MIN_PASSWORD = 8
+
+function publicUser(u: { id: string; email: string; name: string }) {
+  return { id: u.id, email: u.email, name: u.name }
+}
+
+/**
+ * Express 4 אינו תופס דחייה של handler אסינכרוני: היא מגיעה כ-unhandled
+ * rejection, וב-Node מודרני זה מפיל את התהליך כולו. שגיאה בבדיקת סיסמה
+ * אחת אינה סיבה שכל מי שמחובר יאבד את השרת.
+ */
+function asyncRoute(
+  fn: (req: express.Request, res: express.Response) => Promise<unknown>,
+): express.RequestHandler {
+  return (req, res, next) => {
+    fn(req, res).catch(next)
+  }
+}
+
+/**
+ * המצב ההתחלתי שהלקוח שואל עליו לפני שהוא מצייר משהו: האם יש כבר
+ * חשבון במערכת, האם אנחנו מחוברים, והאם מחכה הזמנה בקישור.
+ */
+app.get('/api/auth/state', (req, res) => {
+  const code = String(req.query.invite ?? '')
+  res.json({
+    needsSetup: userCount() === 0,
+    openRegistration: OPEN_REGISTRATION,
+    user: req.user ? publicUser(req.user) : null,
+    invite: code ? inviteInfo(code) : null,
+  })
+})
+
+app.post('/api/auth/register', asyncRoute(async (req, res) => {
+  const email = normalizeEmail(String(req.body?.email ?? ''))
+  const name = String(req.body?.name ?? '').trim()
+  const password = String(req.body?.password ?? '')
+  const code = String(req.body?.invite ?? '')
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.status(400).json({ error: 'כתובת דוא״ל לא תקינה' })
+  }
+  if (!name) return res.status(400).json({ error: 'חסר שם' })
+  if (password.length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `הסיסמה צריכה להיות באורך ${MIN_PASSWORD} תווים לפחות` })
+  }
+
+  const first = userCount() === 0
+  const invite = code ? inviteInfo(code) : null
+  // בלי החשבון הראשון, בלי הזמנה תקפה ובלי הרשמה פתוחה — אין כניסה
+  if (!first && !invite && !OPEN_REGISTRATION) {
+    return res.status(403).json({ error: 'ההרשמה סגורה. בקשו קישור הזמנה ממי שכבר משתמש' })
+  }
+  if (findUserByEmail(email)) {
+    return res.status(409).json({ error: 'כבר קיים חשבון עם הדוא״ל הזה' })
+  }
+
+  const id = await createUser(email, name, password)
+
+  if (first) {
+    /*
+     * שדרוג מגרסה שלא הכירה משתמשים: הנתונים שכבר במסד עוברים לבעלות
+     * החשבון הראשון. בלי זה ההיסטוריה הייתה נשארת במסד בלי דרך להגיע אליה.
+     */
+    const adopted = adoptOrphanHouseholds(id)
+    if (adopted) console.log(`אומצו ${adopted} משקי בית קיימים על ידי החשבון הראשון`)
+  }
+  if (invite) acceptInvite(invite.code, id)
+  ensureDefaultHousehold(id)
+
+  setSessionCookie(req, res, createSession(id))
+  res.status(201).json({ user: publicUser({ id, email, name }) })
+}))
+
+app.post('/api/auth/login', asyncRoute(async (req, res) => {
+  const email = normalizeEmail(String(req.body?.email ?? ''))
+  const password = String(req.body?.password ?? '')
+  const throttleKey = `${req.ip}|${email}`
+
+  const wait = tooManyAttempts(throttleKey)
+  if (wait) {
+    return res.status(429).json({ error: `יותר מדי ניסיונות. נסו שוב בעוד ${wait} שניות` })
+  }
+
+  const user = findUserByEmail(email)
+  // אותה תשובה בדיוק לדוא״ל לא קיים ולסיסמה שגויה, כדי לא לאשר קיום חשבון
+  const ok = user ? await verifyPassword(password, user.passwordHash) : false
+  if (!user || !ok) {
+    noteFailedAttempt(throttleKey)
+    return res.status(401).json({ error: 'דוא״ל או סיסמה שגויים' })
+  }
+
+  clearAttempts(throttleKey)
+  const code = String(req.body?.invite ?? '')
+  if (code) acceptInvite(code, user.id)
+
+  setSessionCookie(req, res, createSession(user.id))
+  res.json({ user: publicUser(user) })
+}))
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = sessionToken(req)
+  if (token) destroySession(token)
+  clearSessionCookie(req, res)
+  res.status(204).end()
+})
+
+app.post('/api/auth/password', requireAuth, asyncRoute(async (req, res) => {
+  const current = String(req.body?.currentPassword ?? '')
+  const next = String(req.body?.newPassword ?? '')
+  if (next.length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `הסיסמה צריכה להיות באורך ${MIN_PASSWORD} תווים לפחות` })
+  }
+  const user = findUserById(req.user!.id)!
+  if (!(await verifyPassword(current, user.passwordHash))) {
+    return res.status(401).json({ error: 'הסיסמה הנוכחית שגויה' })
+  }
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+    await hashPassword(next),
+    user.id,
+  )
+  // כל שאר המכשירים מנותקים; החיבור הנוכחי מונפק מחדש
+  destroyAllSessions(user.id)
+  setSessionCookie(req, res, createSession(user.id))
+  res.json({ ok: true })
+}))
+
+/** מימוש הזמנה על ידי מי שכבר מחובר */
+app.post('/api/invites/:code/accept', requireAuth, (req, res) => {
+  const info = acceptInvite(pathParam(req.params.code), req.user!.id)
+  if (!info) return res.status(404).json({ error: 'ההזמנה אינה תקפה או שכבר מומשה' })
+  res.json({
+    householdId: info.householdId,
+    householdName: info.householdName,
+    role: info.role,
+    alreadyMember: info.alreadyMember,
+  })
+})
+
+/* ---------------- משקי בית ---------------- */
+
+const households = express.Router()
+app.use('/api/households', requireAuth, households)
+
+/**
+ * שער הגישה לכל נתוני משק הבית.
+ *
+ * חוסר חברות מוחזר כ-404 ולא כ-403: מזהה משק בית שאיננו חברים בו לא
+ * אמור להיות ניתן לאישור מבחוץ, וההבחנה בין "לא קיים" ל"קיים ואינך
+ * מורשה" היא בדיוק מה שמאפשר למנות מזהים.
+ *
+ * מעבר לחברות, כל נתיב מצהיר מה התפקיד המינימלי שלו: קריאה לכל חבר,
+ * כתיבת נתונים מעריכה ומעלה, ושיתוף, סוכנים, שחזור ומחיקה לבעלים.
+ */
+function member(min: Role = 'viewer') {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const actual = roleOf(pathParam(req.params.id), req.user!.id)
+    if (!actual) return res.status(404).json({ error: 'משק הבית לא נמצא' })
+    if (!roleAtLeast(actual, min)) {
+      return res.status(403).json({
+        error:
+          min === 'owner'
+            ? 'הפעולה שמורה לבעלים של משק הבית'
+            : 'יש לכם הרשאת צפייה בלבד במשק הבית הזה',
+      })
+    }
+    next()
+  }
+}
+
+const MAX_NAME = 60
+
+households.get('/', (req, res) => {
+  res.json(listHouseholds(req.user!.id))
+})
+
+households.post('/', (req, res) => {
+  const name = String(req.body?.name ?? '').trim().slice(0, MAX_NAME)
+  if (!name) return res.status(400).json({ error: 'חסר שם למשק הבית' })
+  const emoji = String(req.body?.emoji ?? '🏡').slice(0, 8) || '🏡'
+  const kind = req.body?.kind === undefined ? 'home' : parseKind(req.body.kind)
+  if (!kind) return res.status(400).json({ error: 'סוג משק בית לא מוכר' })
+  const color = req.body?.color
+  if (color !== undefined && !isHexColor(color)) {
+    return res.status(400).json({ error: 'צבע לא תקין' })
+  }
+  const id = createHousehold(name, emoji, req.user!.id, { kind, color })
+  res.status(201).json(getHousehold(id, req.user!.id))
+})
+
+/**
+ * שם, אימוג׳י, צבע וסוג. החלפת סוג מוסיפה את הקטגוריות שחסרות לסוג
+ * החדש ואינה מוחקת אף אחת — ולכן, אם נוספו, המכשירים הפתוחים מקבלים
+ * הודעה ומושכים את המצב מחדש כמו אחרי כל כתיבה.
+ */
+households.patch('/:id', member('owner'), (req, res) => {
+  const id = pathParam(req.params.id)
+  const current = getHousehold(id, req.user!.id)!
+  const name = String(req.body?.name ?? current.name).trim().slice(0, MAX_NAME) || current.name
+  const emoji = String(req.body?.emoji ?? current.emoji).slice(0, 8) || current.emoji
+  const color = req.body?.color ?? current.color
+  if (!isHexColor(color)) return res.status(400).json({ error: 'צבע לא תקין' })
+  const kind = req.body?.kind === undefined ? current.kind : parseKind(req.body.kind)
+  if (!kind) return res.status(400).json({ error: 'סוג משק בית לא מוכר' })
+
+  db.prepare('UPDATE households SET name = ?, emoji = ?, color = ? WHERE id = ?').run(name, emoji, color, id)
+  if (kind !== current.kind && changeKind(id, kind)) broadcastVersion(id, readVersion(id))
+  res.json(getHousehold(id, req.user!.id))
+})
+
+/**
+ * מחיקה קשה. הכול מדורדר דרך ON DELETE CASCADE ואין סל מיחזור —
+ * זו הנקודה שבה משק בית מוחק את הנתונים שלו לגמרי, גם עבור מי שחולק אותו.
+ */
+households.delete('/:id', member('owner'), (req, res) => {
+  if (listHouseholds(req.user!.id).length <= 1) {
+    return res.status(400).json({ error: 'אי אפשר למחוק את משק הבית האחרון' })
+  }
+  db.prepare('DELETE FROM households WHERE id = ?').run(pathParam(req.params.id))
+  res.status(204).end()
+})
+
+/* ---------------- שיתוף ---------------- */
+
+households.get('/:id/members', member(), (req, res) => {
+  const list = listMembers(pathParam(req.params.id)).map((m) => ({ ...m, isSelf: m.userId === req.user!.id }))
+  res.json({
+    members: list,
+    invites: roleOf(pathParam(req.params.id), req.user!.id) === 'owner' ? pendingInvites(pathParam(req.params.id)) : [],
+  })
+})
+
+households.post('/:id/invites', member('owner'), (req, res) => {
+  const role = parseRole(req.body?.role ?? 'editor')
+  if (!role) return res.status(400).json({ error: 'הרשאה לא מוכרת' })
+  res.status(201).json(createInvite(pathParam(req.params.id), req.user!.id, role))
+})
+
+households.delete('/:id/invites', member('owner'), (req, res) => {
+  revokeInvites(pathParam(req.params.id))
+  res.status(204).end()
+})
+
+households.delete('/:id/invites/:code', member('owner'), (req, res) => {
+  if (!revokeInvite(pathParam(req.params.id), pathParam(req.params.code))) {
+    return res.status(404).json({ error: 'ההזמנה לא נמצאה' })
+  }
+  res.status(204).end()
+})
+
+/**
+ * הסרת חבר. הבעלים מסיר אחרים, וכל אחד רשאי להסיר את עצמו — עזיבה
+ * אינה מוחקת דבר, רק מנתקת את הגישה.
+ */
+households.delete('/:id/members/:userId', member(), (req, res) => {
+  const me = req.user!.id
+  const target = pathParam(req.params.userId)
+  const myRole = roleOf(pathParam(req.params.id), me)
+  if (target !== me && myRole !== 'owner') {
+    return res.status(403).json({ error: 'הסרת חברים אחרים שמורה לבעלים של משק הבית' })
+  }
+  if (roleOf(pathParam(req.params.id), target) === 'owner' && ownerCount(pathParam(req.params.id)) <= 1) {
+    return res.status(400).json({ error: 'אי אפשר להסיר את הבעלים היחיד של משק הבית' })
+  }
+  removeMember(pathParam(req.params.id), target)
+  res.status(204).end()
+})
+
+/**
+ * שינוי תפקיד. הבדיקה של "בעלים אחד לפחות" חלה רק כשמורידים בעלים —
+ * קודם היא חלה על כל שינוי, ולכן בעלים יחיד לא יכול היה לשנות תפקיד של אף אחד.
+ */
+households.patch('/:id/members/:userId', member('owner'), (req, res) => {
+  const id = pathParam(req.params.id)
+  const target = pathParam(req.params.userId)
+  const role = parseRole(req.body?.role)
+  if (!role) return res.status(400).json({ error: 'הרשאה לא מוכרת' })
+  const current = roleOf(id, target)
+  if (!current) return res.status(404).json({ error: 'המשתמש אינו חבר במשק הבית' })
+  if (current === 'owner' && role !== 'owner' && ownerCount(id) <= 1) {
+    return res.status(400).json({ error: 'צריך להישאר בעלים אחד לפחות' })
+  }
+  setRole(id, target, role)
+  res.json({ ok: true, role })
+})
+
+/** העברת בעלות לחבר אחר. המעביר נשאר במשק הבית עם הרשאת עריכה */
+households.post('/:id/transfer', member('owner'), (req, res) => {
+  const id = pathParam(req.params.id)
+  const target = String(req.body?.userId ?? '')
+  if (target === req.user!.id) return res.status(400).json({ error: 'אתם כבר הבעלים' })
+  if (!transferOwnership(id, req.user!.id, target)) {
+    return res.status(404).json({ error: 'המשתמש אינו חבר במשק הבית' })
+  }
+  res.json(getHousehold(id, req.user!.id))
+})
+
+/* ---------------- מצב משק הבית ---------------- */
+
+households.get('/:id/state', member(), (req, res) => {
+  res.json({ ...readState(pathParam(req.params.id)), version: readVersion(pathParam(req.params.id)) })
+})
+
+households.put('/:id/state', member('editor'), (req, res) => {
+  const id = pathParam(req.params.id)
+  const { version, ...rest } = req.body ?? {}
+  try {
+    const next = writeState(id, rest, typeof version === 'number' ? version : undefined)
+    broadcastVersion(id, next, String(req.headers['x-client-id'] ?? ''))
+    res.json({ ok: true, version: next, listeners: connectedCount(id) })
+  } catch (err) {
+    if (err instanceof VersionConflict) {
+      // מכשיר אחר כתב בינתיים. הלקוח יטען מחדש במקום לדרוס
+      return res.status(409).json({
+        error: 'הנתונים שונו ממכשיר אחר',
+        currentVersion: err.current,
+      })
+    }
+    console.error('שמירת המצב נכשלה', err)
+    res.status(500).json({ error: 'שמירת הנתונים נכשלה' })
+  }
+})
+
+/**
+ * זרם עדכונים חי. המכשיר נשאר מחובר ומקבל הודעה בכל פעם שמישהו אחר כתב,
+ * ואז מושך את המצב המעודכן. כך עריכה במחשב מופיעה בטלפון בלי לרענן,
+ * וגם שינוי של בן הזוג מחשבון אחר מגיע מיד.
+ */
+households.get('/:id/events', member(), (req, res) => {
+  const id = pathParam(req.params.id)
+  const clientId = String(req.query.clientId ?? '')
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // מונע מ-nginx וממקביליו לצבור את הזרם במאגר במקום להעביר אותו מיד
+    'X-Accel-Buffering': 'no',
+  })
+  res.flushHeaders()
+
+  // הודעה ראשונה מיד, כדי שהלקוח ידע אם הוא כבר מפגר אחרי גרסה
+  res.write(`event: state\ndata: ${JSON.stringify({ version: readVersion(id) })}\n\n`)
+
+  const unsubscribe = subscribe(id, clientId, res)
+  req.on('close', unsubscribe)
+})
+
+/** ייצוא מלא — הבסיס ל"הנתונים שלך שייכים לך" */
+households.get('/:id/export', member(), (req, res) => {
+  const id = pathParam(req.params.id)
+  const household = getHousehold(id, req.user!.id)!
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="oshit-${id}-${new Date().toISOString().slice(0, 10)}.json"`,
+  )
+  res.send(
+    JSON.stringify({ exportedAt: new Date().toISOString(), household, state: readState(id) }, null, 2),
+  )
+})
+
+/**
+ * שחזור גיבוי לתוך משק בית קיים. מחליף את כל התוכן, ולכן לבעלים בלבד —
+ * ייבוא דוח בנק או אשראי הוא כתיבת מצב רגילה, ופתוח גם לעריכה.
+ */
+households.post('/:id/import', member('owner'), (req, res) => {
+  const id = pathParam(req.params.id)
+  const state = req.body?.state ?? req.body
+  if (!state || typeof state !== 'object') {
+    return res.status(400).json({ error: 'קובץ הגיבוי אינו תקין' })
+  }
+  try {
+    const next = writeState(id, state)
+    broadcastVersion(id, next)
+    res.json({ ok: true, version: next })
+  } catch (err) {
+    console.error('ייבוא הגיבוי נכשל', err)
+    res.status(500).json({ error: 'ייבוא הגיבוי נכשל' })
+  }
+})
+
+/* ---------------- סוכנים ---------------- */
+
+/** נתיבים לשירות הסוכנים בלבד — טוקן, לא עוגיית משתמש */
+app.use('/api/agents', agentServiceRouter())
+
+/**
+ * כל מה שהמסך צריך בטעינה אחת: הסוכנים והגדרותיהם, הזיכרון, הריצות, התקציב,
+ * התיק, ומצב הטלגרם. קוד הקישור לטלגרם מוצג רק לבעלים — מי שמחזיק אותו
+ * יכול לחבר צ'אט שיקבל את ההתראות.
+ */
+households.get('/:id/agents', member(), (req, res) => {
+  const id = pathParam(req.params.id)
+  const owner = roleOf(id, req.user!.id) === 'owner'
+  const telegram = telegramLink(id)
+  res.json({
+    configured: agentsConfigured(),
+    serviceSeenAt: agentServiceSeenAt(id),
+    defs: listAgentDefs(id),
+    catalog: TOOL_CATALOG,
+    memory: allAgentMemory(id),
+    runs: listAgentRuns(id),
+    budget: agentBudget(id),
+    portfolio: getPortfolio(id),
+    symbolCheck: symbolCheck(id),
+    telegram: {
+      bot: agentTelegramBot(id),
+      linked: telegram ? { name: telegram.name, lang: telegram.lang, linkedAt: telegram.linkedAt } : null,
+      pending: owner ? pendingTelegramCode(id) : null,
+    },
+  })
+})
+
+/* ---- הגדרות הסוכנים: יצירה, עריכה, גרסאות. עריכה לבעלים בלבד ---- */
+
+const sendSave = (res: express.Response, result: { ok: true } | { ok: false; status: number; error: string }, body: unknown) =>
+  result.ok ? res.json(body) : res.status(result.status).json({ error: result.error })
+
+households.post('/:id/agents/defs', member('owner'), (req, res) => {
+  const result = saveAgentDef(pathParam(req.params.id), req.body, req.user!.id, true)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.put('/:id/agents/defs/:agent', member('owner'), (req, res) => {
+  const result = saveAgentDef(pathParam(req.params.id), { ...req.body, id: pathParam(req.params.agent) }, req.user!.id, false)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.delete('/:id/agents/defs/:agent', member('owner'), (req, res) => {
+  const result = deleteAgentDef(pathParam(req.params.id), pathParam(req.params.agent), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.get('/:id/agents/defs/:agent/versions', member(), (req, res) => {
+  res.json(agentDefVersions(pathParam(req.params.id), pathParam(req.params.agent)))
+})
+
+households.post('/:id/agents/defs/:agent/revert', member('owner'), (req, res) => {
+  const result = revertAgentDef(pathParam(req.params.id), pathParam(req.params.agent), Number(req.body?.seq), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+households.post('/:id/agents/defs/:agent/reset', member('owner'), (req, res) => {
+  const result = resetBuiltin(pathParam(req.params.id), pathParam(req.params.agent), req.user!.id)
+  sendSave(res, result, result.ok ? result.def : null)
+})
+
+/* ---- הזיכרון של סוכן: צפייה, עריכה ושחזור ---- */
+
+households.put('/:id/agents/defs/:agent/memory', member('owner'), (req, res) => {
+  const result = saveAgentMemory(pathParam(req.params.id), pathParam(req.params.agent), req.body?.notes, 'נערך במסך', req.user!.id)
+  if (!result.ok) return res.status(400).json({ error: result.error })
+  res.json({ notes: result.notes })
+})
+
+households.get('/:id/agents/defs/:agent/memory/versions', member(), (req, res) => {
+  res.json(agentMemoryVersions(pathParam(req.params.id), pathParam(req.params.agent)))
+})
+
+households.post('/:id/agents/defs/:agent/memory/revert', member('owner'), (req, res) => {
+  const result = revertAgentMemory(pathParam(req.params.id), pathParam(req.params.agent), Number(req.body?.seq), req.user!.id)
+  if (!result.ok) return res.status(404).json({ error: result.error })
+  res.json({ notes: result.notes })
+})
+
+/* ---- התיק ---- */
+
+households.put('/:id/agents/portfolio', member('owner'), (req, res) => {
+  const result = savePortfolio(pathParam(req.params.id), req.body, req.user!.id)
+  if (!result.ok) return res.status(result.status).json({ error: result.error })
+  res.json(result.portfolio)
+})
+
+households.get('/:id/agents/portfolio/versions', member(), (req, res) => {
+  res.json(portfolioVersions(pathParam(req.params.id)))
+})
+
+households.post('/:id/agents/portfolio/revert', member('owner'), (req, res) => {
+  const result = revertPortfolio(pathParam(req.params.id), Number(req.body?.seq), req.user!.id)
+  if (!result.ok) return res.status(result.status).json({ error: result.error })
+  res.json(result.portfolio)
+})
+
+/** בדיקת הסמלים נעשית בשירות הסוכנים — רק לו יש גישה החוצה למקור המחירים */
+households.post('/:id/agents/portfolio/check', member('owner'), (req, res) => {
+  const result = enqueueRun(pathParam(req.params.id), 'symbols', req.user!.id, 'check_symbols')
+  if (!result.ok) return res.status(503).json({ error: 'שירות הסוכנים לא מוגדר בשרת הזה' })
+  res.status(202).json(result)
+})
+
+/* ---- טלגרם ---- */
+
+households.post('/:id/agents/telegram/link', member('owner'), (req, res) => {
+  const lang = req.body?.lang === 'en' ? 'en' : 'he'
+  res.json(startTelegramLink(pathParam(req.params.id), lang))
+})
+
+households.put('/:id/agents/telegram', member('owner'), (req, res) => {
+  setTelegramLang(pathParam(req.params.id), req.body?.lang === 'en' ? 'en' : 'he')
+  res.status(204).end()
+})
+
+households.delete('/:id/agents/telegram', member('owner'), (req, res) => {
+  unlinkTelegram(pathParam(req.params.id))
+  res.status(204).end()
+})
+
+/** היומן — 50, 250 או 1000 הצעדים האחרונים */
+households.get('/:id/agents/log', member(), (req, res) => {
+  res.json(agentLog(pathParam(req.params.id), Number(req.query.limit)))
+})
+
+/** היומן המלא להורדה, בשפה של המסך */
+households.get('/:id/agents/log.txt', member(), (req, res) => {
+  const lang = req.query.lang === 'en' ? 'en' : 'he'
+  const day = new Date().toISOString().slice(0, 10)
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="oshit-agents-${day}.txt"`)
+  res.send(agentLogText(pathParam(req.params.id), lang))
+})
+
+/** תקציב חודשי בדולרים. null מבטל אותו. לבעלים בלבד — זה הכסף שלהם */
+households.put('/:id/agents/budget', member('owner'), (req, res) => {
+  const raw = req.body?.budgetUsd
+  const budget = raw === null || raw === '' ? null : Number(raw)
+  if (budget !== null && (!Number.isFinite(budget) || budget < 0 || budget > 10_000)) {
+    return res.status(400).json({ error: 'תקציב לא תקין' })
+  }
+  const id = pathParam(req.params.id)
+  setAgentBudget(id, budget === null ? null : Math.round(budget * 100) / 100)
+  res.json(agentBudget(id))
+})
+
+/**
+ * הדגמה — אותו צינור, בלי מודל ובלי עלות. לבעלים בלבד, כמו כל הפעלה.
+ *
+ * הדגמה שכבר רצה אינה שגיאה: המשתמש ביקש לראות הדגמה, והיא רצה. וגם לא
+ * 409 — הלקוח מפרש כל 409 כהתנגשות גרסאות ומטעין מחדש את משק הבית.
+ */
+households.post('/:id/agents/demo', member('owner'), (req, res) => {
+  const started = startDemo(pathParam(req.params.id))
+  res.status(202).json({ ok: true, alreadyRunning: !started })
+})
+
+/**
+ * "הרץ עכשיו". הבקשה נכנסת לתור, ושירות הסוכנים מושך אותה בסבב הבא.
+ * לבעלים בלבד: כל ריצה אמיתית עולה כסף.
+ */
+households.post('/:id/agents/:agent/run', member('owner'), (req, res) => {
+  const agent = pathParam(req.params.agent) as AgentId
+  const def = getAgentDef(pathParam(req.params.id), agent)
+  if (!def) return res.status(404).json({ error: 'סוכן לא מוכר' })
+  if (!def.enabled) return res.status(400).json({ error: 'הסוכן כבוי' })
+  const result = enqueueRun(pathParam(req.params.id), agent, req.user!.id)
+  // 503 ולא 409: הלקוח מפרש כל 409 כהתנגשות גרסאות
+  if (!result.ok) return res.status(503).json({ error: 'שירות הסוכנים לא מוגדר בשרת הזה' })
+  res.status(202).json(result)
+})
+
+/* ---------------- הגשת הלקוח ---------------- */
+
+if (existsSync(PUBLIC_DIR)) {
+  app.use(express.static(PUBLIC_DIR))
+  // אפליקציית עמוד יחיד: כל נתיב שאינו API מוגש מ-index.html
+  app.get(/^(?!\/api\/).*/, (_req, res) => {
+    res.sendFile(join(PUBLIC_DIR, 'index.html'))
+  })
+}
+
+/* כל שגיאה שלא טופלה מגיעה לכאן — כולל דחיות מ-asyncRoute */
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('שגיאה לא מטופלת', err)
+  if (res.headersSent) return
+  res.status(500).json({ error: 'שגיאת שרת' })
+})

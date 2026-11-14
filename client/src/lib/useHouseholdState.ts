@@ -1,7 +1,7 @@
 import { tr } from './i18n'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type SetStateAction } from 'react'
 import type { AgentEvent, AppState } from '../types'
-import { api, ConflictError, type Household } from './api'
+import { api, ConflictError, ForbiddenError, type Household, type HouseholdKind } from './api'
 import { EMPTY_STATE } from './storage'
 
 const ACTIVE_KEY = 'oshit.activeHousehold'
@@ -23,6 +23,16 @@ export function useHouseholdState() {
   const [error, setError] = useState<string | null>(null)
   /** חותמת הזמן של העדכון החי האחרון, להצגת חיווי קצר */
   const [liveAt, setLiveAt] = useState(0)
+  /** מתי נחסם ניסיון עריכה בהרשאת צפייה — להבהוב קצר של ההסבר */
+  const [blockedAt, setBlockedAt] = useState(0)
+
+  /*
+   * הרשאת צפייה: שינוי מקומי לא נכנס בכלל. בלי זה הלוח היה משתנה מול
+   * העיניים, השמירה הייתה נדחית ב-403, והמסך היה מציג נתונים שאינם בשרת.
+   */
+  const readOnly = households.find((h) => h.id === activeId)?.role === 'viewer'
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
 
   const stateRef = useRef(state)
   stateRef.current = state
@@ -114,6 +124,14 @@ export function useHouseholdState() {
             void loadHousehold(activeId)
             return
           }
+          if (err instanceof ForbiddenError) {
+            // התפקיד שלנו ירד בזמן שהמסך היה פתוח. מושכים את התפקיד ואת
+            // המצב מהשרת, כדי שהמסך יפסיק להציג שינוי שלא נשמר
+            setError(err.message)
+            void refreshHouseholds()
+            void loadHousehold(activeId)
+            return
+          }
           setStatus('error')
           setError((err as Error).message)
         })
@@ -166,6 +184,9 @@ export function useHouseholdState() {
     }
 
     source.addEventListener('state', (e) => {
+      // השרת שולח את הגרסה הנוכחית מיד עם החיבור. אם משק הבית עוד בטעינה
+      // (מעבר בין בתים), זו אינה כתיבה ממכשיר אחר — הטעינה תביא אותה ממילא
+      if (loadedFor.current !== activeId) return
       const incoming = Number(JSON.parse((e as MessageEvent).data)?.version ?? 0)
       if (incoming <= version.current) return
       // שינוי מקומי שטרם נשמר גובר; הוא ישלח בעצמו ויקבל את הגרסה החדשה
@@ -199,6 +220,8 @@ export function useHouseholdState() {
     if (!activeId) return
     const onFocus = () => {
       if (document.visibilityState !== 'visible') return
+      // גם הרשימה: תפקיד שהשתנה או משק בית שהוסרנו ממנו מתעדכנים כאן
+      refreshHouseholds().catch(() => {})
       if (saveTimer.current) return // יש שינוי מקומי שטרם נשמר — לא דורסים אותו
       void loadHousehold(activeId, true)
     }
@@ -208,7 +231,7 @@ export function useHouseholdState() {
       document.removeEventListener('visibilitychange', onFocus)
       window.removeEventListener('focus', onFocus)
     }
-  }, [activeId, loadHousehold])
+  }, [activeId, loadHousehold, refreshHouseholds])
 
   const switchHousehold = useCallback(
     async (id: string) => {
@@ -219,21 +242,34 @@ export function useHouseholdState() {
   )
 
   const createHousehold = useCallback(
-    async (name: string, emoji: string) => {
-      const created = await api.createHousehold(name, emoji)
+    async (input: { name: string; kind?: HouseholdKind; color?: string; emoji?: string }) => {
+      const created = await api.createHousehold(input)
       await refreshHouseholds()
       await switchHousehold(created.id)
     },
     [refreshHouseholds, switchHousehold],
   )
 
-  const renameHousehold = useCallback(
-    async (id: string, name: string, emoji: string) => {
-      await api.renameHousehold(id, name, emoji)
+  /**
+   * שם, צבע וסוג. החלפת סוג יכולה להוסיף קטגוריות, ולכן משק הבית הפעיל
+   * נטען מחדש — אחרת השמירה הבאה הייתה שולחת את רשימת הקטגוריות הישנה.
+   */
+  const updateHousehold = useCallback(
+    async (id: string, patch: Partial<{ name: string; emoji: string; kind: HouseholdKind; color: string }>) => {
+      await api.updateHousehold(id, patch)
       await refreshHouseholds()
+      if (patch.kind && id === activeId) await loadHousehold(id, true)
     },
-    [refreshHouseholds],
+    [activeId, refreshHouseholds, loadHousehold],
   )
+
+  const guardedSetState = useCallback((next: SetStateAction<AppState>) => {
+    if (readOnlyRef.current) {
+      setBlockedAt(Date.now())
+      return
+    }
+    setState(next)
+  }, [])
 
   const deleteHousehold = useCallback(
     async (id: string) => {
@@ -276,13 +312,15 @@ export function useHouseholdState() {
     households,
     activeId,
     state,
-    setState,
+    setState: guardedSetState,
+    readOnly,
+    blockedAt,
     status,
     error,
     liveAt,
     switchHousehold,
     createHousehold,
-    renameHousehold,
+    updateHousehold,
     deleteHousehold,
     refreshHouseholds,
     pendingLocalImport,

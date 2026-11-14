@@ -3,14 +3,17 @@ import { useEffect, useRef, type JSX } from 'react'
 import type { AuthUser, Household } from '../lib/api'
 import { THEME_LABEL, type Theme } from '../lib/theme'
 import { LANGS, setLang, tr, trf, useLang } from '../lib/i18n'
+import { KIND_LABEL, ROLE_LABEL } from '../lib/households'
+import { HouseholdTile } from './HouseholdSwitcher'
 import {
   IconAuto,
   IconBrandOutline,
+  IconCheck,
   IconClose,
   IconLogout,
   IconMoon,
   IconPlus,
-  IconShare,
+  IconSettings,
   IconSun,
   IconUser,
 } from './Icons'
@@ -32,10 +35,10 @@ interface Props<T extends string> {
   households: Household[]
   activeHouseholdId: string | null
   onSwitchHousehold: (id: string) => void
-  onCreateHousehold: (name: string, emoji: string) => void
-  onRenameHousehold: (id: string, name: string, emoji: string) => void
-  onDeleteHousehold: (id: string) => void
-  onShareHousehold: (id: string) => void
+  /** פותח את חלון "משק בית חדש" */
+  onCreateHousehold: () => void
+  /** פותח את מסך ההגדרות — ניהול משקי בית, חברים והרשאות */
+  onOpenSettings: () => void
 
   user: AuthUser | null
   onLogout: () => void
@@ -66,9 +69,7 @@ export default function AppDrawer<T extends string>({
   activeHouseholdId,
   onSwitchHousehold,
   onCreateHousehold,
-  onRenameHousehold,
-  onDeleteHousehold,
-  onShareHousehold,
+  onOpenSettings,
   user,
   onLogout,
   theme,
@@ -92,36 +93,6 @@ export default function AppDrawer<T extends string>({
       document.body.style.overflow = previousOverflow
     }
   }, [open, onClose])
-
-  function create() {
-    const name = prompt(tr('שם משק הבית החדש:'), tr('משק בית נוסף'))
-    if (name === null) return
-    const trimmed = name.trim()
-    if (!trimmed) return
-    const emoji = prompt(tr('אימוג׳י (אפשר להשאיר ריק):'), '🏡') ?? '🏡'
-    onCreateHousehold(trimmed, emoji.trim() || '🏡')
-  }
-
-  function rename(h: Household) {
-    const name = prompt(tr('שם משק הבית:'), h.name)
-    if (name === null) return
-    const emoji = prompt(tr('אימוג׳י:'), h.emoji) ?? h.emoji
-    onRenameHousehold(h.id, name.trim() || h.name, emoji.trim() || h.emoji)
-  }
-
-  function remove(h: Household) {
-    const typed = prompt(
-      `${trf('מחיקת "{name}" תמחק לצמיתות את כל העסקאות, הקטגוריות והיעדים שלו.', {
-        name: h.name,
-      })}\n` + tr('אין דרך לשחזר. כדי לאשר, הקלידו את שם משק הבית:'),
-    )
-    if (typed === null) return
-    if (typed.trim() !== h.name) {
-      alert(tr('השם לא תואם — לא נמחק דבר.'))
-      return
-    }
-    onDeleteHousehold(h.id)
-  }
 
   return (
     <>
@@ -180,48 +151,45 @@ export default function AppDrawer<T extends string>({
         <div className="drawer-section">
           <div className="drawer-group-title">{tr('משקי בית')}</div>
           {households.map((h) => (
-            <div className="drawer-household" key={h.id}>
-              <button
-                className={`drawer-item ${h.id === activeHouseholdId ? 'active' : ''}`}
-                onClick={() => {
-                  if (h.id !== activeHouseholdId) onSwitchHousehold(h.id)
-                  onClose()
-                }}
-              >
-                <span aria-hidden>{h.emoji}</span>
-                <span className="grow">{h.name}</span>
-                {/* חיווי שקט שהנתונים כאן אינם פרטיים לחשבון הזה */}
-                {h.memberCount > 1 && (
-                  <span className="shared-badge" title={trf('{n} אנשים', { n: h.memberCount })}>
-                    <IconShare size={13} />
-                    {h.memberCount}
-                  </span>
-                )}
-                <span className="dim tiny">{h.transactionCount}</span>
-              </button>
-              <div className="drawer-household-actions">
-                <button className="link-btn" onClick={() => onShareHousehold(h.id)}>
-                  {h.role === 'owner' ? tr('שיתוף') : tr('מי רואה')}
-                </button>
-                {/* שינוי שם ומחיקה שמורים לבעלים — חבר משתף בנתונים, לא בשליטה */}
-                {h.role === 'owner' && (
-                  <>
-                    <button className="link-btn" onClick={() => rename(h)}>
-                      {tr('שינוי שם')}
-                    </button>
-                    {households.length > 1 && (
-                      <button className="link-btn danger-link" onClick={() => remove(h)}>
-                        {tr('מחיקה')}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+            <button
+              key={h.id}
+              className={`drawer-item drawer-household-item ${h.id === activeHouseholdId ? 'active' : ''}`}
+              aria-current={h.id === activeHouseholdId ? 'true' : undefined}
+              onClick={() => {
+                if (h.id !== activeHouseholdId) onSwitchHousehold(h.id)
+                onClose()
+              }}
+            >
+              <HouseholdTile household={h} size={30} />
+              <span className="grow drawer-household-text">
+                <span>{h.name}</span>
+                <small className="dim">
+                  {tr(KIND_LABEL[h.kind])} · {tr(ROLE_LABEL[h.role])}
+                  {h.memberCount > 1 ? ` · ${trf('{n} אנשים', { n: h.memberCount })}` : ''}
+                </small>
+              </span>
+              {h.id === activeHouseholdId && <IconCheck size={16} />}
+            </button>
           ))}
-          <button className="drawer-item ghost" onClick={create}>
+          <button
+            className="drawer-item ghost"
+            onClick={() => {
+              onClose()
+              onCreateHousehold()
+            }}
+          >
             <IconPlus size={17} />
             <span>{tr('משק בית חדש')}</span>
+          </button>
+          <button
+            className="drawer-item ghost"
+            onClick={() => {
+              onClose()
+              onOpenSettings()
+            }}
+          >
+            <IconSettings size={17} />
+            <span>{tr('הגדרות, חברים והרשאות')}</span>
           </button>
         </div>
 

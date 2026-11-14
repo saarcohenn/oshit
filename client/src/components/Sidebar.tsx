@@ -1,7 +1,8 @@
 // ‎@types/react‎ 19 הסיר את מרחב השמות הגלובלי JSX, והוא מיובא מפורשות
 import type { JSX } from 'react'
 import type { AuthUser, Household } from '../lib/api'
-import { tr, trf, useLang } from '../lib/i18n'
+import { tr, useLang } from '../lib/i18n'
+import HouseholdSwitcher from './HouseholdSwitcher'
 import { IconBrand, IconLogout, IconSettings } from './Icons'
 
 export interface SidebarTab<T extends string> {
@@ -16,7 +17,11 @@ interface Props<T extends string> {
   groups: Array<{ title: string; tabs: SidebarTab<T>[] }>
   activeTab: T
   onSelectTab: (id: T) => void
-  household: Household | null
+  households: Household[]
+  activeHouseholdId: string | null
+  onSwitchHousehold: (id: string) => void
+  onCreateHousehold: () => void
+  onManageHouseholds: () => void
   user: AuthUser
   onOpenSettings: () => void
   onLogout: () => void
@@ -26,14 +31,18 @@ interface Props<T extends string> {
  * סרגל הצד במסך רחב.
  *
  * כל המסכים גלויים כל הזמן, ולכן אין צורך לפתוח תפריט כדי לעבור מסך.
- * ניהול משקי בית, שיתוף, שפה ומצב "לפי המערכת" נשארים במגירה — הם נדירים,
- * והכרטיס של משק הבית בתחתית הוא הדלת אליה.
+ * משק הבית הפעיל יושב בראש הסרגל, מעל הכול: הוא קובע מה כל מסך מציג,
+ * ולכן הוא הדבר הראשון שצריך לראות — ולהחליף — בלי לחפש.
  */
 export default function Sidebar<T extends string>({
   groups,
   activeTab,
   onSelectTab,
-  household,
+  households,
+  activeHouseholdId,
+  onSwitchHousehold,
+  onCreateHousehold,
+  onManageHouseholds,
   user,
   onOpenSettings,
   onLogout,
@@ -50,6 +59,16 @@ export default function Sidebar<T extends string>({
           <small>{tr('לאן הלך העו״ש')}</small>
         </div>
       </div>
+
+      {households.length > 0 && (
+        <HouseholdSwitcher
+          households={households}
+          activeId={activeHouseholdId}
+          onSwitch={onSwitchHousehold}
+          onCreate={onCreateHousehold}
+          onManage={onManageHouseholds}
+        />
+      )}
 
       {groups.map((group) => (
         <nav className="sidebar-group" key={group.title} aria-label={tr(group.title)}>
@@ -72,20 +91,6 @@ export default function Sidebar<T extends string>({
       ))}
 
       <div className="sidebar-foot">
-        {household && (
-          <button className="sidebar-household" onClick={onOpenSettings} title={tr('משקי בית ושיתוף')}>
-            <span className="dim tiny">{tr('משק בית')}</span>
-            <span className="sidebar-household-row">
-              <b>
-                <span aria-hidden>{household.emoji} </span>
-                {household.name}
-              </b>
-              <span className="dim tiny">
-                {trf('{n} עסקאות', { n: household.transactionCount.toLocaleString('en-US') })}
-              </span>
-            </span>
-          </button>
-        )}
         <div className="sidebar-user">
           <span className="sidebar-avatar" aria-hidden>
             {initial}

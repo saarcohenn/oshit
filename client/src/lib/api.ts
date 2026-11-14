@@ -10,14 +10,32 @@ import type {
   AppState,
 } from '../types'
 
+/** בעלים: הכול. עריכה: ייבוא, קטגוריות ותקציבים. צפייה: קריאה בלבד */
+export type Role = 'owner' | 'editor' | 'viewer'
+
+/** בית רגיל, או עסק קטן עם קטגוריות עסקיות */
+export type HouseholdKind = 'home' | 'business'
+
 export interface Household {
   id: string
   name: string
   emoji: string
+  kind: HouseholdKind
+  /** ‎#rrggbb‎ — מבדיל בין בתים במתג, בכרטיסים ובבית ה-voxel */
+  color: string
   createdAt: string
-  transactionCount: number
-  role: 'owner' | 'member'
+  role: Role
   memberCount: number
+  /** הבעלים קודם */
+  memberNames: string[]
+  transactionCount: number
+  movementCount: number
+  /** התאריך המוקדם ביותר בנתונים, ‎YYYY-MM-DD‎ */
+  firstDate: string | null
+  cardCount: number
+  agentCount: number
+  /** שירות הסוכנים דיווח על משק הבית הזה מאז שהשרת עלה */
+  agentsLive: boolean
 }
 
 export interface AuthUser {
@@ -31,8 +49,9 @@ export interface InviteInfo {
   householdId: string
   householdName: string
   householdEmoji: string
+  householdColor?: string
   invitedBy: string | null
-  role: 'owner' | 'member'
+  role: Role
 }
 
 export interface AuthState {
@@ -47,15 +66,23 @@ export interface Member {
   userId: string
   email: string
   name: string
-  role: 'owner' | 'member'
+  role: Role
   createdAt: string
   isSelf: boolean
 }
 
 export interface PendingInvite {
   code: string
-  role: 'owner' | 'member'
+  role: Role
   expiresAt: string
+}
+
+export interface AcceptedInvite {
+  householdId: string
+  householdName: string
+  role: Role
+  /** כבר הייתם חברים — שום דבר לא השתנה, וההזמנה נשארה פתוחה */
+  alreadyMember: boolean
 }
 
 /**
@@ -85,6 +112,12 @@ export class UnauthorizedError extends Error {
 }
 
 /**
+ * נזרקת כשהתפקיד לא מספיק לפעולה — למשל כשהבעלים הוריד אותנו לצפייה
+ * בזמן שהמסך היה פתוח. ההודעה מגיעה מהשרת.
+ */
+export class ForbiddenError extends Error {}
+
+/**
  * חיבור שפג באמצע עבודה יכול לצוץ מכל בקשה שהיא, גם כזו שרצה ברקע.
  * במקום לפזר טיפול בכל קורא, כאן משודר אירוע אחד שהשכבה העליונה מאזינה לו.
  */
@@ -111,7 +144,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
       throw new UnauthorizedError()
     }
-    throw new Error(body.error ?? trf('הבקשה נכשלה ({status})', { status: res.status }))
+    const message = body.error ? tr(body.error) : trf('הבקשה נכשלה ({status})', { status: res.status })
+    if (res.status === 403) throw new ForbiddenError(message)
+    throw new Error(message)
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
@@ -146,47 +181,56 @@ export const api = {
     }),
 
   acceptInvite: (code: string) =>
-    request<{ householdId: string; householdName: string }>(
-      `/invites/${encodeURIComponent(code)}/accept`,
-      { method: 'POST' },
-    ),
+    request<AcceptedInvite>(`/invites/${encodeURIComponent(code)}/accept`, { method: 'POST' }),
 
   /* ---------------- שיתוף ---------------- */
 
   members: (id: string) =>
     request<{ members: Member[]; invites: PendingInvite[] }>(`/households/${id}/members`),
 
-  createInvite: (id: string, role: 'owner' | 'member' = 'member') =>
+  createInvite: (id: string, role: Role = 'editor') =>
     request<PendingInvite>(`/households/${id}/invites`, {
       method: 'POST',
       body: JSON.stringify({ role }),
     }),
+
+  revokeInvite: (id: string, code: string) =>
+    request<void>(`/households/${id}/invites/${encodeURIComponent(code)}`, { method: 'DELETE' }),
 
   revokeInvites: (id: string) => request<void>(`/households/${id}/invites`, { method: 'DELETE' }),
 
   removeMember: (id: string, userId: string) =>
     request<void>(`/households/${id}/members/${userId}`, { method: 'DELETE' }),
 
-  setMemberRole: (id: string, userId: string, role: 'owner' | 'member') =>
-    request<{ ok: true }>(`/households/${id}/members/${userId}`, {
+  setMemberRole: (id: string, userId: string, role: Role) =>
+    request<{ ok: true; role: Role }>(`/households/${id}/members/${userId}`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),
+    }),
+
+  transferOwnership: (id: string, userId: string) =>
+    request<Household>(`/households/${id}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
     }),
 
   /* ---------------- משקי בית ---------------- */
 
   listHouseholds: () => request<Household[]>('/households'),
 
-  createHousehold: (name: string, emoji: string) =>
+  createHousehold: (input: { name: string; emoji?: string; kind?: HouseholdKind; color?: string }) =>
     request<Household>('/households', {
       method: 'POST',
-      body: JSON.stringify({ name, emoji }),
+      body: JSON.stringify(input),
     }),
 
-  renameHousehold: (id: string, name: string, emoji: string) =>
+  updateHousehold: (
+    id: string,
+    patch: Partial<{ name: string; emoji: string; kind: HouseholdKind; color: string }>,
+  ) =>
     request<Household>(`/households/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ name, emoji }),
+      body: JSON.stringify(patch),
     }),
 
   deleteHousehold: (id: string) => request<void>(`/households/${id}`, { method: 'DELETE' }),
